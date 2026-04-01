@@ -1,219 +1,209 @@
 <script setup lang="ts">
 const currentYear = new Date().getFullYear();
-const footerBadgeUrl = "https://github.com/nehex";
 </script>
 
 <template>
-  <div class="footer-shell section-shell">
-    <footer id="site-footer" class="site-footer">
-      <div class="footer-top">
-        <div class="footer-col footer-brand">
-          <h3 class="footer-brand-title">NeHex</h3>
-          <p class="footer-brand-text">
-            一个为长期记录而生的空间，把技术、生活与创意的片段好好收藏。
+  <footer class="site-footer">
+    <div class="footer-shell">
+      <section class="footer-top">
+        <div class="footer-brand">
+          <h3 class="brand-title">UEGEE</h3>
+          <p class="brand-motto">曾几何时 稚嫩的小手也拥有了追越我们的坚强</p>
+          <p class="brand-copy">© 2018-{{ currentYear }}</p>
+          <p class="brand-powered">Powered by <a href="#">NeHex</a>,Theme By NeHex</p>
+          <p class="brand-status">
+            <span class="status-dot" />
+            正在长期主义编写中
           </p>
         </div>
 
-        <div class="footer-col">
-          <h4 class="footer-col-title">快捷导航</h4>
-          <div class="footer-links">
-            <NuxtLink to="/">首页</NuxtLink>
-            <NuxtLink to="/article">文章</NuxtLink>
-            <NuxtLink to="/album">照片</NuxtLink>
-            <NuxtLink to="/#journal">日常</NuxtLink>
-          </div>
+        <nav class="footer-col" aria-label="关于">
+          <h4>关于</h4>
+          <NuxtLink to="/about">关于本站</NuxtLink>
+          <NuxtLink to="/friends">关于我</NuxtLink>
+          <a href="#">关于项目 ↗</a>
+        </nav>
+
+        <nav class="footer-col" aria-label="更多">
+          <h4>更多</h4>
+          <NuxtLink to="/album">照片墙</NuxtLink>
+          <NuxtLink to="/archive">归档</NuxtLink>
+          <NuxtLink to="/article">博客 ↗</NuxtLink>
+        </nav>
+
+        <nav class="footer-col" aria-label="联系">
+          <h4>联系</h4>
+          <a href="#">写留言</a>
+          <a href="#">发邮件 ↗</a>
+          <a href="https://github.com/nehex" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+        </nav>
+      </section>
+
+      <section class="footer-bottom">
+        <div class="bottom-left">
+          <a href="#">RSS 订阅</a>
+          <span>·</span>
+          <a href="#">站点地图订阅</a>
+          <span>·</span>
+          <a href="#">Light</a>
+          <span>·</span>
+          <a href="#">System</a>
+          <span>·</span>
+          <a href="#">Dark</a>
+          <span>·</span>
+          <a href="#">简体中文</a>
         </div>
 
-        <div class="footer-col">
-          <h4 class="footer-col-title">联系我</h4>
-          <div class="footer-social">
-            <a href="#" aria-label="GitHub">GH</a>
-            <a href="#" aria-label="X">X</a>
-            <a href="#" aria-label="Mail">Mail</a>
-            <a href="#" aria-label="Feed">RSS</a>
-          </div>
-        </div>
-      </div>
-
-      <div class="footer-bottom">
-        <p class="copyright">
-          © {{ currentYear }} NeHex. All rights reserved.
-        </p>
-        <a class="footer-badge" :href="footerBadgeUrl" target="_blank" rel="noopener noreferrer">
-          NeHex 1.0
-        </a>
-      </div>
-    </footer>
-  </div>
+        <p class="bottom-right">浙ICP备20236136号</p>
+      </section>
+    </div>
+  </footer>
 </template>
 
 <style scoped>
-.footer-shell {
-  width: min(92%, 1560px);
-  margin: 0 auto;
-  padding: 0.2rem 1rem 3.3rem;
-}
-
 .site-footer {
   position: relative;
-  border-radius: 1rem;
-  border: 1px solid rgba(118, 170, 194, 0.16);
-  background: rgba(7, 14, 25, 0.86);
-  backdrop-filter: blur(14px) saturate(120%);
-  box-shadow: 0 16px 46px rgba(0, 0, 0, 0.35);
+  padding: .5rem 0 max(0.35rem, env(safe-area-inset-bottom));
+  background: #030714;
   overflow: hidden;
 }
 
-.site-footer::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    rgba(42, 212, 225, 0.08) 0%,
-    rgba(42, 212, 225, 0.62) 50%,
-    rgba(42, 212, 225, 0.08) 100%
-  );
+.footer-shell {
+  width: var(--site-max-width);
+  margin: 0 auto;
+  padding: 0 1rem;
 }
 
 .footer-top {
   display: grid;
-  grid-template-columns: 1.45fr 0.85fr 0.85fr;
-  gap: 1.3rem;
-  padding: 1.5rem 1.4rem 1.2rem;
+  grid-template-columns: 1.9fr 0.8fr 0.8fr 0.8fr;
+  gap: 2.1rem;
+  padding: 0.85rem 0 1rem;
 }
 
-.footer-col {
+.footer-brand {
   min-width: 0;
 }
 
-.footer-brand-title {
+.brand-title {
   margin: 0;
-  font-size: 1.38rem;
+  font-size: 1.42rem;
   color: rgba(236, 246, 255, 0.96);
 }
 
-.footer-brand-text {
-  margin: 0.72rem 0 0;
-  color: rgba(187, 207, 225, 0.68);
-  font-size: 0.9rem;
-  line-height: 1.7;
+.brand-motto {
+  margin: 0.46rem 0 0;
+  color: rgba(199, 216, 235, 0.9);
+  font-size: 0.86rem;
+  font-style: italic;
 }
 
-.footer-col-title {
-  margin: 0;
-  font-size: 0.98rem;
-  color: rgba(201, 226, 244, 0.88);
+.brand-copy,
+.brand-powered,
+.brand-status {
+  margin: 0.56rem 0 0;
+  color: rgba(155, 179, 203, 0.82);
+  font-size: 0.82rem;
 }
 
-.footer-links {
-  margin-top: 0.7rem;
+.brand-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.36rem;
+}
+
+.status-dot {
+  width: 0.34rem;
+  height: 0.34rem;
+  border-radius: 50%;
+  background: #39e58f;
+  box-shadow: 0 0 8px rgba(57, 229, 143, 0.56);
+}
+
+.footer-col {
   display: flex;
   flex-direction: column;
-  gap: 0.38rem;
-}
-
-.footer-links a {
-  width: fit-content;
-  color: rgba(178, 201, 220, 0.82);
-  text-decoration: none;
-  font-size: 0.9rem;
-}
-
-.footer-links a:hover {
-  color: rgba(227, 242, 255, 0.96);
-}
-
-.footer-social {
-  margin-top: 0.7rem;
-  display: flex;
-  flex-wrap: wrap;
   gap: 0.45rem;
 }
 
-.footer-social a {
-  min-width: 2.4rem;
-  height: 2rem;
-  padding: 0 0.6rem;
-  border-radius: 0.55rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  color: rgba(213, 232, 248, 0.92);
-  font-size: 0.84rem;
-  border: 1px solid rgba(118, 170, 194, 0.24);
-  background: rgba(255, 255, 255, 0.04);
+.footer-col h4 {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(200, 219, 239, 0.66);
+  font-weight: 600;
 }
 
-.footer-social a:hover {
-  background: rgba(44, 198, 216, 0.16);
-  border-color: rgba(44, 198, 216, 0.42);
+.footer-col a {
+  width: fit-content;
+  color: rgba(219, 233, 247, 0.92);
+  text-decoration: none;
+  font-size: 0.82rem;
+}
+
+.footer-col a:hover {
+  color: #ffffff;
 }
 
 .footer-bottom {
-  border-top: 1px solid rgba(118, 170, 194, 0.15);
-  padding: 0.92rem 1.4rem 1.05rem;
+  margin-top: 0.15rem;
+  border-top: 1px solid rgba(118, 170, 194, 0.16);
+  padding: 0.72rem 0 0.08rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.85rem;
+  gap: 0.95rem;
 }
 
-.copyright {
-  margin: 0;
-  color: rgba(163, 186, 206, 0.72);
-  font-size: 0.84rem;
-}
-
-.footer-badge {
-  display: inline-flex;
+.bottom-left {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  padding: 0.34rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.76rem;
-  text-decoration: none;
-  color: rgba(215, 238, 253, 0.9);
-  border: 1px solid rgba(118, 170, 194, 0.24);
-  background: rgba(42, 212, 225, 0.08);
+  gap: 0.3rem;
+  color: rgba(147, 172, 196, 0.72);
+  font-size: 0.75rem;
 }
 
-.footer-badge:hover {
-  background: rgba(42, 212, 225, 0.18);
-  border-color: rgba(78, 217, 231, 0.45);
+.bottom-left a {
+  color: rgba(172, 196, 221, 0.82);
+  text-decoration: none;
+}
+
+.bottom-left a:hover {
+  color: rgba(230, 242, 255, 0.95);
+}
+
+.bottom-right {
+  margin: 0;
+  color: rgba(147, 172, 196, 0.72);
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 @media (max-width: 980px) {
   .footer-top {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .footer-brand {
-    grid-column: span 2;
+    gap: 1.3rem;
   }
 }
 
 @media (max-width: 760px) {
+  .site-footer {
+    padding-top: 0.5rem;
+  }
+
   .footer-shell {
-    padding: 0.1rem 0.55rem 2.8rem;
+    width: min(96%, 1560px);
+    padding: 0;
   }
 
   .footer-top {
     grid-template-columns: 1fr;
     gap: 1rem;
-    padding: 1.1rem 1rem 0.95rem;
-  }
-
-  .footer-brand {
-    grid-column: auto;
+    padding-bottom: 0.85rem;
   }
 
   .footer-bottom {
-    padding: 0.82rem 1rem 0.9rem;
+    padding-top: 0.66rem;
     flex-direction: column;
     align-items: flex-start;
   }

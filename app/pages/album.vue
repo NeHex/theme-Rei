@@ -54,22 +54,12 @@ const filteredItems = computed(() => {
 .album-page {
   position: relative;
   min-height: 100vh;
-  padding: 6.6rem 0.7rem 2rem;
+  padding: 6.6rem 0.7rem 2.2rem;
   isolation: isolate;
 }
 
-.album-page::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  background:
-    linear-gradient(180deg, rgba(2, 23, 24, 0.7), rgba(1, 24, 27, 0.92)),
-    url("/images/background.png") center / cover no-repeat fixed;
-}
-
 .album-shell {
-  width: min(94%, 1760px);
+  width: var(--site-max-width);
   margin: 0 auto;
   display: grid;
   grid-template-columns: 7.2rem 1fr;
@@ -93,10 +83,10 @@ const filteredItems = computed(() => {
   text-align: left;
   padding: 0 0.8rem;
   border-radius: 0.6rem;
-  color: rgba(219, 236, 247, 0.9);
+  color: var(--theme-text);
   background: transparent;
   cursor: pointer;
-  font-size: 0.86rem;
+  font-size: var(--fs-small);
   font-weight: 700;
   letter-spacing: 0.01em;
   transition: all 0.18s ease;
@@ -122,8 +112,8 @@ const filteredItems = computed(() => {
 .album-card {
   border-radius: 0.6rem;
   overflow: hidden;
-  border: 1px solid rgba(118, 170, 194, 0.16);
-  background: rgba(26, 28, 34, 0.9);
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface);
   min-width: 0;
 }
 
@@ -140,7 +130,7 @@ const filteredItems = computed(() => {
 
 .album-card-body h3 {
   margin: 0;
-  font-size: 1.06rem;
+  font-size: var(--fs-title);
   line-height: 1.35;
 }
 
@@ -150,7 +140,7 @@ const filteredItems = computed(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  color: rgba(171, 191, 205, 0.76);
+  color: var(--theme-text-mute);
 }
 
 .album-meta time {

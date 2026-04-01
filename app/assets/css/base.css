@@ -1,15 +1,75 @@
+:root {
+  --theme-bg: #030714;
+  --theme-bg-rgb: 3, 7, 20;
+  --theme-accent: #2ad4e1;
+  --theme-accent-soft: rgba(42, 212, 225, 0.18);
+  --theme-text: #eaf3ff;
+  --theme-text-soft: rgba(193, 212, 228, 0.78);
+  --theme-text-mute: rgba(167, 188, 206, 0.72);
+  --theme-border: rgba(118, 170, 194, 0.22);
+  --theme-surface: rgba(8, 15, 27, 0.86);
+  --theme-surface-strong: rgba(8, 15, 27, 0.95);
+
+  --site-max-width: min(92%, 1560px);
+  --site-content-width: min(92%, 980px);
+
+  --fs-display: clamp(2.2rem, 4.8vw, 3.6rem);
+  --fs-h1: clamp(1.9rem, 3.6vw, 2.8rem);
+  --fs-h2: clamp(1.45rem, 2.1vw, 2.2rem);
+  --fs-title: clamp(1.18rem, 1.6vw, 1.55rem);
+  --fs-body: 1rem;
+  --fs-small: 0.9rem;
+  --fs-tiny: 0.82rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
-  background: #030815;
+  background: var(--theme-bg);
+  overflow-x: clip;
+}
+
+html {
+  font-size: 16px;
 }
 
 body {
-  color: #eaf3ff;
+  color: var(--theme-text);
   font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  font-size: var(--fs-body);
+  line-height: 1.65;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+  background: transparent;
+}
+
+a,
+a:visited {
+  color: #0F9CB8;
+  text-decoration: none;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 100% 100%;
+  background-size: 0 1px;
+  transition: color 0.22s ease, background-size 0.24s ease;
+}
+
+a:hover,
+a:focus-visible {
+  color: #FFFCDF;
+  background-size: 100% 1px;
 }
 
 #__nuxt {
   min-height: 100vh;
+  position: relative;
+  z-index: 1;
 }

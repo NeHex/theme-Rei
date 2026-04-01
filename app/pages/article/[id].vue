@@ -316,14 +316,12 @@ function formatCount(value: number) {
 .article-page {
   min-height: 100vh;
   padding: 6.4rem 1rem 2.2rem;
-  color: #e8f1ff;
-  background:
-    linear-gradient(180deg, rgba(3, 12, 24, 0.72), rgba(3, 8, 18, 0.9)),
-    url("/images/background.png") center / cover no-repeat fixed;
+  color: var(--theme-text);
+  background: transparent;
 }
 
 .article-main {
-  width: min(92%, 980px);
+  width: var(--site-content-width);
   margin: 0 auto;
 }
 
@@ -369,8 +367,8 @@ function formatCount(value: number) {
   margin-bottom: 1rem;
   padding: 1rem 1.1rem;
   border-radius: 1rem;
-  border: 1px solid rgba(118, 170, 194, 0.2);
-  background: rgba(7, 14, 26, 0.78);
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface);
   backdrop-filter: blur(8px);
 }
 
@@ -383,7 +381,7 @@ function formatCount(value: number) {
 
 .article-info h1 {
   margin: 0.3rem 0 0.65rem;
-  font-size: clamp(1.9rem, 3.4vw, 2.6rem);
+  font-size: var(--fs-h1);
 }
 
 .article-meta-row {
@@ -437,8 +435,8 @@ address a {
 .article-card {
   padding: 1.4rem;
   border-radius: 1rem;
-  border: 1px solid rgba(118, 170, 194, 0.2);
-  background: rgba(8, 15, 27, 0.86);
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface);
   backdrop-filter: blur(8px);
 }
 
@@ -449,6 +447,7 @@ section {
 h2 {
   margin: 0 0 0.7rem;
   color: #bce8ff;
+  font-size: var(--fs-h2);
 }
 
 p,
@@ -489,11 +488,11 @@ table {
 th,
 td {
   padding: 0.6rem 0.7rem;
-  border: 1px solid rgba(118, 170, 194, 0.2);
+  border: 1px solid var(--theme-border);
 }
 
 fieldset {
-  border: 1px solid rgba(118, 170, 194, 0.24);
+  border: 1px solid var(--theme-border);
   border-radius: 0.7rem;
   padding: 0.9rem;
 }
@@ -507,9 +506,9 @@ button {
   margin-bottom: 0.6rem;
   padding: 0.55rem 0.6rem;
   border-radius: 0.45rem;
-  border: 1px solid rgba(118, 170, 194, 0.26);
+  border: 1px solid var(--theme-border);
   background: rgba(255, 255, 255, 0.06);
-  color: #e8f1ff;
+  color: var(--theme-text);
 }
 
 .form-actions {
@@ -540,8 +539,8 @@ iframe {
 .article-footer {
   margin-top: 1.7rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(118, 170, 194, 0.2);
-  color: rgba(180, 201, 217, 0.8);
+  border-top: 1px solid var(--theme-border);
+  color: var(--theme-text-mute);
 }
 
 @media (max-width: 760px) {

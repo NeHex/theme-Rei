@@ -1,31 +1,101 @@
-<script setup lang="ts">
-const isRouteLoading = ref(false);
-const MIN_LOADER_VISIBLE_MS = 320;
+﻿<script setup lang="ts">
+type LoaderPhase = "enter" | "boost" | "loading" | "exit";
 
-let hideTimer: ReturnType<typeof setTimeout> | null = null;
+const isRouteLoading = ref(false);
+const loaderPhase = ref<LoaderPhase>("enter");
+
+const ENTER_MS = 520;
+const BOOST_MS = 320;
+const EXIT_MS = 540;
+const MIN_LOADER_VISIBLE_MS = 920;
+
 let loaderStartAt = 0;
+let settleTimer: ReturnType<typeof setTimeout> | null = null;
+const phaseTimers: ReturnType<typeof setTimeout>[] = [];
+let enterGate: Promise<void> | null = null;
+let resolveEnterGate: (() => void) | null = null;
+
+function clearPhaseTimers() {
+  while (phaseTimers.length) {
+    const timer = phaseTimers.pop();
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function releaseEnterGate() {
+  if (resolveEnterGate) {
+    resolveEnterGate();
+    resolveEnterGate = null;
+  }
+  enterGate = null;
+}
+
+function clearSettleTimer() {
+  if (!settleTimer) return;
+  clearTimeout(settleTimer);
+  settleTimer = null;
+}
+
+function queuePhaseTimer(callback: () => void, durationMs: number) {
+  const timer = setTimeout(callback, durationMs);
+  phaseTimers.push(timer);
+}
 
 function startLoading() {
-  if (hideTimer) {
-    clearTimeout(hideTimer);
-    hideTimer = null;
-  }
+  clearSettleTimer();
 
   if (!isRouteLoading.value) {
+    clearPhaseTimers();
+    releaseEnterGate();
     isRouteLoading.value = true;
+    loaderPhase.value = "enter";
     loaderStartAt = Date.now();
+    enterGate = new Promise<void>((resolve) => {
+      resolveEnterGate = resolve;
+    });
+
+    queuePhaseTimer(() => {
+      if (!isRouteLoading.value || loaderPhase.value !== "enter") return;
+      loaderPhase.value = "boost";
+      releaseEnterGate();
+
+      queuePhaseTimer(() => {
+        if (!isRouteLoading.value || loaderPhase.value !== "boost") return;
+        loaderPhase.value = "loading";
+      }, BOOST_MS);
+    }, ENTER_MS);
+    return enterGate;
   }
+
+  if (loaderPhase.value === "exit") {
+    clearPhaseTimers();
+    loaderPhase.value = "loading";
+    releaseEnterGate();
+  }
+
+  return Promise.resolve();
 }
 
 function stopLoading() {
   if (!isRouteLoading.value) return;
 
+  releaseEnterGate();
   const elapsed = Date.now() - loaderStartAt;
   const remain = Math.max(0, MIN_LOADER_VISIBLE_MS - elapsed);
+  clearSettleTimer();
 
-  hideTimer = setTimeout(() => {
-    isRouteLoading.value = false;
-    hideTimer = null;
+  settleTimer = setTimeout(() => {
+    if (!isRouteLoading.value) return;
+
+    clearPhaseTimers();
+    loaderPhase.value = "exit";
+
+    queuePhaseTimer(() => {
+      isRouteLoading.value = false;
+      loaderPhase.value = "enter";
+      clearPhaseTimers();
+      releaseEnterGate();
+    }, EXIT_MS);
   }, remain);
 }
 
@@ -33,9 +103,9 @@ if (import.meta.client) {
   const router = useRouter();
   const nuxtApp = useNuxtApp();
 
-  router.beforeEach((to, from) => {
+  router.beforeEach(async (to, from) => {
     if (to.fullPath !== from.fullPath) {
-      startLoading();
+      await startLoading();
     }
     return true;
   });
@@ -44,72 +114,116 @@ if (import.meta.client) {
     stopLoading();
   });
 
+  nuxtApp.hook("page:finish", () => {
+    stopLoading();
+  });
+
   nuxtApp.hook("app:error", () => {
     stopLoading();
+  });
+
+  onBeforeUnmount(() => {
+    clearPhaseTimers();
+    clearSettleTimer();
+    releaseEnterGate();
   });
 }
 </script>
 
 <template>
-  <div>
+  <div class="app-root">
     <NuxtRouteAnnouncer />
     <SiteNav />
     <NuxtPage />
     <SiteFooter />
 
-    <Transition name="route-loader-fade">
-      <div
-        v-if="isRouteLoading"
-        class="route-loader-overlay"
-        role="status"
-        aria-live="polite"
-        aria-label="页面加载中"
-      >
-        <div class="route-loader-spinner" />
-      </div>
-    </Transition>
+    <div
+      v-if="isRouteLoading"
+      class="route-loader-overlay"
+      :class="`is-${loaderPhase}`"
+      role="status"
+      aria-live="polite"
+      aria-label="页面加载中"
+    >
+      <img
+        class="route-loader-gif"
+        src="/images/loading.gif"
+        alt=""
+        aria-hidden="true"
+      />
+    </div>
   </div>
 </template>
 
 <style scoped>
+.app-root {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: clip;
+}
+
 .route-loader-overlay {
   position: fixed;
   inset: 0;
-  z-index: 120;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-  background: radial-gradient(
-    circle at center,
-    rgba(5, 18, 34, 0.24) 0%,
-    rgba(5, 18, 34, 0.1) 46%,
-    rgba(5, 18, 34, 0) 74%
-  );
+  z-index: 140;
+  pointer-events: auto;
 }
 
-.route-loader-spinner {
-  width: 3.2rem;
-  height: 3.2rem;
-  border-radius: 999px;
-  border: 3px solid rgba(151, 206, 239, 0.24);
-  border-top-color: #62d9e8;
-  box-shadow: 0 0 30px rgba(61, 187, 220, 0.24);
-  animation: route-spin 0.78s linear infinite;
+.route-loader-gif {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(6.5rem, 12vw, 9.8rem);
+  height: auto;
+  transform: translate(-50%, 170%) scale(1);
+  transform-origin: center center;
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.32));
+  will-change: transform;
 }
 
-.route-loader-fade-enter-active,
-.route-loader-fade-leave-active {
-  transition: opacity 0.18s ease;
+.route-loader-overlay.is-enter .route-loader-gif {
+  animation: loader-enter 520ms cubic-bezier(0.18, 0.84, 0.3, 1) forwards;
 }
 
-.route-loader-fade-enter-from,
-.route-loader-fade-leave-to {
-  opacity: 0;
+.route-loader-overlay.is-boost .route-loader-gif {
+  animation: loader-boost 320ms cubic-bezier(0.22, 0.9, 0.26, 1) forwards;
 }
 
-@keyframes route-spin {
+.route-loader-overlay.is-loading .route-loader-gif {
+  transform: translate(-50%, -50%) scale(1.3);
+}
+
+.route-loader-overlay.is-exit .route-loader-gif {
+  animation: loader-exit 540ms cubic-bezier(0.2, 0.86, 0.25, 1) forwards;
+}
+
+@keyframes loader-enter {
+  from {
+    transform: translate(-50%, 170%) scale(1);
+  }
+
   to {
-    transform: rotate(360deg);
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes loader-boost {
+  from {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  to {
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+}
+
+@keyframes loader-exit {
+  from {
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+
+  to {
+    transform: translate(-50%, 175%) scale(1.08);
   }
 }
 </style>

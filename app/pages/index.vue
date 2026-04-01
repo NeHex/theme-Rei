@@ -68,7 +68,23 @@ const posts: readonly BlogPost[] = [
     cover: "/images/scene-shore.svg",
     to: "/article/lobehub-performance-dx",
   },
+  {
+    title: "测试文章4",
+    summary:
+      "测试文章4",
+    cover: "/images/pic.jpg",
+    to: "/article/my-ai-writing-workflow",
+  },
+  {
+    title: "测试文章5",
+    summary:
+      "测试文章5",
+    cover: "/images/background.png",
+    to: "/article/context-engineering-intro",
+  },
 ];
+
+const homePosts = posts.slice(0, 5);
 
 const dailyRecords: readonly DailyRecord[] = [
   {
@@ -168,6 +184,31 @@ const projects: readonly ProjectItem[] = [
 ];
 
 const currentIndex = ref(0);
+const blogShellRef = ref<HTMLElement | null>(null);
+const blogCardsVisible = ref(false);
+let blogObserver: IntersectionObserver | null = null;
+const journalShellRef = ref<HTMLElement | null>(null);
+const journalCardsVisible = ref(false);
+let journalObserver: IntersectionObserver | null = null;
+const photoShellRef = ref<HTMLElement | null>(null);
+const photoCardsVisible = ref(false);
+let photoObserver: IntersectionObserver | null = null;
+const projectShellRef = ref<HTMLElement | null>(null);
+const projectCardsVisible = ref(false);
+let projectObserver: IntersectionObserver | null = null;
+
+function createStableDelay(seed: string, min = 50, span = 260) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 33 + seed.charCodeAt(i)) >>> 0;
+  }
+  return min + (hash % (span + 1));
+}
+
+const projectMaskDelayMs = projects.map((project, index) =>
+  createStableDelay(`${project.title}-${index}`),
+);
+
 const currentImage = computed<GalleryItem>(
   () => gallery[currentIndex.value] ?? gallery[0],
 );
@@ -180,6 +221,107 @@ function randomScene() {
   }
   currentIndex.value = next;
 }
+
+onMounted(() => {
+  if (!("IntersectionObserver" in window)) {
+    blogCardsVisible.value = true;
+    journalCardsVisible.value = true;
+    photoCardsVisible.value = true;
+    projectCardsVisible.value = true;
+    return;
+  }
+
+  blogObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        blogCardsVisible.value = true;
+        blogObserver?.disconnect();
+        blogObserver = null;
+        break;
+      }
+    },
+    {
+      threshold: 0.22,
+      rootMargin: "0px 0px -12% 0px",
+    },
+  );
+
+  if (blogShellRef.value) {
+    blogObserver.observe(blogShellRef.value);
+  }
+
+  journalObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        journalCardsVisible.value = true;
+        journalObserver?.disconnect();
+        journalObserver = null;
+        break;
+      }
+    },
+    {
+      threshold: 0.2,
+      rootMargin: "0px 0px -10% 0px",
+    },
+  );
+
+  if (journalShellRef.value) {
+    journalObserver.observe(journalShellRef.value);
+  }
+
+  photoObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        photoCardsVisible.value = true;
+        photoObserver?.disconnect();
+        photoObserver = null;
+        break;
+      }
+    },
+    {
+      threshold: 0.2,
+      rootMargin: "0px 0px -8% 0px",
+    },
+  );
+
+  if (photoShellRef.value) {
+    photoObserver.observe(photoShellRef.value);
+  }
+
+  projectObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        projectCardsVisible.value = true;
+        projectObserver?.disconnect();
+        projectObserver = null;
+        break;
+      }
+    },
+    {
+      threshold: 0.24,
+      rootMargin: "0px 0px -8% 0px",
+    },
+  );
+
+  if (projectShellRef.value) {
+    projectObserver.observe(projectShellRef.value);
+  }
+});
+
+onBeforeUnmount(() => {
+  blogObserver?.disconnect();
+  blogObserver = null;
+  journalObserver?.disconnect();
+  journalObserver = null;
+  photoObserver?.disconnect();
+  photoObserver = null;
+  projectObserver?.disconnect();
+  projectObserver = null;
+});
 </script>
 
 <template>
@@ -256,7 +398,7 @@ function randomScene() {
     </section>
 
     <section class="content-fade">
-      <div id="blog" class="blog-shell section-shell">
+      <div ref="blogShellRef" id="blog" class="blog-shell section-shell">
         <div class="blog-heading">
           <h2 class="blog-title">
             <span>博客文章</span>
@@ -266,8 +408,14 @@ function randomScene() {
           </p>
         </div>
 
-        <div class="post-grid">
-          <NuxtLink v-for="post in posts" :key="post.title" :to="post.to" class="post-card">
+        <div class="post-grid" :class="{ 'is-revealed': blogCardsVisible }">
+          <NuxtLink
+            v-for="(post, index) in homePosts"
+            :key="post.title"
+            :to="post.to"
+            class="post-card post-card-reveal"
+            :style="{ '--card-order': index }"
+          >
             <img class="post-cover" :src="post.cover" :alt="post.title" />
             <div class="post-mask" />
             <div class="post-content">
@@ -275,10 +423,25 @@ function randomScene() {
               <p class="post-summary">{{ post.summary }}</p>
             </div>
           </NuxtLink>
+
+          <NuxtLink
+            to="/article"
+            class="post-card post-card-more post-card-reveal"
+            :style="{ '--card-order': homePosts.length }"
+            aria-label="查看更多文章"
+          >
+            <div class="more-entry">
+              <span>查看更多</span>
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 12h13" />
+                <path d="m13 6l6 6l-6 6" />
+              </svg>
+            </div>
+          </NuxtLink>
         </div>
       </div>
 
-      <div id="journal" class="journal-shell section-shell">
+      <div ref="journalShellRef" id="journal" class="journal-shell section-shell">
         <div class="journal-heading">
           <h2 class="journal-title">
             <span>日常记录</span>
@@ -288,12 +451,13 @@ function randomScene() {
           </p>
         </div>
 
-        <div class="journal-grid">
+        <div class="journal-grid" :class="{ 'is-revealed': journalCardsVisible }">
           <NuxtLink
-            v-for="record in dailyRecords"
+            v-for="(record, index) in dailyRecords"
             :key="`${record.year}-${record.date}-${record.title}`"
             :to="record.to"
-            class="journal-card"
+            class="journal-card journal-card-reveal"
+            :style="{ '--journal-order': index, '--journal-flicker-ms': `${580 + index * 110}ms` }"
           >
             <div class="journal-date">
               <div class="journal-year">{{ record.year }}</div>
@@ -307,7 +471,7 @@ function randomScene() {
         </div>
       </div>
 
-      <div id="photo" class="photo-shell section-shell">
+      <div ref="photoShellRef" id="photo" class="photo-shell section-shell">
         <div class="photo-heading">
           <h2 class="photo-title">
             <span>近期捕获</span>
@@ -317,21 +481,29 @@ function randomScene() {
           </p>
         </div>
 
-        <div class="photo-grid">
+        <div class="photo-grid" :class="{ 'is-revealed': photoCardsVisible }">
           <NuxtLink
-            v-for="photo in photos"
+            v-for="(photo, index) in photos"
             :key="`${photo.title}-${photo.date}-${photo.alt}`"
             :to="photo.to"
-            class="photo-card"
+            class="photo-card photo-card-reveal"
+            :style="{ '--photo-order': index }"
           >
-            <img class="photo-image" :src="photo.image" :alt="photo.alt" />
+            <div class="photo-media">
+              <span class="photo-border-trace" aria-hidden="true">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <path class="trace-path" d="M50 1 H99 V99 H1 V1 H50" pathLength="100" />
+                </svg>
+              </span>
+              <img class="photo-image" :src="photo.image" :alt="photo.alt" />
+            </div>
             <h3 class="photo-name">{{ photo.title }}</h3>
             <p class="photo-date">{{ photo.date }}</p>
           </NuxtLink>
         </div>
       </div>
 
-      <div id="projects" class="project-shell section-shell">
+      <div ref="projectShellRef" id="projects" class="project-shell section-shell">
         <div class="project-heading">
           <h2 class="project-title">
             <span>我的项目</span>
@@ -341,8 +513,14 @@ function randomScene() {
           </p>
         </div>
 
-        <div class="project-grid">
-          <NuxtLink v-for="project in projects" :key="project.title" :to="project.to" class="project-card">
+        <div class="project-grid" :class="{ 'is-revealed': projectCardsVisible }">
+          <NuxtLink
+            v-for="(project, index) in projects"
+            :key="project.title"
+            :to="project.to"
+            class="project-card project-card-reveal"
+            :style="{ '--project-mask-delay': `${projectMaskDelayMs[index]}ms` }"
+          >
             <img class="project-icon" :src="project.icon" :alt="`${project.title} logo`" />
             <div class="project-info">
               <h3 class="project-card-title">{{ project.title }}</h3>
@@ -365,7 +543,7 @@ function randomScene() {
   margin: 0;
   font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
   color: #eaf3ff;
-  background: #030815;
+  background: var(--theme-bg);
 }
 
 .page {
@@ -379,11 +557,9 @@ function randomScene() {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: -1;
-  background-image: url("/images/background.png");
-  background-position: center top;
-  background-size: cover;
-  background-repeat: no-repeat;
+  z-index: 0;
+  pointer-events: none;
+  background: url("/images/background.png") center top / cover no-repeat;
 }
 
 .hero {
@@ -402,7 +578,7 @@ function randomScene() {
   left: 0;
   right: 0;
   bottom: clamp(2rem, 5vh, 5rem);
-  z-index: 3;
+  z-index: 9;
   padding: 0 1rem;
 }
 
@@ -417,6 +593,25 @@ function randomScene() {
   background: rgba(2, 10, 25, 0.72);
   backdrop-filter: blur(16px) saturate(128%);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  transition: background 0.25s ease;
+  animation: owner-card-rise-in 720ms cubic-bezier(0.2, 0.86, 0.24, 1) both;
+  will-change: transform, opacity;
+}
+
+.owner-card:hover {
+  background: transparent;
+}
+
+@keyframes owner-card-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(2rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .card-left {
@@ -581,16 +776,26 @@ function randomScene() {
   position: relative;
   z-index: 6;
   --section-width: min(92%, 1560px);
-  --fade-lead: clamp(3.8rem, 9vh, 8rem);
-  margin-top: calc(-1 * var(--fade-lead));
-  padding-top: var(--fade-lead);
+  --fade-lead: clamp(9rem, 20vh, 16rem);
+  margin-top: 0;
+  padding-top: 0;
   min-height: 130vh;
+  background: #030714;
+}
+
+.content-fade::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--fade-lead);
+  transform: translateY(-100%);
+  pointer-events: none;
   background: linear-gradient(
     180deg,
-    rgba(3, 8, 21, 0) 0%,
-    rgba(3, 8, 21, 0.84) 18%,
-    rgba(3, 8, 21, 0.98) 36%,
-    rgba(3, 8, 21, 1) 100%
+    rgba(3, 7, 20, 0) 0%,
+    rgba(3, 7, 20, 1) 100%
   );
 }
 
@@ -664,6 +869,96 @@ function randomScene() {
   box-shadow: 0 12px 42px rgba(0, 0, 0, 0.32);
 }
 
+.post-card-reveal {
+  opacity: 0;
+  transform: translateY(1.4rem) scale(0.985);
+  filter: saturate(0.9);
+}
+
+.post-grid.is-revealed .post-card-reveal {
+  animation: post-card-stagger-in 620ms cubic-bezier(0.2, 0.86, 0.24, 1) both;
+  animation-delay: calc(var(--card-order, 0) * 120ms);
+}
+
+.post-card-more {
+  display: grid;
+  place-items: center;
+  background-image:
+    linear-gradient(
+      115deg,
+      rgba(42, 212, 225, 0) 30%,
+      rgba(42, 212, 225, 0.3) 46%,
+      rgba(255, 252, 223, 0.34) 54%,
+      rgba(42, 212, 225, 0) 72%
+    ),
+    radial-gradient(circle at 30% 24%, rgba(45, 177, 204, 0.22), transparent 52%),
+    linear-gradient(145deg, rgba(9, 18, 34, 0.92), rgba(6, 12, 24, 0.96));
+  background-repeat: no-repeat;
+  background-size: 220% 100%, 100% 100%, 100% 100%;
+  background-position: 140% 0, center, center;
+  transition: border-color 0.24s ease, box-shadow 0.24s ease;
+}
+
+.more-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.56rem;
+  padding: 0.8rem 1rem;
+  border-radius: 999px;
+  color: rgba(229, 242, 255, 0.96);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: clamp(1.1rem, 1.45vw, 1.5rem);
+  font-weight: 700;
+  transition: border-color 0.22s ease, background 0.22s ease, color 0.22s ease;
+}
+
+.more-entry svg {
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.more-entry path {
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.post-card-more:hover {
+  border-color: rgba(168, 220, 246, 0.4);
+  box-shadow: 0 16px 48px rgba(10, 25, 43, 0.56);
+  animation: more-card-gradient-sweep 0.75s cubic-bezier(0.2, 0.78, 0.28, 1) both;
+}
+
+.post-card-more:hover .more-entry {
+  border-color: rgba(168, 220, 246, 0.6);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+@keyframes more-card-gradient-sweep {
+  from {
+    background-position: 140% 0, center, center;
+  }
+
+  to {
+    background-position: -50% 0, center, center;
+  }
+}
+
+@keyframes post-card-stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.4rem) scale(0.985);
+    filter: saturate(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: saturate(1);
+  }
+}
+
 .post-cover {
   position: absolute;
   inset: 0;
@@ -724,6 +1019,33 @@ function randomScene() {
     rgba(6, 10, 18, 0.89) 76%,
     rgba(6, 10, 18, 0.96) 100%
   );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .post-card-reveal {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    animation: none !important;
+  }
+
+  .journal-card-reveal {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    animation: none !important;
+  }
+
+  .photo-card-reveal {
+    opacity: 1;
+    transform: none;
+    animation: none !important;
+  }
+
+  .project-card-reveal::before {
+    transform: translateX(-102%);
+    animation: none !important;
+  }
 }
 
 .journal-shell {
@@ -790,6 +1112,56 @@ function randomScene() {
   border: 1px solid rgba(118, 170, 194, 0.1);
 }
 
+.journal-card-reveal {
+  opacity: 0;
+  transform: translateY(0.9rem);
+  filter: brightness(0.6);
+}
+
+.journal-grid.is-revealed .journal-card-reveal {
+  animation: journal-card-flicker-in var(--journal-flicker-ms, 680ms) cubic-bezier(0.2, 0.86, 0.24, 1) both;
+  animation-delay: 0ms;
+}
+
+@keyframes journal-card-flicker-in {
+  0% {
+    opacity: 0;
+    transform: translateY(0.9rem);
+    filter: brightness(0.45);
+  }
+
+  16% {
+    opacity: 0.95;
+    filter: brightness(1.26);
+  }
+
+  30% {
+    opacity: 0.2;
+    filter: brightness(0.62);
+  }
+
+  46% {
+    opacity: 0.9;
+    filter: brightness(1.18);
+  }
+
+  62% {
+    opacity: 0.38;
+    filter: brightness(0.82);
+  }
+
+  76% {
+    opacity: 1;
+    filter: brightness(1.05);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: brightness(1);
+  }
+}
+
 .journal-date {
   display: flex;
   flex-direction: column;
@@ -813,9 +1185,26 @@ function randomScene() {
 
 .journal-card-title {
   margin: 0;
+  display: inline;
   font-size: clamp(1.55rem, 1.9vw, 2.08rem);
   line-height: 1.3;
   color: rgba(235, 245, 255, 0.96);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  background-image: linear-gradient(
+    100deg,
+    rgba(255, 246, 148, 0.72) 0%,
+    rgba(255, 240, 126, 0.54) 100%
+  );
+  background-repeat: no-repeat;
+  background-position: 100% 88%;
+  background-size: 0% 0.58em;
+  transition: background-size 0.34s cubic-bezier(0.22, 0.9, 0.24, 1), color 0.22s ease;
+}
+
+.journal-card:hover .journal-card-title {
+  color: rgba(252, 254, 238, 0.98);
+  background-size: 100% 0.58em;
 }
 
 .journal-card-summary {
@@ -882,15 +1271,87 @@ function randomScene() {
 }
 
 .photo-card {
+  position: relative;
   display: block;
   text-decoration: none;
   color: inherit;
+  border-radius: 0.86rem;
+  transform: translateY(0) scale(1);
+  transform-origin: center center;
+  transition: transform 0.25s ease;
+  background-image: none;
+  background-size: 0 0;
+}
+
+.photo-card-reveal {
+  opacity: 0;
+  transform: translateX(2.6rem) translateY(0) scale(1);
+}
+
+.photo-grid.is-revealed .photo-card-reveal {
+  animation: photo-card-slide-in 640ms cubic-bezier(0.16, 0.86, 0.22, 1) both;
+  animation-delay: 0ms;
+}
+
+.photo-card:hover {
+  transform: translateY(-0.18rem) scale(1.02);
+  background-image: none;
+  background-size: 0 0;
+}
+
+@keyframes photo-card-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(2.6rem) translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+  }
+}
+
+.photo-media {
+  position: relative;
+  border-radius: 0.8rem;
+  overflow: clip;
+}
+
+.photo-border-trace {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.photo-border-trace svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.trace-path {
+  fill: none;
+  stroke: rgba(186, 233, 248, 0.92);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  opacity: 0;
+  filter: drop-shadow(0 0 10px rgba(124, 203, 231, 0.36));
+}
+
+.photo-card:hover .trace-path {
+  opacity: 1;
+  animation: photo-border-trace 0.3s cubic-bezier(0.23, 0.84, 0.25, 1) forwards;
 }
 
 .photo-image {
   width: 100%;
-  aspect-ratio: 3 / 4;
   object-fit: cover;
+  display: block;
   border-radius: 0.8rem;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
 }
@@ -908,8 +1369,18 @@ function randomScene() {
   color: rgba(172, 194, 209, 0.72);
 }
 
+@keyframes photo-border-trace {
+  from {
+    stroke-dashoffset: 100;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 .project-shell {
-  padding: 0.2rem 1rem 8rem;
+  padding: 0.2rem 1rem 4.2rem;
 }
 
 .project-heading {
@@ -962,15 +1433,42 @@ function randomScene() {
 }
 
 .project-card {
+  position: relative;
   display: grid;
   grid-template-columns: 3.6rem 1fr;
   align-items: center;
   gap: 0.85rem;
   padding: 0.95rem 1rem;
   border-radius: 0.82rem;
+  overflow: hidden;
   text-decoration: none;
   color: inherit;
   background: rgba(27, 28, 33, 0.84);
+}
+
+.project-card-reveal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: rgba(7, 35, 60, 0.92);
+  transform: translateX(0);
+}
+
+.project-grid.is-revealed .project-card-reveal::before {
+  animation: project-mask-slide-out 760ms cubic-bezier(0.18, 0.84, 0.24, 1) both;
+  animation-delay: var(--project-mask-delay, 0ms);
+}
+
+@keyframes project-mask-slide-out {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-102%);
+  }
 }
 
 .project-icon {
@@ -1135,7 +1633,7 @@ function randomScene() {
   }
 
   .project-shell {
-    padding: 0.1rem 0.55rem 4.8rem;
+    padding: 0.1rem 0.55rem 3.2rem;
   }
 
   .project-heading {

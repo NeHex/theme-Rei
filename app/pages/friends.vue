@@ -6,7 +6,7 @@ useHead({
 const friends = [
   { name: "Demo Friend A", url: "https://example.com", desc: "技术与生活杂记" },
   { name: "Demo Friend B", url: "https://example.com", desc: "前端工程与设计实践" },
-  { name: "Demo Friend C", url: "https://example.com", desc: "摄影与创作日志" },
+  { name: "Demo Friend C", url: "https://example.com", desc: "摄影与创作日记" },
 ];
 </script>
 
@@ -29,28 +29,27 @@ const friends = [
 <style scoped>
 .simple-page {
   min-height: 100vh;
-  padding: 6.3rem 1rem 3rem;
-  color: #e8f1ff;
-  background:
-    linear-gradient(180deg, rgba(3, 12, 24, 0.74), rgba(3, 8, 18, 0.92)),
-    url("/images/background.png") center / cover no-repeat fixed;
+  padding: 6.3rem 1rem 2.2rem;
+  color: var(--theme-text);
 }
 
 .simple-main {
-  width: min(92%, 980px);
+  width: var(--site-content-width);
   margin: 0 auto;
 }
 
 .simple-card {
   padding: 1.25rem 1.3rem;
   border-radius: 1rem;
-  border: 1px solid rgba(118, 170, 194, 0.2);
-  background: rgba(8, 15, 27, 0.86);
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface);
   backdrop-filter: blur(8px);
 }
 
 h1 {
   margin: 0 0 0.8rem;
+  font-size: var(--fs-h1);
+  line-height: 1.1;
 }
 
 .friend-list {
@@ -75,6 +74,6 @@ h1 {
 
 .friend-item p {
   margin: 0.35rem 0 0;
-  color: rgba(194, 213, 230, 0.82);
+  color: var(--theme-text-soft);
 }
 </style>

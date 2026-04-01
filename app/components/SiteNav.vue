@@ -4,20 +4,22 @@ const route = useRoute();
 const isHome = computed(() => route.path === "/");
 const isArticle = computed(() => route.path.startsWith("/article"));
 const isAlbum = computed(() => route.path.startsWith("/album"));
+const isArchive = computed(() => route.path.startsWith("/archive"));
+
 </script>
 
 <template>
-  <header class="floating-nav-wrap">
+  <header :key="route.fullPath" class="floating-nav-wrap">
     <nav class="floating-nav">
       <div class="nav-main">
-        <NuxtLink to="/" aria-label="Go home">
+        <NuxtLink to="/" class="nav-avatar-link" aria-label="Go home">
           <img class="nav-avatar" src="/images/head.jpg" alt="Site owner avatar" />
         </NuxtLink>
 
         <NuxtLink to="/" class="nav-link" :class="{ active: isHome }">首页</NuxtLink>
         <NuxtLink to="/article" class="nav-link" :class="{ active: isArticle }">文章</NuxtLink>
         <NuxtLink to="/album" class="nav-link" :class="{ active: isAlbum }">相册</NuxtLink>
-        <NuxtLink to="/#journal" class="nav-link">归档</NuxtLink>
+        <NuxtLink to="/archive" class="nav-link" :class="{ active: isArchive }">归档</NuxtLink>
 
         <div class="nav-dropdown">
           <button type="button" class="nav-link nav-link-more" aria-haspopup="true">
@@ -28,7 +30,7 @@ const isAlbum = computed(() => route.path.startsWith("/album"));
           </button>
           <div class="dropdown-menu">
             <NuxtLink to="/about" class="dropdown-link">关于</NuxtLink>
-            <NuxtLink to="/friends" class="dropdown-link">友联</NuxtLink>
+            <NuxtLink to="/friends" class="dropdown-link">友链</NuxtLink>
           </div>
         </div>
       </div>
@@ -51,14 +53,15 @@ const isAlbum = computed(() => route.path.startsWith("/album"));
   left: 50%;
   transform: translateX(-50%);
   z-index: 90;
+  animation: nav-rise-in 720ms cubic-bezier(0.2, 0.86, 0.24, 1) both;
 }
 
 .floating-nav {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 0.52rem 0.78rem 0.52rem 0.56rem;
-  background: rgba(4, 36, 70, 0.76);
+  padding: 0.62rem 1rem 0.62rem 0.72rem;
+  background: rgba(4, 36, 70, 0.8);
   backdrop-filter: blur(14px);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
   transition: box-shadow 0.22s ease, background 0.22s ease;
@@ -72,26 +75,34 @@ const isAlbum = computed(() => route.path.startsWith("/album"));
 .nav-main {
   display: inline-flex;
   align-items: center;
-  gap: 0.18rem;
+  gap: 0.24rem;
+}
+
+.nav-avatar-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.52rem;
 }
 
 .nav-avatar {
-  width: 2.38rem;
-  height: 2.38rem;
+  width: 2.74rem;
+  height: 2.74rem;
+  display: block;
   border-radius: 999px;
-  margin-right: 0.41rem;
 }
 
 .nav-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 3rem;
+  min-width: 3.4rem;
   border-radius: 999px;
-  padding: 0.54rem 0.86rem;
-  color: rgba(231, 243, 255, 0.9);
+  padding: 0.62rem 0.98rem;
+  color: var(--theme-text);
   text-decoration: none;
-  font-size: 0.95rem;
+  font-size: 1rem;
+  line-height: 1;
   font-weight: 600;
   letter-spacing: 0.01em;
   transition: all 0.18s ease;
@@ -167,8 +178,8 @@ const isAlbum = computed(() => route.path.startsWith("/album"));
   padding: 0.46rem 0.58rem;
   text-decoration: none;
   white-space: nowrap;
-  color: rgba(231, 243, 255, 0.9);
-  font-size: 0.85rem;
+  color: var(--theme-text);
+  font-size: var(--fs-small);
   font-weight: 600;
 }
 
@@ -191,8 +202,8 @@ const isAlbum = computed(() => route.path.startsWith("/album"));
 }
 
 .feed-link {
-  width: 2.32rem;
-  height: 2.32rem;
+  width: 2.72rem;
+  height: 2.72rem;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -202,8 +213,8 @@ const isAlbum = computed(() => route.path.startsWith("/album"));
 }
 
 .feed-link svg {
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 1.22rem;
+  height: 1.22rem;
 }
 
 .feed-link path {
@@ -213,27 +224,42 @@ const isAlbum = computed(() => route.path.startsWith("/album"));
   stroke-linejoin: round;
 }
 
+@keyframes nav-rise-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 2rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 @media (max-width: 760px) {
   .floating-nav {
     gap: 0.35rem;
-    padding: 0.3rem 0.42rem;
+    padding: 0.34rem 0.5rem;
+  }
+
+  .nav-avatar-link {
+    margin-right: 0.2rem;
   }
 
   .nav-avatar {
-    width: 1.75rem;
-    height: 1.75rem;
-    margin-right: 0.12rem;
+    width: 1.92rem;
+    height: 1.92rem;
   }
 
   .nav-link {
     min-width: auto;
-    padding: 0.34rem 0.48rem;
-    font-size: 0.72rem;
+    padding: 0.38rem 0.54rem;
+    font-size: 0.75rem;
   }
 
   .feed-link {
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 1.92rem;
+    height: 1.92rem;
   }
 
   .dropdown-menu {
@@ -255,4 +281,6 @@ const isAlbum = computed(() => route.path.startsWith("/album"));
   }
 }
 </style>
+
+
 
