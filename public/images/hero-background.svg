@@ -1,0 +1,25 @@
+<svg width="1920" height="1200" viewBox="0 0 1920 1200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4F8FD4" />
+      <stop offset="48%" stop-color="#3A6EA8" />
+      <stop offset="100%" stop-color="#152238" />
+    </linearGradient>
+    <radialGradient id="sun" cx="70%" cy="18%" r="38%">
+      <stop offset="0%" stop-color="#FDD79E" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#FDD79E" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="mountA" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2A4A72" />
+      <stop offset="100%" stop-color="#1A2E46" />
+    </linearGradient>
+    <linearGradient id="mountB" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#223A5C" />
+      <stop offset="100%" stop-color="#13243A" />
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1200" fill="url(#sky)" />
+  <rect width="1920" height="1200" fill="url(#sun)" />
+  <path d="M0 790L260 540L500 730L790 500L1040 760L1320 560L1630 770L1920 570V1200H0Z" fill="url(#mountA)" />
+  <path d="M0 880L230 720L560 900L860 690L1130 900L1420 730L1700 900L1920 770V1200H0Z" fill="url(#mountB)" />
+</svg>

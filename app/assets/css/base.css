@@ -1,0 +1,15 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #030815;
+}
+
+body {
+  color: #eaf3ff;
+  font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
+}
+
+#__nuxt {
+  min-height: 100vh;
+}

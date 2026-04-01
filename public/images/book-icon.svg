@@ -1,0 +1,17 @@
+<svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bookGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2AD4E1" />
+      <stop offset="100%" stop-color="#0C8FB2" />
+    </linearGradient>
+  </defs>
+  <rect x="8" y="14" width="34" height="68" rx="7" fill="url(#bookGradient)" fill-opacity="0.28" />
+  <rect x="54" y="14" width="34" height="68" rx="7" fill="url(#bookGradient)" fill-opacity="0.2" />
+  <path
+    d="M48 18v60M42 24H20M42 36H20M42 48H20M42 60H20M54 24h22M54 36h22M54 48h22M54 60h22"
+    stroke="#2AD4E1"
+    stroke-opacity="0.85"
+    stroke-width="4"
+    stroke-linecap="round"
+  />
+</svg>
