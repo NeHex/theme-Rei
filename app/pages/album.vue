@@ -1,16 +1,107 @@
 <script setup lang="ts">
-import { albumCategories, albumItems } from "~/data/albums";
+import { mapAlbumApiItem } from "~/composables/useAlbums";
 
-useHead({
-  title: "相册 - NeHex",
+type AlbumDetailApiResponse = {
+  data: {
+    id: number;
+    title: string;
+    cover: string | null;
+    class: string;
+    like_count: number;
+    img_urls: string | null;
+    create_time: string;
+    update_time: string;
+  };
+};
+
+const { settings } = useSiteSettings();
+const { albums, pending } = useAlbums();
+const route = useRoute();
+
+useHead(() => ({
+  title: `相册 - ${settings.value.siteTitle}`,
+}));
+
+const allCategoryLabel = "所有";
+const activeCategory = ref(allCategoryLabel);
+
+const albumCategories = computed(() => {
+  const categorySet = new Set<string>();
+  for (const album of albums.value) {
+    if (!album.category) continue;
+    categorySet.add(album.category);
+  }
+  return [allCategoryLabel, ...Array.from(categorySet)];
 });
 
-const activeCategory = ref<(typeof albumCategories)[number]>("所有");
+watch(
+  albumCategories,
+  (categories) => {
+    if (!categories.includes(activeCategory.value)) {
+      activeCategory.value = allCategoryLabel;
+    }
+  },
+  { immediate: true },
+);
 
 const filteredItems = computed(() => {
-  if (activeCategory.value === "所有") return albumItems;
-  return albumItems.filter((item) => item.category === activeCategory.value);
+  if (activeCategory.value === allCategoryLabel) return albums.value;
+  return albums.value.filter((item) => item.category === activeCategory.value);
 });
+
+const viewerVisible = ref(false);
+const viewerAlbum = ref<(typeof albums.value)[number] | null>(null);
+const viewerImages = ref<string[]>([]);
+const viewerStartIndex = ref(0);
+const autoOpenedAlbumId = ref<string | null>(null);
+
+async function openAlbumViewer(item: (typeof albums.value)[number], startIndex = 0) {
+  let albumData = item;
+
+  try {
+    const response = await $fetch<AlbumDetailApiResponse>(`/api/album/${item.id}`);
+    albumData = mapAlbumApiItem(response.data);
+  } catch (error) {
+    console.error("[album-page] failed to fetch album detail", error);
+  }
+
+  const images = albumData.imageUrls.length ? albumData.imageUrls : [albumData.cover];
+  if (!images.length) return;
+
+  viewerAlbum.value = albumData;
+  viewerImages.value = images;
+  viewerStartIndex.value = Math.max(0, Math.min(startIndex, images.length - 1));
+  viewerVisible.value = true;
+}
+
+watch(
+  [() => route.query.album, albums],
+  async ([albumQuery]) => {
+    const rawAlbumId = Array.isArray(albumQuery) ? albumQuery[0] : albumQuery;
+    const albumId = String(rawAlbumId || "").trim();
+    if (!albumId || !albums.value.length) return;
+    if (autoOpenedAlbumId.value === albumId) return;
+
+    const targetAlbum = albums.value.find((item) => item.id === albumId);
+    if (!targetAlbum) return;
+
+    autoOpenedAlbumId.value = albumId;
+    await openAlbumViewer(targetAlbum);
+  },
+  { immediate: true },
+);
+
+function formatDate(dateInput: string) {
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return dateInput;
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(date)
+    .replace(/\//g, "-");
+}
 </script>
 
 <template>
@@ -29,12 +120,21 @@ const filteredItems = computed(() => {
       </aside>
 
       <section class="album-grid">
-        <article v-for="item in filteredItems" :key="item.id" class="album-card">
-          <img :src="item.image" :alt="item.title" class="album-image" />
+        <article
+          v-for="item in filteredItems"
+          :key="item.id"
+          class="album-card"
+          role="button"
+          tabindex="0"
+          @click="openAlbumViewer(item)"
+          @keydown.enter.prevent="openAlbumViewer(item)"
+          @keydown.space.prevent="openAlbumViewer(item)"
+        >
+          <img :src="item.cover" :alt="item.title" class="album-image" />
           <div class="album-card-body">
             <h3>{{ item.title }}</h3>
             <div class="album-meta">
-              <time :datetime="item.date">{{ item.date }}</time>
+              <time :datetime="item.createdAt">{{ formatDate(item.createdAt) }}</time>
               <p class="album-like">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M8.4 10.3V19H5.5a1.5 1.5 0 0 1-1.5-1.5v-5.7a1.5 1.5 0 0 1 1.5-1.5h2.9Z" />
@@ -45,8 +145,19 @@ const filteredItems = computed(() => {
             </div>
           </div>
         </article>
+
+        <article v-if="!pending && !filteredItems.length" class="album-empty">
+          当前分类还没有相册内容
+        </article>
       </section>
     </main>
+
+    <AlbumViewer
+      v-model="viewerVisible"
+      :album="viewerAlbum"
+      :images="viewerImages"
+      :start-index="viewerStartIndex"
+    />
   </div>
 </template>
 
@@ -115,11 +226,23 @@ const filteredItems = computed(() => {
   border: 1px solid var(--theme-border);
   background: var(--theme-surface);
   min-width: 0;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.album-card:hover {
+  border-color: rgba(125, 190, 213, 0.46);
+  transform: translateY(-0.1rem);
+}
+
+.album-card:focus-visible {
+  outline: 2px solid rgba(66, 219, 234, 0.72);
+  outline-offset: 2px;
 }
 
 .album-image {
   width: 100%;
-  aspect-ratio: 4 / 4;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   display: block;
 }
@@ -164,6 +287,16 @@ const filteredItems = computed(() => {
   stroke-width: 1.65;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.album-empty {
+  grid-column: 1 / -1;
+  border-radius: 0.8rem;
+  border: 1px dashed rgba(118, 170, 194, 0.36);
+  padding: 1.6rem 1rem;
+  text-align: center;
+  color: var(--theme-text-mute);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 @media (max-width: 1180px) {

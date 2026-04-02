@@ -1,3 +1,13 @@
+@font-face {
+  font-family: "ChillRoundM";
+  src:
+    url("https://s3.hi168.com/hi168-31358-3621l8yj/ChillRoundM.woff2") format("woff2"),
+    url("/ChillRoundM.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
   --theme-bg: #030714;
   --theme-bg-rgb: 3, 7, 20;
@@ -42,13 +52,24 @@ html {
 
 body {
   color: var(--theme-text);
-  font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  font-family: "ChillRoundM", "PingFang SC", "Hiragino Sans GB", sans-serif;
   font-size: var(--fs-body);
   line-height: 1.65;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   position: relative;
   background: transparent;
+}
+
+button,
+input,
+textarea,
+select,
+code,
+pre,
+kbd,
+samp {
+  font-family: inherit;
 }
 
 a,
@@ -72,4 +93,46 @@ a:focus-visible {
   min-height: 100vh;
   position: relative;
   z-index: 1;
+}
+
+img.app-img-is-loading {
+  opacity: 0.24;
+  filter: blur(7px) saturate(0.72) brightness(0.82);
+  transform: scale(1.012);
+  animation: app-image-loading-pulse 1.12s ease-in-out infinite alternate;
+  will-change: opacity, filter, transform;
+}
+
+img.app-img-is-loaded {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  transition:
+    opacity 0.3s ease,
+    filter 0.32s ease,
+    transform 0.32s ease;
+}
+
+img.app-img-is-error {
+  filter: grayscale(0.92) contrast(0.95) brightness(0.8);
+}
+
+@keyframes app-image-loading-pulse {
+  0% {
+    opacity: 0.2;
+    filter: blur(8px) saturate(0.66) brightness(0.76);
+    transform: scale(1.016);
+  }
+
+  100% {
+    opacity: 0.34;
+    filter: blur(6px) saturate(0.8) brightness(0.88);
+    transform: scale(1.008);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  img.app-img-is-loading {
+    animation: none;
+  }
 }

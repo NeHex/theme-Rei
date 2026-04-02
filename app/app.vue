@@ -1,8 +1,11 @@
 ﻿<script setup lang="ts">
+import SiteFooter from "~/components/SiteFooter.vue";
+import SiteNav from "~/components/SiteNav.vue";
 type LoaderPhase = "enter" | "boost" | "loading" | "exit";
 
 const isRouteLoading = ref(false);
 const loaderPhase = ref<LoaderPhase>("enter");
+const { settings } = useSiteSettings();
 
 const ENTER_MS = 520;
 const BOOST_MS = 320;
@@ -14,6 +17,22 @@ let settleTimer: ReturnType<typeof setTimeout> | null = null;
 const phaseTimers: ReturnType<typeof setTimeout>[] = [];
 let enterGate: Promise<void> | null = null;
 let resolveEnterGate: (() => void) | null = null;
+
+useHead(() => ({
+  title: settings.value.siteTitle,
+  meta: [
+    {
+      name: "description",
+      content: settings.value.siteDesc,
+    },
+  ],
+  link: [
+    {
+      rel: "icon",
+      href: settings.value.siteFavicon || "/favicon.ico",
+    },
+  ],
+}));
 
 function clearPhaseTimers() {
   while (phaseTimers.length) {
@@ -150,6 +169,7 @@ if (import.meta.client) {
         src="/images/loading.gif"
         alt=""
         aria-hidden="true"
+        data-image-loader-ignore
       />
     </div>
   </div>
@@ -227,3 +247,4 @@ if (import.meta.client) {
   }
 }
 </style>
+

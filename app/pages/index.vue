@@ -7,6 +7,7 @@ type GalleryItem = {
 };
 
 type BlogPost = {
+  id: string;
   title: string;
   summary: string;
   cover: string;
@@ -36,6 +37,17 @@ type ProjectItem = {
   to: string;
 };
 
+type SocialItem = {
+  key: string;
+  label: string;
+  href: string;
+  icon: "github" | "bilibili" | "steam" | "neteasemusic" | "email" | "feed";
+};
+
+const { settings } = useSiteSettings();
+const { articles: fetchedArticles } = useArticles();
+const { albums: fetchedAlbums } = useAlbums();
+
 const gallery: readonly [GalleryItem, ...GalleryItem[]] = [
   {
     name: "今日份拍摄",
@@ -46,45 +58,15 @@ const gallery: readonly [GalleryItem, ...GalleryItem[]] = [
   }
 ];
 
-const posts: readonly BlogPost[] = [
-  {
-    title: "测试文章1",
-    summary:
-      "测试文章",
-    cover: "/images/pic.jpg",
-    to: "/article/ai-fatigue-real",
-  },
-  {
-    title: "测试文章2",
-    summary:
-      "测试文章2",
-    cover: "/images/background.png",
-    to: "/article/ai-rebuild-rfc-plan",
-  },
-  {
-    title: "测试文章3",
-    summary:
-      "测试文章3",
-    cover: "/images/scene-shore.svg",
-    to: "/article/lobehub-performance-dx",
-  },
-  {
-    title: "测试文章4",
-    summary:
-      "测试文章4",
-    cover: "/images/pic.jpg",
-    to: "/article/my-ai-writing-workflow",
-  },
-  {
-    title: "测试文章5",
-    summary:
-      "测试文章5",
-    cover: "/images/background.png",
-    to: "/article/context-engineering-intro",
-  },
-];
-
-const homePosts = posts.slice(0, 5);
+const homePosts = computed<BlogPost[]>(() =>
+  fetchedArticles.value.slice(0, 5).map((article) => ({
+    id: article.id,
+    title: article.title,
+    summary: article.summary,
+    cover: article.cover,
+    to: `/article/${article.id}`,
+  })),
+);
 
 const dailyRecords: readonly DailyRecord[] = [
   {
@@ -121,7 +103,7 @@ const dailyRecords: readonly DailyRecord[] = [
   },
 ];
 
-const photos: readonly PhotoItem[] = [
+const fallbackPhotos: readonly PhotoItem[] = [
   {
     title: "李元芳",
     date: "2026-03-22",
@@ -151,6 +133,18 @@ const photos: readonly PhotoItem[] = [
     to: "/album",
   },
 ];
+
+const photos = computed<PhotoItem[]>(() => {
+  const items = fetchedAlbums.value.slice(0, 4).map((album, index) => ({
+    title: album.title,
+    date: album.createdAt.slice(0, 10),
+    image: album.cover,
+    alt: `${album.title}-${index + 1}`,
+    to: `/album?album=${encodeURIComponent(album.id)}`,
+  }));
+
+  return items.length ? items : [...fallbackPhotos];
+});
 
 const projects: readonly ProjectItem[] = [
   {
@@ -208,6 +202,51 @@ function createStableDelay(seed: string, min = 50, span = 260) {
 const projectMaskDelayMs = projects.map((project, index) =>
   createStableDelay(`${project.title}-${index}`),
 );
+
+const homeStyleVars = computed(() => ({
+  "--home-background-image": `url("${settings.value.themeBackground || "/images/background.png"}")`,
+}));
+
+const ownerBioLines = computed(() =>
+  settings.value.userDesc
+    .split(/\r?\n/g)
+    .map((line) => line.trim())
+    .filter(Boolean),
+);
+
+const ownerSocialItems = computed<SocialItem[]>(() => {
+  const links = settings.value.userSocialLink;
+  const entries: SocialItem[] = [
+    { key: "github", label: "GitHub", href: links.github || "", icon: "github" },
+    { key: "bilibili", label: "哔哩哔哩", href: links.bilibili || "", icon: "bilibili" },
+    { key: "steam", label: "Steam", href: links.steam || "", icon: "steam" },
+    {
+      key: "neteasemusic",
+      label: "网易云音乐",
+      href: links.neteasemusic || "",
+      icon: "neteasemusic",
+    },
+    { key: "email", label: "邮箱", href: links.email || "", icon: "email" },
+    { key: "feed", label: "RSS", href: links.feed || links.rss || "", icon: "feed" },
+  ];
+  return entries.filter((item) => Boolean(item.href));
+});
+
+const socialMaskIconMap: Record<"github" | "bilibili" | "steam" | "neteasemusic", string> = {
+  github: "/images/social/github.svg",
+  bilibili: "/images/social/bilibili.svg",
+  steam: "/images/social/steam.svg",
+  neteasemusic: "/images/social/neteasecloudmusic.svg",
+};
+
+function isExternalLink(url: string) {
+  return /^https?:\/\//.test(url) || url.startsWith("mailto:");
+}
+
+function getSocialMaskIcon(icon: SocialItem["icon"]) {
+  if (icon === "email" || icon === "feed") return "";
+  return socialMaskIconMap[icon];
+}
 
 const currentImage = computed<GalleryItem>(
   () => gallery[currentIndex.value] ?? gallery[0],
@@ -325,47 +364,49 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page" :style="homeStyleVars">
     <section class="hero">
       <div class="hero-overlay" />
       <div class="hero-card-slot">
         <article class="owner-card">
           <div class="card-left">
             <div class="owner-avatar-wrap">
-              <img class="owner-avatar" src="/images/head.jpg" alt="Owner avatar" />
-              <span class="owner-avatar-bubble">✨</span>
+              <img class="owner-avatar" :src="settings.userHeadpic" :alt="`${settings.userName}头像`" />
+              <span class="owner-avatar-bubble">{{ settings.themeHeadmsg || "✨" }}</span>
             </div>
-            <h2 class="owner-name">uegee</h2>
+            <h2 class="owner-name">{{ settings.userName }}</h2>
             <p class="owner-bio">
-              一个死宅<br/>
-              一个无业游民</br>
-              一个穷孩子生活在有钱人的城市<br/>
-              一个沉沦于自由意志的牢笼中的鸟
+              <template v-for="(line, lineIndex) in ownerBioLines" :key="`${line}-${lineIndex}`">
+                <span>{{ line }}</span>
+                <br v-if="lineIndex < ownerBioLines.length - 1" />
+              </template>
             </p>
 
             <div class="social-row">
-              <a href="#" class="icon-btn" aria-label="GitHub">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path
-                    d="M12 3.4a8.6 8.6 0 0 0-2.72 16.76c.43.08.57-.19.57-.42v-1.5c-2.33.51-2.82-1.12-2.82-1.12c-.38-.97-.93-1.23-.93-1.23c-.77-.52.06-.51.06-.51c.84.06 1.28.86 1.28.86c.76 1.29 1.97.92 2.45.7c.07-.54.29-.92.52-1.14c-1.86-.22-3.81-.93-3.81-4.15c0-.92.33-1.66.87-2.25c-.08-.22-.38-1.1.09-2.3c0 0 .71-.23 2.33.86a8.08 8.08 0 0 1 4.23 0c1.62-1.09 2.33-.86 2.33-.86c.47 1.2.18 2.08.1 2.3c.54.59.87 1.33.87 2.25c0 3.23-1.96 3.93-3.83 4.14c.3.26.56.76.56 1.53v2.26c0 .23.14.5.58.42A8.6 8.6 0 0 0 12 3.4Z"
-                  />
-                </svg>
-              </a>
-              <a href="#" class="icon-btn" aria-label="X">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M4 4h4.5l3.6 5.1L16.5 4H20l-6.2 7.1L20 20h-4.5l-4-5.6L6.6 20H3l6.6-7.5L4 4Z" />
-                </svg>
-              </a>
-              <a href="#" class="icon-btn" aria-label="Video">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M4 8.4a2 2 0 0 1 2-2h8.8a2 2 0 0 1 2 2v7.2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8.4Z" />
-                  <path d="M10.2 10.1l4.1 2.2l-4.1 2.2v-4.4Z" />
-                </svg>
-              </a>
-              <a href="#" class="icon-btn" aria-label="Message">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <a
+                v-for="item in ownerSocialItems"
+                :key="item.key"
+                :href="item.href"
+                class="icon-btn"
+                :aria-label="item.label"
+                :title="item.label"
+                :target="isExternalLink(item.href) ? '_blank' : undefined"
+                :rel="isExternalLink(item.href) ? 'noopener noreferrer' : undefined"
+              >
+                <span
+                  v-if="item.icon !== 'email' && item.icon !== 'feed'"
+                  class="icon-mask"
+                  :style="{ '--icon-url': `url(${getSocialMaskIcon(item.icon)})` }"
+                  aria-hidden="true"
+                />
+                <svg v-else-if="item.icon === 'email'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M5.2 6.1h13.6a1.2 1.2 0 0 1 1.2 1.2v9.4a1.2 1.2 0 0 1-1.2 1.2H5.2A1.2 1.2 0 0 1 4 16.7V7.3a1.2 1.2 0 0 1 1.2-1.2Z" />
                   <path d="m7.4 9.1l4.6 3.7l4.6-3.7" />
+                </svg>
+                <svg v-else viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="4" cy="20" r="2" />
+                  <path d="M4 10a10 10 0 0 1 10 10" />
+                  <path d="M4 4a16 16 0 0 1 16 16" />
                 </svg>
               </a>
             </div>
@@ -411,7 +452,7 @@ onBeforeUnmount(() => {
         <div class="post-grid" :class="{ 'is-revealed': blogCardsVisible }">
           <NuxtLink
             v-for="(post, index) in homePosts"
-            :key="post.title"
+            :key="post.id"
             :to="post.to"
             class="post-card post-card-reveal"
             :style="{ '--card-order': index }"
@@ -541,7 +582,7 @@ onBeforeUnmount(() => {
 
 :global(body) {
   margin: 0;
-  font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  font-family: "ChillRoundM", "PingFang SC", "Hiragino Sans GB", sans-serif;
   color: #eaf3ff;
   background: var(--theme-bg);
 }
@@ -559,7 +600,7 @@ onBeforeUnmount(() => {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: url("/images/background.png") center top / cover no-repeat;
+  background: var(--home-background-image) center top / cover no-repeat;
 }
 
 .hero {
@@ -682,12 +723,12 @@ onBeforeUnmount(() => {
 }
 
 .icon-btn {
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 2.24rem;
+  height: 2.24rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.45rem;
+  border-radius: 0.58rem;
   color: rgba(236, 245, 255, 0.92);
   border: 1px solid transparent;
   background: transparent;
@@ -698,15 +739,28 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.icon-mask {
+  width: 1.24rem;
+  height: 1.24rem;
+  display: block;
+  background-color: currentColor;
+  mask: var(--icon-url) center / contain no-repeat;
+  -webkit-mask: var(--icon-url) center / contain no-repeat;
+}
+
 .icon-btn svg {
-  width: 1rem;
-  height: 1rem;
+  width: 1.26rem;
+  height: 1.26rem;
+}
+
+.icon-btn circle {
+  fill: currentColor;
 }
 
 .icon-btn path {
   stroke: currentColor;
-  fill: currentColor;
-  stroke-width: 1.35;
+  fill: none;
+  stroke-width: 1.75;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -1266,7 +1320,7 @@ onBeforeUnmount(() => {
 
 .photo-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.35rem;
 }
 
@@ -1313,6 +1367,7 @@ onBeforeUnmount(() => {
 
 .photo-media {
   position: relative;
+  aspect-ratio: 4 / 3;
   border-radius: 0.8rem;
   overflow: clip;
 }
@@ -1341,15 +1396,19 @@ onBeforeUnmount(() => {
   stroke-dashoffset: 100;
   opacity: 0;
   filter: drop-shadow(0 0 10px rgba(124, 203, 231, 0.36));
+  transition:
+    stroke-dashoffset 0.3s cubic-bezier(0.23, 0.84, 0.25, 1),
+    opacity 0.26s cubic-bezier(0.2, 0.86, 0.24, 1);
 }
 
 .photo-card:hover .trace-path {
   opacity: 1;
-  animation: photo-border-trace 0.3s cubic-bezier(0.23, 0.84, 0.25, 1) forwards;
+  stroke-dashoffset: 0;
 }
 
 .photo-image {
   width: 100%;
+  height: 100%;
   object-fit: cover;
   display: block;
   border-radius: 0.8rem;
@@ -1367,16 +1426,6 @@ onBeforeUnmount(() => {
   margin: 0.6rem 0 0;
   font-size: 0.96rem;
   color: rgba(172, 194, 209, 0.72);
-}
-
-@keyframes photo-border-trace {
-  from {
-    stroke-dashoffset: 100;
-  }
-
-  to {
-    stroke-dashoffset: 0;
-  }
 }
 
 .project-shell {

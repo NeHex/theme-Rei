@@ -1,19 +1,30 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 const route = useRoute();
+const { settings } = useSiteSettings();
 
 const isHome = computed(() => route.path === "/");
 const isArticle = computed(() => route.path.startsWith("/article"));
 const isAlbum = computed(() => route.path.startsWith("/album"));
 const isArchive = computed(() => route.path.startsWith("/archive"));
 
+const avatarSrc = computed(() => settings.value.userHeadpic || "/images/head.jpg");
+const avatarAlt = computed(() => `${settings.value.userName || "站长"}头像`);
+const feedHref = computed(
+  () => settings.value.userSocialLink.feed || settings.value.userSocialLink.rss || "/feed.xml",
+);
+const dropdownLinks = computed(() => settings.value.themeNav);
+
+function isExternalLink(url: string) {
+  return /^https?:\/\//.test(url) || url.startsWith("mailto:");
+}
 </script>
 
 <template>
   <header :key="route.fullPath" class="floating-nav-wrap">
     <nav class="floating-nav">
       <div class="nav-main">
-        <NuxtLink to="/" class="nav-avatar-link" aria-label="Go home">
-          <img class="nav-avatar" src="/images/head.jpg" alt="Site owner avatar" />
+        <NuxtLink to="/" class="nav-avatar-link" aria-label="返回首页">
+          <img class="nav-avatar" :src="avatarSrc" :alt="avatarAlt" />
         </NuxtLink>
 
         <NuxtLink to="/" class="nav-link" :class="{ active: isHome }">首页</NuxtLink>
@@ -29,13 +40,31 @@ const isArchive = computed(() => route.path.startsWith("/archive"));
             </svg>
           </button>
           <div class="dropdown-menu">
-            <NuxtLink to="/about" class="dropdown-link">关于</NuxtLink>
-            <NuxtLink to="/friends" class="dropdown-link">友链</NuxtLink>
+            <template v-for="item in dropdownLinks" :key="`${item.label}-${item.to}`">
+              <a
+                v-if="isExternalLink(item.to)"
+                :href="item.to"
+                class="dropdown-link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {{ item.label }}
+              </a>
+              <NuxtLink v-else :to="item.to" class="dropdown-link">
+                {{ item.label }}
+              </NuxtLink>
+            </template>
           </div>
         </div>
       </div>
 
-      <a href="#" class="feed-link" aria-label="Feed RSS">
+      <a
+        :href="feedHref"
+        class="feed-link"
+        aria-label="Feed RSS"
+        :target="isExternalLink(feedHref) ? '_blank' : undefined"
+        :rel="isExternalLink(feedHref) ? 'noopener noreferrer' : undefined"
+      >
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M4 18a2 2 0 1 0 0 4a2 2 0 0 0 0-4Z" />
           <path d="M4 10a10 10 0 0 1 10 10" />
@@ -281,6 +310,3 @@ const isArchive = computed(() => route.path.startsWith("/archive"));
   }
 }
 </style>
-
-
-

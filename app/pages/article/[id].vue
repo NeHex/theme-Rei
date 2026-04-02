@@ -1,44 +1,32 @@
 <script setup lang="ts">
-import { getArticleById } from "~/data/articles";
+import MarkdownIt from "markdown-it";
 
 const route = useRoute();
+const { settings } = useSiteSettings();
 
-const article = computed(() => getArticleById(String(route.params.id ?? "")));
+const articleId = computed(() => String(route.params.id ?? "").trim());
+const { article, pending, error } = useArticleDetail(articleId);
 
-if (!article.value) {
+watchEffect(() => {
+  if (!error.value) return;
   throw createError({
-    statusCode: 404,
-    statusMessage: "Article Not Found",
+    statusCode: Number((error.value as any).statusCode || 500),
+    statusMessage: (error.value as any).statusMessage || "Article Not Found",
   });
-}
+});
 
 useHead(() => ({
-  title: `${article.value?.title ?? "文章"} - NeHex`,
+  title: `${article.value?.title ?? "文章"} - ${settings.value.siteTitle}`,
 }));
 
-const canvasRef = ref<HTMLCanvasElement | null>(null);
-
-onMounted(() => {
-  const el = canvasRef.value;
-  if (!el) return;
-
-  const ctx = el.getContext("2d");
-  if (!ctx) return;
-
-  ctx.fillStyle = "#061423";
-  ctx.fillRect(0, 0, el.width, el.height);
-
-  ctx.strokeStyle = "#2ad4e1";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(20, 80);
-  ctx.quadraticCurveTo(110, 10, 200, 80);
-  ctx.stroke();
-
-  ctx.fillStyle = "#9ad6f0";
-  ctx.font = "14px sans-serif";
-  ctx.fillText("Canvas preview", 58, 112);
+const markdown = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: true,
+  breaks: true,
 });
+
+const renderedMarkdown = computed(() => markdown.render(article.value?.content || ""));
 
 function formatDate(dateInput: string) {
   const date = new Date(dateInput);
@@ -57,7 +45,7 @@ function formatCount(value: number) {
 
 <template>
   <div class="article-page">
-    <main v-if="article" class="article-main">
+    <main class="article-main">
       <div class="article-nav">
         <NuxtLink to="/article" class="article-back" aria-label="返回文章列表">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -66,248 +54,37 @@ function formatCount(value: number) {
         </NuxtLink>
       </div>
 
-      <header class="article-info">
-        <p class="article-kicker">BLOG ARTICLE</p>
-        <h1>{{ article.title }}</h1>
+      <template v-if="article">
+        <header class="article-info">
+          <p class="article-kicker">BLOG ARTICLE</p>
+          <h1>{{ article.title }}</h1>
 
-        <div class="article-meta-row">
-          <time :datetime="article.publishedAt">{{ formatDate(article.publishedAt) }}</time>
-          <span class="meta-dot" aria-hidden="true"></span>
-          <span>阅读 {{ formatCount(article.views) }}</span>
-          <span class="meta-dot" aria-hidden="true"></span>
-          <span>分类 <mark>{{ article.category }}</mark></span>
-          <span class="meta-dot" aria-hidden="true"></span>
-          <small v-if="article.edited">已编辑</small>
-        </div>
-
-        <p class="article-tags">
-          <span v-for="tag in article.tags" :key="tag">#{{ tag }}</span>
-        </p>
-
-        <address>
-          作者：<a href="#" rel="author">NeHex</a> · 更新时间：{{ formatDate(article.updatedAt) }}
-        </address>
-      </header>
-
-      <article class="article-card">
-        <section aria-labelledby="s-intro">
-          <h2 id="s-intro">1. 摘要</h2>
-          <p>{{ article.summary }}</p>
-          <p>{{ article.excerpt }}</p>
-          <hr />
-        </section>
-
-        <section aria-labelledby="s-quote">
-          <h2 id="s-quote">2. 引用与注释</h2>
-          <blockquote cite="https://example.com/notes">
-            长期主义并不等于缓慢，而是持续做正确的小动作。<br />
-            它的核心是“可重复”，不是“一蹴而就”。
-          </blockquote>
-          <p>—— 引自 <cite>《项目笔记》</cite></p>
-        </section>
-
-        <section aria-labelledby="s-list">
-          <h2 id="s-list">3. 列表标签</h2>
-          <h3>无序列表</h3>
-          <ul>
-            <li>记录问题出现的环境</li>
-            <li>记录你尝试过的手段</li>
-            <li>记录最终有效的方案</li>
-          </ul>
-
-          <h3>有序列表</h3>
-          <ol>
-            <li>观察现象</li>
-            <li>构造最小复现</li>
-            <li>定位根因并修复</li>
-          </ol>
-
-          <h3>定义列表</h3>
-          <dl>
-            <dt>主题变量</dt>
-            <dd>控制颜色、字号、间距的一组基础 token。</dd>
-            <dt>组件样式</dt>
-            <dd>在基础 token 之上组合而成的局部视觉表达。</dd>
-          </dl>
-        </section>
-
-        <section aria-labelledby="s-media">
-          <h2 id="s-media">4. 图片与多媒体标签</h2>
-          <figure>
-            <picture>
-              <source srcset="/images/background.png" media="(min-width: 900px)" />
-              <img src="/images/background.png" alt="测试封面图" usemap="#img-map" />
-            </picture>
-            <figcaption>使用 picture/source/img 组合输出响应式图片。</figcaption>
-          </figure>
-
-          <map name="img-map">
-            <area shape="rect" coords="20,20,180,120" href="#" alt="点击区域 1" />
-            <area shape="rect" coords="220,20,380,120" href="#" alt="点击区域 2" />
-          </map>
-
-          <div class="media-grid">
-            <audio controls preload="none">
-              <source src="/media/demo.mp3" type="audio/mpeg" />
-              你的浏览器不支持 audio 标签。
-            </audio>
-
-            <video controls preload="none" width="360">
-              <source src="/media/demo.mp4" type="video/mp4" />
-              <track kind="captions" srclang="zh" label="简体中文" />
-              你的浏览器不支持 video 标签。
-            </video>
-          </div>
-        </section>
-
-        <section aria-labelledby="s-code">
-          <h2 id="s-code">5. 文本与代码标签</h2>
-          <p>
-            这段用于覆盖标签样式：
-            <strong>strong</strong>、<em>em</em>、<b>b</b>、<i>i</i>、<u>u</u>、<s>s</s>、
-            <del>del</del>、<ins>ins</ins>、<sub>sub</sub>、<sup>sup</sup>、
-            <abbr title="HyperText Markup Language">HTML</abbr>、<dfn>定义词</dfn>、<q>行内引用</q>。
-          </p>
-          <p>
-            还有 <code>inline code</code>、<kbd>Ctrl</kbd> + <kbd>S</kbd>、
-            <samp>命令输出示例</samp>、<var>变量名</var>、软换行<wbr />位置。
-          </p>
-          <pre><code class="language-ts">function resolveTheme(name: string) {
-  return name.trim().toLowerCase().replace(/\s+/g, "-")
-}</code></pre>
-          <p>
-            日文注音示例：
-            <ruby>綺麗<rp>(</rp><rt>きれい</rt><rp>)</rp></ruby>
-          </p>
-        </section>
-
-        <section aria-labelledby="s-table">
-          <h2 id="s-table">6. 表格标签</h2>
-          <table>
-            <caption>本周写作安排</caption>
-            <colgroup>
-              <col style="width: 22%" />
-              <col style="width: 48%" />
-              <col style="width: 30%" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th scope="col">日期</th>
-                <th scope="col">主题</th>
-                <th scope="col">状态</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">Mon</th>
-                <td>文章结构整理</td>
-                <td><progress max="100" value="100">100%</progress></td>
-              </tr>
-              <tr>
-                <th scope="row">Tue</th>
-                <td>样式回归检查</td>
-                <td><progress max="100" value="72">72%</progress></td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr>
-                <th scope="row">完成率</th>
-                <td colspan="2"><meter min="0" max="1" value="0.86">86%</meter></td>
-              </tr>
-            </tfoot>
-          </table>
-        </section>
-
-        <section aria-labelledby="s-form">
-          <h2 id="s-form">7. 表单标签</h2>
-          <form action="#" method="post">
-            <fieldset>
-              <legend>反馈表单</legend>
-              <label for="f-title">标题</label>
-              <input id="f-title" name="title" type="text" list="title-suggest" placeholder="输入标题" />
-              <datalist id="title-suggest">
-                <option value="布局建议" />
-                <option value="样式问题" />
-                <option value="交互反馈" />
-              </datalist>
-
-              <label for="f-type">类型</label>
-              <select id="f-type" name="type">
-                <optgroup label="内容">
-                  <option>文章</option>
-                  <option>日常</option>
-                </optgroup>
-                <optgroup label="视觉">
-                  <option>配色</option>
-                  <option>组件</option>
-                </optgroup>
-              </select>
-
-              <label for="f-desc">描述</label>
-              <textarea id="f-desc" name="desc" rows="4">这里输入你的建议...</textarea>
-
-              <label>
-                <input type="checkbox" name="subscribe" checked />
-                订阅后续更新
-              </label>
-
-              <div class="form-actions">
-                <button type="submit">提交</button>
-                <button type="reset">重置</button>
-                <output for="f-title f-type">输出示例区域</output>
-              </div>
-            </fieldset>
-          </form>
-        </section>
-
-        <section aria-labelledby="s-embed">
-          <h2 id="s-embed">8. 其他嵌入与交互标签</h2>
-          <details open>
-            <summary>展开查看内嵌组件</summary>
-            <p>这里用于测试 details / summary 的默认样式。</p>
-          </details>
-
-          <div class="embed-grid">
-            <iframe title="示例 iframe" src="https://example.com" loading="lazy" />
-            <canvas ref="canvasRef" width="220" height="130" aria-label="canvas test" />
-            <svg viewBox="0 0 120 70" role="img" aria-label="svg test">
-              <title>SVG 测试图</title>
-              <rect x="2" y="2" width="116" height="66" rx="8" fill="#0b1b2f" />
-              <circle cx="35" cy="35" r="18" fill="#2ad4e1" opacity="0.7" />
-              <path d="M60 48L82 18L103 48Z" fill="#9ad6f0" />
-            </svg>
-            <object data="/images/book-icon.svg" type="image/svg+xml">Object fallback</object>
+          <div class="article-meta-row">
+            <time :datetime="article.publishedAt">{{ formatDate(article.publishedAt) }}</time>
+            <span class="meta-dot" aria-hidden="true"></span>
+            <span>阅读 {{ formatCount(article.views) }}</span>
+            <span class="meta-dot" aria-hidden="true"></span>
+            <span>分类 <mark>{{ article.category }}</mark></span>
           </div>
 
-          <math display="block">
-            <mrow>
-              <mi>E</mi>
-              <mo>=</mo>
-              <mi>m</mi>
-              <mo>×</mo>
-              <msup><mi>c</mi><mn>2</mn></msup>
-            </mrow>
-          </math>
-
-          <dialog open>
-            <p>这是一个 dialog 标签测试框。</p>
-          </dialog>
-        </section>
-
-        <aside>
-          <h2>9. aside / bdi / bdo</h2>
-          <p>
-            用户名示例：<bdi>alex_2026</bdi>，方向控制：
-            <bdo dir="rtl">This text is rtl</bdo>。
+          <p v-if="article.tags.length" class="article-tags">
+            <span v-for="tag in article.tags" :key="tag">#{{ tag }}</span>
           </p>
-        </aside>
 
-        <footer class="article-footer">
-          <p>
-            标签检查完成。<ins>新增测试段落</ins>，<del>旧说明文本</del> 已归档。
-          </p>
-        </footer>
-      </article>
+          <address>
+            最后更新：{{ formatDate(article.updatedAt) }}
+          </address>
+        </header>
+
+        <article class="article-card">
+          <img v-if="article.cover" :src="article.cover" :alt="article.title" class="article-cover" />
+          <div class="markdown-body" v-html="renderedMarkdown" />
+        </article>
+      </template>
+
+      <section v-else class="article-card article-loading">
+        <p>{{ pending ? "文章加载中..." : "文章不存在或已被删除。" }}</p>
+      </section>
     </main>
   </div>
 </template>
@@ -427,120 +204,123 @@ address {
   color: rgba(171, 196, 216, 0.78);
 }
 
-address a {
-  color: #b7ddff;
-  text-decoration: none;
-}
-
 .article-card {
-  padding: 1.4rem;
+  padding: 1.2rem;
   border-radius: 1rem;
   border: 1px solid var(--theme-border);
   background: var(--theme-surface);
   backdrop-filter: blur(8px);
 }
 
-section {
-  margin-top: 1.5rem;
+.article-loading {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
 }
 
-h2 {
-  margin: 0 0 0.7rem;
-  color: #bce8ff;
-  font-size: var(--fs-h2);
+.article-cover {
+  width: 100%;
+  display: block;
+  border-radius: 0.8rem;
+  margin-bottom: 1.15rem;
 }
 
-p,
-li,
-dd,
-td,
-th,
-label {
-  line-height: 1.72;
+.markdown-body :deep(*) {
+  box-sizing: border-box;
 }
 
-img {
-  max-width: 100%;
-  border-radius: 0.7rem;
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3),
+.markdown-body :deep(h4),
+.markdown-body :deep(h5),
+.markdown-body :deep(h6) {
+  color: rgba(230, 243, 255, 0.96);
+  margin: 1.05em 0 0.58em;
+  line-height: 1.3;
 }
 
-blockquote {
-  margin: 0;
-  padding: 0.9rem 1rem;
+.markdown-body :deep(h1) {
+  font-size: 2rem;
+}
+
+.markdown-body :deep(h2) {
+  font-size: 1.6rem;
+}
+
+.markdown-body :deep(h3) {
+  font-size: 1.35rem;
+}
+
+.markdown-body :deep(p),
+.markdown-body :deep(li),
+.markdown-body :deep(blockquote) {
+  line-height: 1.82;
+  color: rgba(206, 223, 240, 0.9);
+}
+
+.markdown-body :deep(p) {
+  margin: 0.78em 0;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  margin: 0.7em 0;
+  padding-left: 1.3rem;
+}
+
+.markdown-body :deep(blockquote) {
+  margin: 0.95em 0;
+  padding: 0.62rem 0.86rem;
   border-left: 3px solid #2ad4e1;
   background: rgba(255, 255, 255, 0.04);
+  border-radius: 0.35rem;
 }
 
-pre {
+.markdown-body :deep(pre) {
+  margin: 0.9em 0;
   overflow-x: auto;
   padding: 0.9rem;
   border-radius: 0.7rem;
   background: rgba(0, 0, 0, 0.35);
 }
 
-table {
+.markdown-body :deep(code) {
+  font-family: inherit;
+  font-size: 0.92em;
+}
+
+.markdown-body :deep(p code),
+.markdown-body :deep(li code) {
+  padding: 0.08rem 0.35rem;
+  border-radius: 0.32rem;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.markdown-body :deep(hr) {
+  border: 0;
+  border-top: 1px solid var(--theme-border);
+  margin: 1.2em 0;
+}
+
+.markdown-body :deep(table) {
   width: 100%;
   border-collapse: collapse;
+  margin: 1em 0;
+  border-radius: 0.62rem;
   overflow: hidden;
-  border-radius: 0.7rem;
 }
 
-th,
-td {
-  padding: 0.6rem 0.7rem;
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
   border: 1px solid var(--theme-border);
+  padding: 0.5rem 0.6rem;
+  text-align: left;
 }
 
-fieldset {
-  border: 1px solid var(--theme-border);
-  border-radius: 0.7rem;
-  padding: 0.9rem;
-}
-
-input,
-select,
-textarea,
-button {
-  width: 100%;
-  margin-top: 0.3rem;
-  margin-bottom: 0.6rem;
-  padding: 0.55rem 0.6rem;
-  border-radius: 0.45rem;
-  border: 1px solid var(--theme-border);
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--theme-text);
-}
-
-.form-actions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.6rem;
-  align-items: end;
-}
-
-.media-grid,
-.embed-grid {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.embed-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-iframe {
-  width: 100%;
-  min-height: 130px;
-  border-radius: 0.6rem;
-  border: 1px solid rgba(118, 170, 194, 0.24);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.article-footer {
-  margin-top: 1.7rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--theme-border);
-  color: var(--theme-text-mute);
+.markdown-body :deep(img) {
+  max-width: 100%;
+  border-radius: 0.68rem;
 }
 
 @media (max-width: 760px) {
@@ -557,9 +337,12 @@ iframe {
     padding: 1rem;
   }
 
-  .form-actions,
-  .embed-grid {
-    grid-template-columns: 1fr;
+  .markdown-body :deep(h1) {
+    font-size: 1.72rem;
+  }
+
+  .markdown-body :deep(h2) {
+    font-size: 1.45rem;
   }
 }
 </style>

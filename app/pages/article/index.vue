@@ -1,9 +1,10 @@
-<script setup lang="ts">
-import { articles } from "~/data/articles";
+﻿<script setup lang="ts">
+const { settings } = useSiteSettings();
+const { articles } = useArticles();
 
-useHead({
-  title: "文章 - NeHex",
-});
+useHead(() => ({
+  title: `文章 - ${settings.value.siteTitle}`,
+}));
 
 const sortBy = ref<"latest" | "oldest" | "updated">("latest");
 const searchKeyword = ref("");
@@ -20,7 +21,7 @@ const blogTextTimeoutIds: number[] = [];
 const normalizedKeyword = computed(() => searchKeyword.value.trim().toLowerCase());
 
 const filteredArticles = computed(() => {
-  return articles.filter((article) => {
+  return articles.value.filter((article) => {
     const byKeyword =
       normalizedKeyword.value.length === 0 ||
       [article.title, article.summary, article.excerpt, article.tags.join(" ")]
@@ -60,7 +61,7 @@ const pagedArticles = computed(() => {
 
 const tagStats = computed(() => {
   const map = new Map<string, number>();
-  for (const article of articles) {
+  for (const article of articles.value) {
     for (const tag of article.tags) {
       map.set(tag, (map.get(tag) ?? 0) + 1);
     }
@@ -219,13 +220,17 @@ function onArticleCardLeave(event: MouseEvent) {
           @mouseenter="onArticleCardEnter"
           @mouseleave="onArticleCardLeave"
         >
-          <p class="featured-badge">置顶</p>
+          <div class="card-cover-side" aria-hidden="true">
+            <img :src="featuredArticle.cover" alt="" />
+            <span class="card-cover-fade" />
+          </div>
+          <p class="featured-badge">置顶 ✨</p>
           <h2>{{ featuredArticle.title }}</h2>
           <p class="featured-summary">{{ featuredArticle.summary }}</p>
           <div class="post-bottom">
             <p class="post-meta">
               <time :datetime="featuredArticle.publishedAt">{{ formatDate(featuredArticle.publishedAt) }}</time>
-              <span v-if="featuredArticle.edited">（已编辑）</span>
+              <span v-if="featuredArticle.edited"></span>
               <strong>{{ featuredArticle.category }}</strong>
             </p>
             <div class="post-stats">
@@ -250,8 +255,8 @@ function onArticleCardLeave(event: MouseEvent) {
           <p>共 {{ filteredArticles.length }} 篇</p>
           <div class="sort-row">
             <button :class="{ active: sortBy === 'latest' }" @click="sortBy = 'latest'">最新</button>
-            <button :class="{ active: sortBy === 'oldest' }" @click="sortBy = 'oldest'">最早</button>
-            <button :class="{ active: sortBy === 'updated' }" @click="sortBy = 'updated'">最近更新</button>
+            <button :class="{ active: sortBy === 'oldest' }" @click="sortBy = 'oldest'">最久</button>
+            <button :class="{ active: sortBy === 'updated' }" @click="sortBy = 'updated'">新更新✨</button>
           </div>
         </div>
 
@@ -265,6 +270,10 @@ function onArticleCardLeave(event: MouseEvent) {
             @mouseenter="onArticleCardEnter"
             @mouseleave="onArticleCardLeave"
           >
+            <div class="card-cover-side" aria-hidden="true">
+              <img :src="article.cover" alt="" />
+              <span class="card-cover-fade" />
+            </div>
             <h3>{{ article.title }}</h3>
             <p class="post-excerpt">{{ article.excerpt }}</p>
 
@@ -296,9 +305,9 @@ function onArticleCardLeave(event: MouseEvent) {
         </div>
 
         <div class="pager">
-          <button :disabled="currentPage <= 1" @click="gotoPrevPage">← 上一页</button>
-          <p>第 {{ currentPage }} 页，共 {{ totalPages }} 页</p>
-          <button :disabled="currentPage >= totalPages" @click="gotoNextPage">下一页 →</button>
+          <button :disabled="currentPage <= 1" @click="gotoPrevPage">上一页</button>
+          <p>第{{ currentPage }}/{{ totalPages }}页</p>
+          <button :disabled="currentPage >= totalPages" @click="gotoNextPage">下一页</button>
         </div>
       </section>
 
@@ -325,7 +334,7 @@ function onArticleCardLeave(event: MouseEvent) {
             </button>
           </div>
 
-          <button class="all-tag-btn" @click="activeTag = null">全部标签</button>
+          <button class="all-tag-btn" @click="activeTag = null">查看所有</button>
         </div>
       </aside>
     </main>
@@ -387,12 +396,13 @@ function onArticleCardLeave(event: MouseEvent) {
 }
 
 .featured-card {
+  --card-cover-width: clamp(10rem, 30%, 18rem);
   display: block;
   position: relative;
   isolation: isolate;
   overflow: hidden;
   margin-top: 1rem;
-  padding: 1.4rem 1.5rem;
+  padding: 1.4rem calc(1.5rem + var(--card-cover-width)) 1.4rem 1.5rem;
   border-radius: 0.72rem;
   text-decoration: none;
   color: inherit;
@@ -410,7 +420,7 @@ function onArticleCardLeave(event: MouseEvent) {
   pointer-events: none;
   transform: scaleX(0);
   transform-origin: right center;
-  z-index: 0;
+  z-index: 1;
   will-change: transform;
 }
 
@@ -444,10 +454,10 @@ function onArticleCardLeave(event: MouseEvent) {
   animation: article-card-layer-one-out 0.32s cubic-bezier(0.2, 0.86, 0.25, 1) 0.1s forwards;
 }
 
-.featured-card > *,
-.post-item > * {
+.featured-card > :not(.card-cover-side),
+.post-item > :not(.card-cover-side) {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 .featured-badge {
@@ -524,11 +534,12 @@ function onArticleCardLeave(event: MouseEvent) {
 }
 
 .post-item {
+  --card-cover-width: clamp(9.2rem, 29%, 16rem);
   display: block;
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  padding: 1.25rem 1.1rem;
+  padding: 1.25rem calc(1.1rem + var(--card-cover-width)) 1.25rem 1.1rem;
   text-decoration: none;
   color: inherit;
   border: 1px solid var(--theme-border);
@@ -560,6 +571,37 @@ function onArticleCardLeave(event: MouseEvent) {
 .post-item:hover h3 {
   color: rgba(252, 254, 238, 0.98);
   background-size: 100% 0.54em;
+}
+
+.card-cover-side {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--card-cover-width);
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.card-cover-side img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: saturate(1.02) contrast(0.98) brightness(0.86);
+}
+
+.card-cover-fade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(8, 15, 27, 0.98) 0%,
+    rgba(8, 15, 27, 0.72) 32%,
+    rgba(8, 15, 27, 0.12) 78%,
+    rgba(8, 15, 27, 0) 100%
+  );
 }
 
 @keyframes article-card-layer-one-in {
@@ -823,5 +865,15 @@ function onArticleCardLeave(event: MouseEvent) {
   .post-item h3 {
     font-size: 1.7rem;
   }
+
+  .featured-card,
+  .post-item {
+    padding-right: 1rem;
+  }
+
+  .card-cover-side {
+    display: none;
+  }
 }
 </style>
+

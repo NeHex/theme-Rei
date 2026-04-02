@@ -1,23 +1,22 @@
 <script setup lang="ts">
-type ArchiveItem = {
-  date: string;
-  title: string;
-  to: string;
-};
+const { settings } = useSiteSettings();
+const { articles } = useArticles();
 
-useHead({
-  title: "归档 - NeHex",
-});
+useHead(() => ({
+  title: `归档 - ${settings.value.siteTitle}`,
+}));
 
-const archives: readonly ArchiveItem[] = [
-  { date: "2024-02-03", title: "游记", to: "/article/ai-fatigue-real" },
-  { date: "2023-03-10", title: "近况", to: "/article/ai-rebuild-rfc-plan" },
-  { date: "2022-06-11", title: "朝花夕拾", to: "/article/lobehub-performance-dx" },
-  { date: "2022-05-22", title: "阶段总结", to: "/article/my-ai-writing-workflow" },
-  { date: "2022-05-22", title: "深夜 emo", to: "/article/after-leaving-folo" },
-  { date: "2022-05-21", title: "这段记忆 - 上海", to: "/article/look-back-at-myself" },
-  { date: "2022-05-21", title: "年终总结", to: "/article/follow-development-monthly-01" },
-];
+function formatDate(dateInput: string) {
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return dateInput;
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(date)
+    .replace(/\//g, "-");
+}
 </script>
 
 <template>
@@ -30,14 +29,18 @@ const archives: readonly ArchiveItem[] = [
 
         <div class="archive-list">
           <NuxtLink
-            v-for="item in archives"
-            :key="`${item.date}-${item.title}`"
-            :to="item.to"
+            v-for="article in articles"
+            :key="article.id"
+            :to="`/article/${article.id}`"
             class="archive-item"
           >
-            <time class="archive-date" :datetime="item.date">{{ item.date }}</time>
-            <span class="archive-title">{{ item.title }}</span>
+            <time class="archive-date" :datetime="article.updatedAt">
+              {{ formatDate(article.updatedAt) }}
+            </time>
+            <span class="archive-title">{{ article.title }}</span>
           </NuxtLink>
+
+          <p v-if="!articles.length" class="archive-empty">暂无文章</p>
         </div>
       </section>
     </main>
@@ -71,7 +74,7 @@ const archives: readonly ArchiveItem[] = [
 }
 
 .archive-list {
-  margin-top: 2rem;
+  margin-top: 1.8rem;
   display: flex;
   flex-direction: column;
 }
@@ -81,7 +84,7 @@ const archives: readonly ArchiveItem[] = [
   grid-template-columns: 9.2rem 1fr;
   gap: 1.15rem;
   align-items: baseline;
-  padding: 0.86rem 0;
+  padding: 0.82rem 0;
   text-decoration: none;
   color: var(--theme-text);
 }
@@ -106,6 +109,11 @@ const archives: readonly ArchiveItem[] = [
   transform: translateX(2px);
 }
 
+.archive-empty {
+  margin: 0.9rem 0 0;
+  color: var(--theme-text-mute);
+}
+
 @media (max-width: 760px) {
   .archive-page {
     padding: 6.1rem 0.6rem 2rem;
@@ -126,7 +134,7 @@ const archives: readonly ArchiveItem[] = [
   .archive-item {
     grid-template-columns: 1fr;
     gap: 0.32rem;
-    padding: 0.8rem 0;
+    padding: 0.78rem 0;
   }
 
   .archive-date {
