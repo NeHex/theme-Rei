@@ -1,4 +1,4 @@
-type AlbumApiItem = {
+﻿type AlbumApiItem = {
   id: number;
   title: string;
   cover: string | null;
@@ -37,7 +37,9 @@ export default defineEventHandler(async (event) => {
       `${normalizeBaseUrl(String(apiBase))}/album/${albumId}`,
       {
         method: "GET",
-        timeout: 8000,
+        timeout: 12000,
+        retry: 1,
+        retryDelay: 250,
       },
     );
 
@@ -58,3 +60,4 @@ export default defineEventHandler(async (event) => {
     });
   }
 });
+

@@ -19,6 +19,7 @@ type DailyRecord = {
   date: string;
   title: string;
   summary: string;
+  weatherKey: DailyWeatherKey;
   to: string;
 };
 
@@ -44,9 +45,12 @@ type SocialItem = {
   icon: "github" | "bilibili" | "steam" | "neteasemusic" | "email" | "feed";
 };
 
+type DailyWeatherKey = "sun" | "rain" | "wind" | "snow" | "cloud";
+
 const { settings } = useSiteSettings();
 const { articles: fetchedArticles } = useArticles();
 const { albums: fetchedAlbums } = useAlbums();
+const { dailies: fetchedDailies } = useDailies();
 
 const gallery: readonly [GalleryItem, ...GalleryItem[]] = [
   {
@@ -68,40 +72,101 @@ const homePosts = computed<BlogPost[]>(() =>
   })),
 );
 
-const dailyRecords: readonly DailyRecord[] = [
+const fallbackDailyRecords: readonly DailyRecord[] = [
   {
     year: "2026",
     date: "03.04",
-    title: "首页 Nuxt 3 升级至 4 版本 / 小窝多个服务更新",
+    title: "暂无日常哦",
     summary:
-      "更新首页 Nuxt 3 -> 4 版本主要调整了文件目录结构为主，多个文件夹放在了 /app 里面，顺带把命名统一成中划线。",
-    to: "/article/tailwind-v4-color-system",
-  },
-  {
-    year: "2026",
-    date: "02.23",
-    title: "春节假期总结",
-    summary:
-      "第一天：在家休息继续修图返图、第二天：休息的同时把测试进度合并到记录里，整体节奏很舒服。",
-    to: "/article/after-leaving-folo",
-  },
-  {
-    year: "2026",
-    date: "01.12",
-    title: "因一位招聘人选引发的思考 / 精力与热情的较量",
-    summary:
-      "下班后聊到一位设计招聘人选，回头对照了自己的学习结构。她最突出的点就是快速学习能力和执行力。",
-    to: "/article/better-auth-multi-tenant",
-  },
-  {
-    year: "2026",
-    date: "01.03",
-    title: "帮外婆换的新手机导数据",
-    summary:
-      "上午外婆来我家做客，换新手机后数据迁移还没完成。后来把通讯录和照片分批迁移，预留了后续备份计划。",
-    to: "/article/context-engineering-intro",
-  },
+      "请前往后台更新你的日常",
+    weatherKey: "sun",
+    to: "#",
+  }
 ];
+
+function formatDailyYear(dateInput: string) {
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return "----";
+  return String(date.getFullYear());
+}
+
+function formatDailyDate(dateInput: string) {
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return "--.--";
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${month}.${day}`;
+}
+
+function mapDailyWeatherKey(rawWeather: string): DailyWeatherKey {
+  const value = rawWeather.trim().toLowerCase();
+  if (!value) return "cloud";
+
+  if (
+    value.includes("sun")
+    || value.includes("clear")
+    || value.includes("晴")
+  ) {
+    return "sun";
+  }
+
+  if (
+    value.includes("rain")
+    || value.includes("drizzle")
+    || value.includes("shower")
+    || value.includes("storm")
+    || value.includes("雨")
+    || value.includes("雷")
+  ) {
+    return "rain";
+  }
+
+  if (
+    value.includes("wind")
+    || value.includes("breeze")
+    || value.includes("gust")
+    || value.includes("风")
+    || value.includes("台风")
+  ) {
+    return "wind";
+  }
+
+  if (
+    value.includes("snow")
+    || value.includes("sleet")
+    || value.includes("冰雹")
+    || value.includes("雪")
+  ) {
+    return "snow";
+  }
+
+  if (
+    value.includes("cloud")
+    || value.includes("overcast")
+    || value.includes("阴")
+    || value.includes("多云")
+    || value.includes("云")
+  ) {
+    return "cloud";
+  }
+
+  return "cloud";
+}
+
+const dailyRecords = computed<DailyRecord[]>(() => {
+  const items = fetchedDailies.value.slice(0, 4).map((daily) => {
+    return {
+      year: formatDailyYear(daily.createdAt),
+      date: formatDailyDate(daily.createdAt),
+      title: daily.title,
+      summary: daily.summary,
+      weatherKey: mapDailyWeatherKey(daily.weather),
+      to: "/archive",
+    };
+  });
+
+  return items.length ? items : [...fallbackDailyRecords];
+});
 
 const fallbackPhotos: readonly PhotoItem[] = [
   {
@@ -110,28 +175,7 @@ const fallbackPhotos: readonly PhotoItem[] = [
     image: "/images/pic.jpg",
     alt: "Recent capture 1",
     to: "/album",
-  },
-  {
-    title: "李元芳",
-    date: "2026-03-22",
-    image: "/images/pic.jpg",
-    alt: "Recent capture 2",
-    to: "/album",
-  },
-  {
-    title: "李元芳",
-    date: "2026-03-22",
-    image: "/images/pic.jpg",
-    alt: "Recent capture 3",
-    to: "/album",
-  },
-  {
-    title: "李元芳",
-    date: "2026-03-22",
-    image: "/images/pic.jpg",
-    alt: "Recent capture 4",
-    to: "/album",
-  },
+  }
 ];
 
 const photos = computed<PhotoItem[]>(() => {
@@ -150,31 +194,10 @@ const projects: readonly ProjectItem[] = [
   {
     title: "CoseRoom",
     summary:
-      "面向 Cos 与社区活动的记录空间，支持图文发布与主题展示。",
+      "图文视频音乐分享平台",
     icon: "/images/coseroom-logo.png",
-    to: "/article",
-  },
-  {
-    title: "NeHex Theme Kit",
-    summary:
-      "博客主题的快速模板和组件集，视觉风格与布局支持一键复用。",
-    icon: "/images/coseroom-logo.png",
-    to: "/article",
-  },
-  {
-    title: "Shot Archive",
-    summary:
-      "照片整理工具，给日常拍摄内容做标签、归档和分享输出。",
-    icon: "/images/coseroom-logo.png",
-    to: "/article",
-  },
-  {
-    title: "Sprint Notes",
-    summary:
-      "轻量的项目迭代记录页，把周报、问题追踪和复盘合并在一处。",
-    icon: "/images/coseroom-logo.png",
-    to: "/article",
-  },
+    to: "https://coseroom.com",
+  }
 ];
 
 const currentIndex = ref(0);
@@ -389,7 +412,6 @@ onBeforeUnmount(() => {
                 :href="item.href"
                 class="icon-btn"
                 :aria-label="item.label"
-                :title="item.label"
                 :target="isExternalLink(item.href) ? '_blank' : undefined"
                 :rel="isExternalLink(item.href) ? 'noopener noreferrer' : undefined"
               >
@@ -408,6 +430,7 @@ onBeforeUnmount(() => {
                   <path d="M4 10a10 10 0 0 1 10 10" />
                   <path d="M4 4a16 16 0 0 1 16 16" />
                 </svg>
+                <span class="icon-tooltip" aria-hidden="true">{{ item.label }}</span>
               </a>
             </div>
           </div>
@@ -445,7 +468,7 @@ onBeforeUnmount(() => {
             <span>博客文章</span>
           </h2>
           <p class="blog-subtitle">
-            分享技术积累与人生感悟，文字版“正片”
+            Just For Interesting
           </p>
         </div>
 
@@ -488,7 +511,7 @@ onBeforeUnmount(() => {
             <span>日常记录</span>
           </h2>
           <p class="journal-subtitle">
-            分享工作、生活、编程、摄影日常
+            我们所度过的每个平凡的日常，也许就是连续发生的奇迹
           </p>
         </div>
 
@@ -503,6 +526,7 @@ onBeforeUnmount(() => {
             <div class="journal-date">
               <div class="journal-year">{{ record.year }}</div>
               <div class="journal-day">{{ record.date }}</div>
+              <span class="journal-weather-bg" :data-weather="record.weatherKey" aria-hidden="true" />
             </div>
             <div class="journal-body">
               <h3 class="journal-card-title">{{ record.title }}</h3>
@@ -515,10 +539,10 @@ onBeforeUnmount(() => {
       <div ref="photoShellRef" id="photo" class="photo-shell section-shell">
         <div class="photo-heading">
           <h2 class="photo-title">
-            <span>近期捕获</span>
+            <span>美图相册</span>
           </h2>
           <p class="photo-subtitle">
-            捕捉人生中的每一份精彩时刻与温暖
+            把所有的美丽分享给你
           </p>
         </div>
 
@@ -720,9 +744,11 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 0.38rem;
+  flex-wrap: wrap;
 }
 
 .icon-btn {
+  position: relative;
   width: 2.24rem;
   height: 2.24rem;
   display: inline-flex;
@@ -730,13 +756,51 @@ onBeforeUnmount(() => {
   justify-content: center;
   border-radius: 0.58rem;
   color: rgba(236, 245, 255, 0.92);
-  border: 1px solid transparent;
-  background: transparent;
+  border: 1px solid rgba(173, 216, 243, 0.12);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+  background-image: none;
+  background-size: 0 0;
+  transition:
+    border-color 0.24s cubic-bezier(0.2, 0.86, 0.24, 1),
+    background-color 0.24s cubic-bezier(0.2, 0.86, 0.24, 1),
+    box-shadow 0.24s cubic-bezier(0.2, 0.86, 0.24, 1),
+    color 0.24s cubic-bezier(0.2, 0.86, 0.24, 1),
+    transform 0.24s cubic-bezier(0.2, 0.86, 0.24, 1);
+}
+
+.icon-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(140, 221, 255, 0.2) 0%,
+    rgba(66, 176, 232, 0.08) 45%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.26s cubic-bezier(0.2, 0.86, 0.24, 1);
+  pointer-events: none;
 }
 
 .icon-btn:hover {
-  border-color: rgba(214, 235, 255, 0.28);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(214, 235, 255, 0.45);
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.26);
+  transform: translateY(-1px);
+}
+
+.icon-btn:hover::before,
+.icon-btn:focus-visible::before {
+  opacity: 1;
+}
+
+.icon-btn:focus-visible {
+  outline: none;
+  border-color: rgba(214, 235, 255, 0.5);
 }
 
 .icon-mask {
@@ -746,11 +810,15 @@ onBeforeUnmount(() => {
   background-color: currentColor;
   mask: var(--icon-url) center / contain no-repeat;
   -webkit-mask: var(--icon-url) center / contain no-repeat;
+  position: relative;
+  z-index: 1;
 }
 
 .icon-btn svg {
   width: 1.26rem;
   height: 1.26rem;
+  position: relative;
+  z-index: 1;
 }
 
 .icon-btn circle {
@@ -763,6 +831,51 @@ onBeforeUnmount(() => {
   stroke-width: 1.75;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.icon-tooltip {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 0.44rem);
+  transform: translate(-50%, -4px);
+  min-width: 3.6rem;
+  padding: 0.36rem 0.62rem;
+  border-radius: 0.66rem;
+  border: 1px solid rgba(156, 189, 214, 0.2);
+  background: rgba(27, 31, 40, 0.96);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
+  color: rgba(244, 247, 252, 0.95);
+  font-size: 0.85rem;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.2s cubic-bezier(0.2, 0.86, 0.24, 1),
+    transform 0.2s cubic-bezier(0.2, 0.86, 0.24, 1),
+    visibility 0.2s step-end;
+  z-index: 16;
+}
+
+.icon-tooltip::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -0.28rem;
+  width: 0.56rem;
+  height: 0.56rem;
+  transform: translateX(-50%) rotate(45deg);
+  border-left: 1px solid rgba(156, 189, 214, 0.2);
+  border-top: 1px solid rgba(156, 189, 214, 0.2);
+  background: rgba(27, 31, 40, 0.96);
+}
+
+.icon-btn:hover .icon-tooltip,
+.icon-btn:focus-visible .icon-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
 }
 
 .card-right {
@@ -1217,6 +1330,7 @@ onBeforeUnmount(() => {
 }
 
 .journal-date {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -1225,16 +1339,64 @@ onBeforeUnmount(() => {
 }
 
 .journal-year {
+  position: relative;
+  z-index: 1;
   font-size: 2rem;
   line-height: 1;
   opacity: 0.86;
 }
 
 .journal-day {
+  position: relative;
+  z-index: 1;
   margin-top: 0.9rem;
   font-size: 3.2rem;
   line-height: 0.9;
   font-weight: 500;
+}
+
+.journal-weather-bg {
+  position: absolute;
+  left: -0.08rem;
+  bottom: -0.66rem;
+  z-index: 0;
+  width: 4.7rem;
+  height: 4.7rem;
+  pointer-events: none;
+  opacity: 0.22;
+  background: linear-gradient(145deg, rgba(73, 183, 210, 0.85), rgba(22, 129, 173, 0.75));
+  filter: drop-shadow(0 0 12px rgba(14, 164, 197, 0.2));
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+}
+
+.journal-weather-bg[data-weather="sun"] {
+  mask-image: url("/images/weather/sun.svg");
+  -webkit-mask-image: url("/images/weather/sun.svg");
+}
+
+.journal-weather-bg[data-weather="rain"] {
+  mask-image: url("/images/weather/rain.svg");
+  -webkit-mask-image: url("/images/weather/rain.svg");
+}
+
+.journal-weather-bg[data-weather="wind"] {
+  mask-image: url("/images/weather/wind.svg");
+  -webkit-mask-image: url("/images/weather/wind.svg");
+}
+
+.journal-weather-bg[data-weather="snow"] {
+  mask-image: url("/images/weather/snow.svg");
+  -webkit-mask-image: url("/images/weather/snow.svg");
+}
+
+.journal-weather-bg[data-weather="cloud"] {
+  mask-image: url("/images/weather/cloud.svg");
+  -webkit-mask-image: url("/images/weather/cloud.svg");
 }
 
 .journal-card-title {

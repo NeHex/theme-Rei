@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <path d="M32 8V56" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M11 20L53 44" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M11 44L53 20" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M32 8L36 14" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M32 8L28 14" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M32 56L28 50" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M32 56L36 50" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M11 20L18 20" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M11 20L15 26" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M53 44L46 44" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M53 44L49 38" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M11 44L18 44" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M11 44L15 38" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M53 20L46 20" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M53 20L49 26" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <path
+    d="M10 22H40C44.42 22 48 18.42 48 14C48 10.69 50.69 8 54 8C57.31 8 60 10.69 60 14"
+    stroke="currentColor"
+    stroke-width="4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M6 34H46C50.42 34 54 37.58 54 42C54 45.31 56.69 48 60 48"
+    stroke="currentColor"
+    stroke-width="4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M14 46H30C34.42 46 38 49.58 38 54C38 57.31 40.69 60 44 60"
+    stroke="currentColor"
+    stroke-width="4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

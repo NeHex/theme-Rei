@@ -18,6 +18,12 @@ type NavItem = {
   to: string;
 };
 
+export type WifeProfile = {
+  cnName: string;
+  otherName: string;
+  image: string;
+};
+
 export type SiteSettings = {
   siteTitle: string;
   siteDesc: string;
@@ -28,7 +34,7 @@ export type SiteSettings = {
   themeBackground: string;
   themeHeadmsg: string;
   themeNav: NavItem[];
-  themeWifes: string[];
+  themeWifes: WifeProfile[];
   userName: string;
   userDesc: string;
   userHeadpic: string;
@@ -105,32 +111,57 @@ function parseJsonObject(value: unknown) {
   return {};
 }
 
-function pickWifeImage(value: unknown) {
+function pickWifeRecord(value: unknown): WifeProfile | null {
   if (typeof value === "string") {
-    return normalizeAssetPath(value);
+    const image = normalizeAssetPath(value);
+    if (!image) return null;
+    return {
+      cnName: "",
+      otherName: "",
+      image,
+    };
   }
 
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return "";
+    return null;
   }
 
   const record = value as Record<string, unknown>;
-  const candidate =
+  const imageCandidate =
     record.image ??
     record.src ??
     record.url ??
     record.cover ??
     record.pic ??
     record.img;
+  const cnNameCandidate =
+    record.cn_name ??
+    record.cnName ??
+    record.name ??
+    record.title ??
+    record.label;
+  const otherNameCandidate =
+    record.other_name ??
+    record.otherName ??
+    record.alias ??
+    record.subtitle ??
+    record.subTitle;
 
-  return normalizeAssetPath(asString(candidate));
+  const image = normalizeAssetPath(asString(imageCandidate));
+  if (!image) return null;
+
+  return {
+    cnName: asString(cnNameCandidate).trim(),
+    otherName: asString(otherNameCandidate).trim(),
+    image,
+  };
 }
 
-function parseThemeWifes(value: unknown): string[] {
+function parseThemeWifes(value: unknown): WifeProfile[] {
   if (Array.isArray(value)) {
     return value
-      .map((item) => pickWifeImage(item))
-      .filter(Boolean);
+      .map((item) => pickWifeRecord(item))
+      .filter((item): item is WifeProfile => Boolean(item));
   }
 
   if (typeof value === "string") {
@@ -148,8 +179,8 @@ function parseThemeWifes(value: unknown): string[] {
 
     return trimmed
       .split(/[\n,]/g)
-      .map((item) => normalizeAssetPath(item))
-      .filter(Boolean);
+      .map((item) => pickWifeRecord(item))
+      .filter((item): item is WifeProfile => Boolean(item));
   }
 
   if (value && typeof value === "object") {
@@ -163,8 +194,8 @@ function parseThemeWifes(value: unknown): string[] {
     }
 
     return Object.values(record)
-      .map((item) => pickWifeImage(item))
-      .filter(Boolean);
+      .map((item) => pickWifeRecord(item))
+      .filter((item): item is WifeProfile => Boolean(item));
   }
 
   return [];

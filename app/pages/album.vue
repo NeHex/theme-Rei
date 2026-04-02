@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { mapAlbumApiItem } from "~/composables/useAlbums";
 
 type AlbumDetailApiResponse = {
@@ -31,7 +31,10 @@ const albumCategories = computed(() => {
     if (!album.category) continue;
     categorySet.add(album.category);
   }
-  return [allCategoryLabel, ...Array.from(categorySet)];
+  const sortedCategories = Array.from(categorySet).sort((a, b) =>
+    a.localeCompare(b, "zh-Hans-CN", { numeric: true }),
+  );
+  return [allCategoryLabel, ...sortedCategories];
 });
 
 watch(
@@ -109,10 +112,11 @@ function formatDate(dateInput: string) {
     <main class="album-shell">
       <aside class="album-sidebar">
         <button
-          v-for="category in albumCategories"
+          v-for="(category, index) in albumCategories"
           :key="category"
-          class="category-btn"
+          class="category-btn category-btn-reveal"
           :class="{ active: category === activeCategory }"
+          :style="{ '--category-order': index }"
           @click="activeCategory = category"
         >
           {{ category }}
@@ -121,9 +125,10 @@ function formatDate(dateInput: string) {
 
       <section class="album-grid">
         <article
-          v-for="item in filteredItems"
+          v-for="(item, index) in filteredItems"
           :key="item.id"
-          class="album-card"
+          class="album-card album-card-reveal"
+          :style="{ '--album-order': index }"
           role="button"
           tabindex="0"
           @click="openAlbumViewer(item)"
@@ -203,6 +208,13 @@ function formatDate(dateInput: string) {
   transition: all 0.18s ease;
 }
 
+.category-btn-reveal {
+  opacity: 0;
+  transform: translateX(-1rem);
+  animation: category-slide-in 460ms cubic-bezier(0.2, 0.86, 0.24, 1) both;
+  animation-delay: calc(var(--category-order, 0) * 80ms);
+}
+
 .category-btn:hover {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.08);
@@ -228,6 +240,12 @@ function formatDate(dateInput: string) {
   min-width: 0;
   cursor: pointer;
   transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.album-card-reveal {
+  opacity: 0;
+  animation: album-card-flicker-in 440ms ease-out both;
+  animation-delay: calc(var(--album-order, 0) * 42ms);
 }
 
 .album-card:hover {
@@ -299,6 +317,50 @@ function formatDate(dateInput: string) {
   background: rgba(255, 255, 255, 0.02);
 }
 
+@keyframes category-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-1rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes album-card-flicker-in {
+  0% {
+    opacity: 0.1;
+    filter: brightness(0.5);
+  }
+
+  20% {
+    opacity: 1;
+    filter: brightness(1.28);
+  }
+
+  40% {
+    opacity: 0.25;
+    filter: brightness(0.62);
+  }
+
+  60% {
+    opacity: 1;
+    filter: brightness(1.18);
+  }
+
+  80% {
+    opacity: 0.62;
+    filter: brightness(0.9);
+  }
+
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
 @media (max-width: 1180px) {
   .album-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -341,4 +403,15 @@ function formatDate(dateInput: string) {
     grid-template-columns: 1fr;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .category-btn-reveal,
+  .album-card-reveal {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    animation: none !important;
+  }
+}
 </style>
+

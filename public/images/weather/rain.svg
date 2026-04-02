@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <path
+    d="M18 36C11.37 36 6 30.63 6 24C6 17.37 11.37 12 18 12C22.03 12 25.59 13.99 27.77 17.04C29.77 15.17 32.44 14 35.38 14C41.56 14 46.68 19.1 47.18 25.27C51.06 26.23 54 29.73 54 33.95C54 38.9 49.98 42.91 45.03 42.91H18"
+    stroke="currentColor"
+    stroke-width="4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path d="M22 46L19 54" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M34 46L31 54" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+  <path d="M46 46L43 54" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+</svg>

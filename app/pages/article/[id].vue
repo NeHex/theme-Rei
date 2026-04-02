@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import MarkdownIt from "markdown-it";
 
 const route = useRoute();
@@ -41,6 +41,15 @@ function formatDate(dateInput: string) {
 function formatCount(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
+
+function handleCommentSubmit(payload: {
+  content: string;
+  targetType: string;
+  targetId: number;
+  parentId: number;
+}) {
+  console.log("[comment-mock-submit]", payload);
+}
 </script>
 
 <template>
@@ -80,6 +89,11 @@ function formatCount(value: number) {
           <img v-if="article.cover" :src="article.cover" :alt="article.title" class="article-cover" />
           <div class="markdown-body" v-html="renderedMarkdown" />
         </article>
+
+        <CommentSection
+          :article-id="article.id"
+          @submit="handleCommentSubmit"
+        />
       </template>
 
       <section v-else class="article-card article-loading">
@@ -346,3 +360,4 @@ address {
   }
 }
 </style>
+

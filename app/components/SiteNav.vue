@@ -13,9 +13,23 @@ const feedHref = computed(
   () => settings.value.userSocialLink.feed || settings.value.userSocialLink.rss || "/feed.xml",
 );
 const dropdownLinks = computed(() => settings.value.themeNav);
+const hoveredMoreIndex = ref(-1);
 
 function isExternalLink(url: string) {
   return /^https?:\/\//.test(url) || url.startsWith("mailto:");
+}
+
+function openMoreMenu() {
+  if (!dropdownLinks.value.length) return;
+  hoveredMoreIndex.value = 0;
+}
+
+function closeMoreMenu() {
+  hoveredMoreIndex.value = -1;
+}
+
+function focusMoreItem(index: number) {
+  hoveredMoreIndex.value = index;
 }
 </script>
 
@@ -32,7 +46,11 @@ function isExternalLink(url: string) {
         <NuxtLink to="/album" class="nav-link" :class="{ active: isAlbum }">相册</NuxtLink>
         <NuxtLink to="/archive" class="nav-link" :class="{ active: isArchive }">归档</NuxtLink>
 
-        <div class="nav-dropdown">
+        <div
+          class="nav-dropdown"
+          @mouseenter="openMoreMenu"
+          @mouseleave="closeMoreMenu"
+        >
           <button type="button" class="nav-link nav-link-more" aria-haspopup="true">
             更多
             <svg class="nav-caret" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -40,17 +58,32 @@ function isExternalLink(url: string) {
             </svg>
           </button>
           <div class="dropdown-menu">
-            <template v-for="item in dropdownLinks" :key="`${item.label}-${item.to}`">
+            <span
+              class="dropdown-active-pill"
+              :class="{ 'is-visible': hoveredMoreIndex >= 0 }"
+              :style="{ '--pill-index': hoveredMoreIndex }"
+              aria-hidden="true"
+            />
+
+            <template v-for="(item, index) in dropdownLinks" :key="`${item.label}-${item.to}`">
               <a
                 v-if="isExternalLink(item.to)"
                 :href="item.to"
                 class="dropdown-link"
                 target="_blank"
                 rel="noopener noreferrer"
+                @mouseenter="focusMoreItem(index)"
+                @focus="focusMoreItem(index)"
               >
                 {{ item.label }}
               </a>
-              <NuxtLink v-else :to="item.to" class="dropdown-link">
+              <NuxtLink
+                v-else
+                :to="item.to"
+                class="dropdown-link"
+                @mouseenter="focusMoreItem(index)"
+                @focus="focusMoreItem(index)"
+              >
                 {{ item.label }}
               </NuxtLink>
             </template>
@@ -112,6 +145,8 @@ function isExternalLink(url: string) {
   align-items: center;
   justify-content: center;
   margin-right: 0.52rem;
+  background-image: none;
+  background-size: 0 0;
 }
 
 .nav-avatar {
@@ -135,6 +170,8 @@ function isExternalLink(url: string) {
   font-weight: 600;
   letter-spacing: 0.01em;
   transition: all 0.18s ease;
+  background-image: none;
+  background-size: 0 0;
 }
 
 .nav-link:hover {
@@ -189,6 +226,10 @@ function isExternalLink(url: string) {
   top: calc(100% + var(--dropdown-gap));
   transform: translateX(-50%) translateY(-0.35rem);
   min-width: 7.2rem;
+  display: grid;
+  --dropdown-item-gap: 0.14rem;
+  --dropdown-item-height: 2.56rem;
+  gap: var(--dropdown-item-gap);
   padding: 0.38rem;
   border-radius: 0.62rem;
   border: 1px solid rgba(166, 215, 255, 0.24);
@@ -198,22 +239,70 @@ function isExternalLink(url: string) {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: all 0.2s ease;
+  transition: all 0.24s cubic-bezier(0.2, 0.86, 0.24, 1);
+}
+
+.dropdown-menu::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    145deg,
+    rgba(170, 225, 255, 0.14) 0%,
+    rgba(89, 167, 217, 0.06) 55%,
+    rgba(12, 58, 102, 0.06) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.24s cubic-bezier(0.2, 0.86, 0.24, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dropdown-active-pill {
+  position: absolute;
+  left: 0.38rem;
+  right: 0.38rem;
+  top: calc(
+    0.38rem + (var(--pill-index, 0) * (var(--dropdown-item-height) + var(--dropdown-item-gap)))
+  );
+  height: var(--dropdown-item-height);
+  border-radius: 0.42rem;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.2), rgba(170, 223, 255, 0.14));
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transition:
+    top 0.24s cubic-bezier(0.2, 0.86, 0.24, 1),
+    opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.dropdown-active-pill.is-visible {
+  opacity: 1;
 }
 
 .dropdown-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  height: var(--dropdown-item-height);
+  box-sizing: border-box;
+  line-height: 1;
   border-radius: 0.42rem;
-  padding: 0.46rem 0.58rem;
+  padding: 0 0.58rem;
   text-decoration: none;
   white-space: nowrap;
   color: var(--theme-text);
   font-size: var(--fs-small);
   font-weight: 600;
+  background-image: none;
+  background-size: 0 0;
+  transition: color 0.2s ease;
 }
 
 .dropdown-link:hover {
-  background: rgba(255, 255, 255, 0.14);
   color: #ffffff;
 }
 
@@ -223,6 +312,11 @@ function isExternalLink(url: string) {
   visibility: visible;
   pointer-events: auto;
   transform: translateX(-50%) translateY(0);
+}
+
+.nav-dropdown:hover .dropdown-menu::before,
+.nav-dropdown:focus-within .dropdown-menu::before {
+  opacity: 1;
 }
 
 .nav-dropdown:hover .nav-caret,
@@ -239,6 +333,8 @@ function isExternalLink(url: string) {
   justify-content: center;
   background: rgba(255, 255, 255, 0.08);
   color: rgba(241, 247, 255, 0.92);
+  background-image: none;
+  background-size: 0 0;
 }
 
 .feed-link svg {

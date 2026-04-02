@@ -1,16 +1,16 @@
-﻿type AlbumApiItem = {
+﻿type FriendApiItem = {
   id: number;
   title: string;
-  cover: string | null;
-  class: string;
-  like_count: number;
-  img_urls: string | null;
+  description: string | null;
+  category: string;
+  favicon: string | null;
+  url: string;
+  status: "ok" | "missing" | "blocked";
   create_time: string;
-  update_time: string;
 };
 
-type AlbumApiResponse = {
-  data: AlbumApiItem[];
+type FriendApiResponse = {
+  data: FriendApiItem[];
 };
 
 function normalizeBaseUrl(baseUrl: string) {
@@ -25,8 +25,8 @@ export default defineEventHandler(async () => {
     "http://127.0.0.1:7878";
 
   try {
-    const response = await $fetch<AlbumApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/album`,
+    const response = await $fetch<FriendApiResponse>(
+      `${normalizeBaseUrl(String(apiBase))}/friend`,
       {
         method: "GET",
         timeout: 12000,
@@ -37,8 +37,8 @@ export default defineEventHandler(async () => {
 
     return response;
   } catch (error) {
-    console.error("[album-api] failed to fetch albums", error);
-    return { data: [] as AlbumApiItem[] };
+    console.error("[friend-api] failed to fetch friends", error);
+    return { data: [] as FriendApiItem[] };
   }
 });
 

@@ -1,4 +1,4 @@
-type SettingApiItem = {
+﻿type SettingApiItem = {
   setting_key: string;
   setting_type: "string" | "int" | "float" | "boolean" | "json";
   setting_content: unknown;
@@ -27,7 +27,9 @@ export default defineEventHandler(async () => {
       `${normalizeBaseUrl(String(apiBase))}/setting`,
       {
         method: "GET",
-        timeout: 8000,
+        timeout: 12000,
+        retry: 1,
+        retryDelay: 250,
       },
     );
 
@@ -37,3 +39,4 @@ export default defineEventHandler(async () => {
     return { data: [] as SettingApiItem[] };
   }
 });
+

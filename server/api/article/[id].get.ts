@@ -1,4 +1,4 @@
-type ArticleApiItem = {
+﻿type ArticleApiItem = {
   id: number;
   title: string;
   articleTopImage: string | null;
@@ -38,7 +38,9 @@ export default defineEventHandler(async (event) => {
       `${normalizeBaseUrl(String(apiBase))}/article/${articleId}`,
       {
         method: "GET",
-        timeout: 8000,
+        timeout: 12000,
+        retry: 1,
+        retryDelay: 250,
       },
     );
 
@@ -59,3 +61,4 @@ export default defineEventHandler(async (event) => {
     });
   }
 });
+

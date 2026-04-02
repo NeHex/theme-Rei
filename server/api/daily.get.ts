@@ -1,16 +1,13 @@
-﻿type AlbumApiItem = {
+﻿type DailyApiItem = {
   id: number;
   title: string;
-  cover: string | null;
-  class: string;
-  like_count: number;
-  img_urls: string | null;
+  content: string | null;
   create_time: string;
-  update_time: string;
+  weather: string | null;
 };
 
-type AlbumApiResponse = {
-  data: AlbumApiItem[];
+type DailyApiResponse = {
+  data: DailyApiItem[];
 };
 
 function normalizeBaseUrl(baseUrl: string) {
@@ -25,8 +22,8 @@ export default defineEventHandler(async () => {
     "http://127.0.0.1:7878";
 
   try {
-    const response = await $fetch<AlbumApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/album`,
+    const response = await $fetch<DailyApiResponse>(
+      `${normalizeBaseUrl(String(apiBase))}/daily`,
       {
         method: "GET",
         timeout: 12000,
@@ -37,8 +34,8 @@ export default defineEventHandler(async () => {
 
     return response;
   } catch (error) {
-    console.error("[album-api] failed to fetch albums", error);
-    return { data: [] as AlbumApiItem[] };
+    console.error("[daily-api] failed to fetch dailies", error);
+    return { data: [] as DailyApiItem[] };
   }
 });
 

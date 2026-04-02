@@ -1,7 +1,9 @@
-<script setup lang="ts">
-useHead({
-  title: "关于本站 - NeHex",
-});
+﻿<script setup lang="ts">
+const { settings } = useSiteSettings();
+
+useHead(() => ({
+  title: `关于本站 - ${settings.value.siteTitle}`,
+}));
 </script>
 
 <template>
