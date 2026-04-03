@@ -182,7 +182,7 @@ async function getGravatarUrl(email: string | null) {
   const hash = await sha256Hex(normalized);
   if (!hash) return DEFAULT_AVATAR;
 
-  const url = `https://gravatar.com/avatar/${hash}?s=${GRAVATAR_SIZE}&d=mp`;
+  const url = `https://cn.gravatar.com/avatar/${hash}?s=${GRAVATAR_SIZE}&d=mp`;
   gravatarCache.set(normalized, url);
   return url;
 }

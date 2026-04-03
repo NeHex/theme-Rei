@@ -779,6 +779,7 @@ onBeforeUnmount(() => {
           <p class="project-modal-content">{{ activeProject.content }}</p>
 
           <div v-if="activeProject.techStack.length" class="project-modal-tags">
+            技术栈：
             <span v-for="tech in activeProject.techStack" :key="`${activeProject.id}-${tech}`">
               {{ tech }}
             </span>
