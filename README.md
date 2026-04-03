@@ -2,7 +2,9 @@
 NeHex个人空间引擎的默认主题
 
 pm2启动
-> PORT=7887 pm2 start .output/server/index.mjs --name "nehex-web"
+> pm2 start ecosystem.config.cjs
+
+说明：`pm2` 启动时会自动执行构建，再启动服务（默认端口 `7887`）。
 
 环境变量配置（`.env`）
 1. 复制 `.env.example` 为 `.env`
