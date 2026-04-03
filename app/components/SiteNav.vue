@@ -10,9 +10,11 @@ const isArchive = computed(() => route.path.startsWith("/archive"));
 
 const avatarSrc = computed(() => settings.value.userHeadpic || "/images/head.jpg");
 const avatarAlt = computed(() => `${settings.value.userName || "站长"}头像`);
-const feedHref = computed(
-  () => settings.value.userSocialLink.feed || settings.value.userSocialLink.rss || "/feed.xml",
-);
+const feedHref = computed(() => {
+  const candidate = settings.value.userSocialLink.feed || settings.value.userSocialLink.rss || "/feed";
+  if (candidate.trim().replace(/\/+$/, "") === "/feed.xml") return "/feed";
+  return candidate;
+});
 
 const dropdownLinks = computed(() => settings.value.themeNav);
 const homeDropdownLinks = computed(() =>

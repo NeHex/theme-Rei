@@ -72,7 +72,7 @@ const DEFAULT_SITE_SETTINGS: SiteSettings = {
   userHeadpic: "/images/head.jpg",
   userSocialLink: {
     github: "#",
-    feed: "/feed.xml",
+    feed: "/feed",
   },
 };
 
@@ -99,6 +99,15 @@ function normalizeLink(value: string) {
   if (trimmed.startsWith("mailto:")) return trimmed;
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return `mailto:${trimmed}`;
   return `/${trimmed.replace(/^\/+/, "")}`;
+}
+
+function normalizeSocialLink(key: string, value: unknown) {
+  const normalized = normalizeLink(asString(value));
+  const lowerKey = key.trim().toLowerCase();
+  if ((lowerKey === "feed" || lowerKey === "rss") && normalized.replace(/\/+$/, "") === "/feed.xml") {
+    return "/feed";
+  }
+  return normalized;
 }
 
 function parseJsonObject(value: unknown) {
@@ -344,7 +353,7 @@ function resolveSiteSettings(items: SettingApiItem[]) {
   const socialRecord = parseJsonObject(map.user_social_link);
   const socialLinks = Object.fromEntries(
     Object.entries(socialRecord)
-      .map(([key, value]) => [key, normalizeLink(asString(value))])
+      .map(([key, value]) => [key, normalizeSocialLink(key, value)])
       .filter(([, value]) => Boolean(value)),
   );
 

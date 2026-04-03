@@ -112,7 +112,7 @@ export default defineEventHandler(async (event) => {
   const configuredSiteUrl = asString(settingsMap.site_url, "").trim();
   const fallbackSiteUrl = `${requestUrl.protocol}//${requestUrl.host}`;
   const siteUrl = configuredSiteUrl || fallbackSiteUrl;
-  const feedUrl = toAbsoluteUrl("/feed.xml", siteUrl);
+  const feedUrl = toAbsoluteUrl("/feed", siteUrl);
 
   const sortedArticles = [...(articleResponse.data ?? [])].sort((a, b) => {
     return new Date(b.lastEditTime).getTime() - new Date(a.lastEditTime).getTime();
@@ -173,4 +173,3 @@ ${itemsXml}
 
   return xml;
 });
-
