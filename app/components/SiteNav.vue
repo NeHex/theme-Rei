@@ -1,6 +1,7 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 const route = useRoute();
 const { settings } = useSiteSettings();
+const { pages: singlePages } = useSinglePages();
 
 const isHome = computed(() => route.path === "/");
 const isArticle = computed(() => route.path.startsWith("/article"));
@@ -12,11 +13,30 @@ const avatarAlt = computed(() => `${settings.value.userName || "站长"}头像`)
 const feedHref = computed(
   () => settings.value.userSocialLink.feed || settings.value.userSocialLink.rss || "/feed.xml",
 );
+
 const dropdownLinks = computed(() => settings.value.themeNav);
+const homeDropdownLinks = computed(() =>
+  singlePages.value.map((page) => ({ label: page.title, to: page.to })),
+);
+
+const hoveredHomeIndex = ref(-1);
 const hoveredMoreIndex = ref(-1);
 
 function isExternalLink(url: string) {
   return /^https?:\/\//.test(url) || url.startsWith("mailto:");
+}
+
+function openHomeMenu() {
+  if (!homeDropdownLinks.value.length) return;
+  hoveredHomeIndex.value = 0;
+}
+
+function closeHomeMenu() {
+  hoveredHomeIndex.value = -1;
+}
+
+function focusHomeItem(index: number) {
+  hoveredHomeIndex.value = index;
 }
 
 function openMoreMenu() {
@@ -41,7 +61,37 @@ function focusMoreItem(index: number) {
           <img class="nav-avatar" :src="avatarSrc" :alt="avatarAlt" />
         </NuxtLink>
 
-        <NuxtLink to="/" class="nav-link" :class="{ active: isHome }">首页</NuxtLink>
+        <div
+          v-if="homeDropdownLinks.length"
+          class="nav-dropdown nav-home-dropdown"
+          @mouseenter="openHomeMenu"
+          @mouseleave="closeHomeMenu"
+        >
+          <NuxtLink to="/" class="nav-link" :class="{ active: isHome }">首页</NuxtLink>
+
+          <div class="dropdown-menu home-dropdown-menu">
+            <span
+              class="dropdown-active-pill"
+              :class="{ 'is-visible': hoveredHomeIndex >= 0 }"
+              :style="{ '--pill-index': hoveredHomeIndex }"
+              aria-hidden="true"
+            />
+
+            <NuxtLink
+              v-for="(item, index) in homeDropdownLinks"
+              :key="`${item.label}-${item.to}`"
+              :to="item.to"
+              class="dropdown-link"
+              @mouseenter="focusHomeItem(index)"
+              @focus="focusHomeItem(index)"
+            >
+              {{ item.label }}
+            </NuxtLink>
+          </div>
+        </div>
+
+        <NuxtLink v-else to="/" class="nav-link" :class="{ active: isHome }">首页</NuxtLink>
+
         <NuxtLink to="/article" class="nav-link" :class="{ active: isArticle }">文章</NuxtLink>
         <NuxtLink to="/album" class="nav-link" :class="{ active: isAlbum }">相册</NuxtLink>
         <NuxtLink to="/archive" class="nav-link" :class="{ active: isArchive }">归档</NuxtLink>
@@ -242,6 +292,10 @@ function focusMoreItem(index: number) {
   transition: all 0.24s cubic-bezier(0.2, 0.86, 0.24, 1);
 }
 
+.home-dropdown-menu {
+  min-width: 8.6rem;
+}
+
 .dropdown-menu::before {
   content: "";
   position: absolute;
@@ -398,6 +452,16 @@ function focusMoreItem(index: number) {
     right: 0;
     width: 8.6rem;
     transform: none;
+  }
+
+  .nav-home-dropdown .dropdown-menu {
+    left: 0;
+    right: auto;
+  }
+
+  .nav-home-dropdown::after {
+    left: 0;
+    right: auto;
   }
 
   .nav-dropdown:hover .dropdown-menu,

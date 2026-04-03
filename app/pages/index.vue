@@ -1,9 +1,11 @@
 ﻿<script setup lang="ts">
-type GalleryItem = {
+type OwnerSpotlightItem = {
+  id: string;
   name: string;
   src: string;
   alt: string;
-  caption: string;
+  likesText: string;
+  to: string;
 };
 
 type BlogPost = {
@@ -32,10 +34,16 @@ type PhotoItem = {
 };
 
 type ProjectItem = {
+  id: string;
   title: string;
   summary: string;
   icon: string;
-  to: string;
+  category: string;
+  content: string;
+  techStack: string[];
+  projectUrl: string;
+  githubUrl: string;
+  updatedAt: string;
 };
 
 type SocialItem = {
@@ -51,16 +59,33 @@ const { settings } = useSiteSettings();
 const { articles: fetchedArticles } = useArticles();
 const { albums: fetchedAlbums } = useAlbums();
 const { dailies: fetchedDailies } = useDailies();
+const { projects: fetchedProjects } = useProjects();
 
-const gallery: readonly [GalleryItem, ...GalleryItem[]] = [
-  {
-    name: "今日份拍摄",
-    src: "/images/pic.jpg",
-    alt: "Card preview image",
-    caption:
-      "喜欢角色扮演和摄影，把每次出行都记录成片段。",
-  }
-];
+const fallbackOwnerSpotlight: OwnerSpotlightItem = {
+  id: "fallback",
+  name: "今日份拍摄",
+  src: "/images/pic.jpg",
+  alt: "Card preview image",
+  likesText: "0",
+  to: "/album",
+};
+
+const ownerSpotlights = computed<OwnerSpotlightItem[]>(() => {
+  const mapped = fetchedAlbums.value.map((album, index) => {
+    const cover = album.cover || album.imageUrls[0] || "/images/pic.jpg";
+
+    return {
+      id: album.id,
+      name: album.title || `相册 ${index + 1}`,
+      src: cover,
+      alt: `${album.title || "相册"}封面`,
+      likesText: String(album.likes ?? 0),
+      to: `/album?album=${encodeURIComponent(album.id)}`,
+    };
+  });
+
+  return mapped.length ? mapped : [fallbackOwnerSpotlight];
+});
 
 const homePosts = computed<BlogPost[]>(() =>
   fetchedArticles.value.slice(0, 5).map((article) => ({
@@ -190,17 +215,40 @@ const photos = computed<PhotoItem[]>(() => {
   return items.length ? items : [...fallbackPhotos];
 });
 
-const projects: readonly ProjectItem[] = [
+const fallbackProjects: readonly ProjectItem[] = [
   {
+    id: "fallback-project",
     title: "CoseRoom",
-    summary:
-      "图文视频音乐分享平台",
+    summary: "图文视频音乐分享平台",
     icon: "/images/coseroom-logo.png",
-    to: "https://coseroom.com",
-  }
+    category: "默认",
+    content: "暂无更详细项目介绍。",
+    techStack: [],
+    projectUrl: "https://coseroom.com",
+    githubUrl: "",
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
-const currentIndex = ref(0);
+const projects = computed<ProjectItem[]>(() => {
+  if (!fetchedProjects.value.length) return [...fallbackProjects];
+  return fetchedProjects.value.map((project) => ({
+    id: project.id,
+    title: project.title,
+    summary: project.summary,
+    icon: project.icon,
+    category: project.category || "默认",
+    content: project.content || "暂无更详细项目介绍。",
+    techStack: project.techStack,
+    projectUrl: project.projectUrl,
+    githubUrl: project.githubUrl,
+    updatedAt: project.updatedAt,
+  }));
+});
+
+const spotlightOrder = ref<number[]>([]);
+const spotlightCursor = ref(0);
+const isClientMounted = ref(false);
 const blogShellRef = ref<HTMLElement | null>(null);
 const blogCardsVisible = ref(false);
 let blogObserver: IntersectionObserver | null = null;
@@ -222,9 +270,42 @@ function createStableDelay(seed: string, min = 50, span = 260) {
   return min + (hash % (span + 1));
 }
 
-const projectMaskDelayMs = projects.map((project, index) =>
-  createStableDelay(`${project.title}-${index}`),
+const projectMaskDelayMs = computed(() =>
+  projects.value.map((project, index) => createStableDelay(`${project.id}-${project.title}-${index}`)),
 );
+
+const activeProject = ref<ProjectItem | null>(null);
+const projectModalVisible = computed(() => Boolean(activeProject.value));
+
+function openProjectDetail(project: ProjectItem) {
+  activeProject.value = project;
+  if (import.meta.client) {
+    document.body.style.overflow = "hidden";
+  }
+}
+
+function closeProjectDetail() {
+  activeProject.value = null;
+  if (import.meta.client) {
+    document.body.style.overflow = "";
+  }
+}
+
+function formatProjectDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "未知时间";
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function handleProjectModalKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape" && projectModalVisible.value) {
+    closeProjectDetail();
+  }
+}
 
 const homeStyleVars = computed(() => ({
   "--home-background-image": `url("${settings.value.themeBackground || "/images/background.png"}")`,
@@ -271,20 +352,78 @@ function getSocialMaskIcon(icon: SocialItem["icon"]) {
   return socialMaskIconMap[icon];
 }
 
-const currentImage = computed<GalleryItem>(
-  () => gallery[currentIndex.value] ?? gallery[0],
-);
-
-function randomScene() {
-  if (gallery.length <= 1) return;
-  let next = currentIndex.value;
-  while (next === currentIndex.value) {
-    next = Math.floor(Math.random() * gallery.length);
+function buildSpotlightOrder(length: number, previousIndex: number | null = null) {
+  const indices = Array.from({ length }, (_, index) => index);
+  for (let i = indices.length - 1; i > 0; i -= 1) {
+    const randomIndex = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[randomIndex]] = [indices[randomIndex], indices[i]];
   }
-  currentIndex.value = next;
+
+  if (previousIndex !== null && indices.length > 1 && indices[0] === previousIndex) {
+    [indices[0], indices[1]] = [indices[1], indices[0]];
+  }
+
+  return indices;
 }
 
+function ensureSpotlightQueue(forceReset = false, randomize = false) {
+  const total = ownerSpotlights.value.length;
+  if (!total) {
+    spotlightOrder.value = [0];
+    spotlightCursor.value = 0;
+    return;
+  }
+
+  const needReset = forceReset || spotlightOrder.value.length !== total;
+  if (!needReset) return;
+
+  if (randomize && import.meta.client && total > 1) {
+    spotlightOrder.value = buildSpotlightOrder(total);
+  } else {
+    spotlightOrder.value = Array.from({ length: total }, (_, index) => index);
+  }
+  spotlightCursor.value = 0;
+}
+
+const currentImage = computed<OwnerSpotlightItem>(() => {
+  const items = ownerSpotlights.value;
+  if (!items.length) return fallbackOwnerSpotlight;
+
+  const order = spotlightOrder.value;
+  if (!order.length) return items[0] ?? fallbackOwnerSpotlight;
+
+  const currentOrderIndex = order[spotlightCursor.value] ?? 0;
+  return items[currentOrderIndex] ?? items[0] ?? fallbackOwnerSpotlight;
+});
+
+function randomScene() {
+  const total = ownerSpotlights.value.length;
+  if (total <= 1) return;
+
+  if (!spotlightOrder.value.length) {
+    ensureSpotlightQueue(true, true);
+    return;
+  }
+
+  if (spotlightCursor.value < spotlightOrder.value.length - 1) {
+    spotlightCursor.value += 1;
+    return;
+  }
+
+  const previousIndex = spotlightOrder.value[spotlightCursor.value] ?? null;
+  spotlightOrder.value = buildSpotlightOrder(total, previousIndex);
+  spotlightCursor.value = 0;
+}
+
+watch(ownerSpotlights, () => {
+  ensureSpotlightQueue(true, isClientMounted.value);
+}, { immediate: true });
+
 onMounted(() => {
+  isClientMounted.value = true;
+  ensureSpotlightQueue(true, true);
+  window.addEventListener("keydown", handleProjectModalKeydown);
+
   if (!("IntersectionObserver" in window)) {
     blogCardsVisible.value = true;
     journalCardsVisible.value = true;
@@ -375,6 +514,11 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  if (import.meta.client) {
+    document.body.style.overflow = "";
+    window.removeEventListener("keydown", handleProjectModalKeydown);
+  }
+
   blogObserver?.disconnect();
   blogObserver = null;
   journalObserver?.disconnect();
@@ -441,8 +585,8 @@ onBeforeUnmount(() => {
               <button
                 class="dice-button"
                 type="button"
-                title="Switch image"
-                aria-label="Switch image"
+                title="换一批相册"
+                aria-label="换一批相册"
                 @click="randomScene"
               >
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -451,11 +595,19 @@ onBeforeUnmount(() => {
                   <path d="M6.4 10a6.2 6.2 0 0 1 10.25-2.18L20 10" />
                   <path d="M17.6 14a6.2 6.2 0 0 1-10.25 2.18L4 14" />
                 </svg>
+                <span>换一批</span>
               </button>
             </div>
 
-            <img class="scene-image" :src="currentImage.src" :alt="currentImage.alt" />
-            <p class="image-caption">{{ currentImage.caption }}</p>
+            <NuxtLink :to="currentImage.to" class="scene-link" aria-label="查看当前相册">
+              <img class="scene-image" :src="currentImage.src" :alt="currentImage.alt" />
+            </NuxtLink>
+            <p class="image-caption">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 20.7s-7-4.3-9.4-8.3C1 9.5 2.1 6 5.4 5.2 7.4 4.7 9.4 5.4 10.8 7c.2.2.3.4.5.6c.2-.2.3-.4.5-.6c1.4-1.6 3.4-2.3 5.4-1.8c3.3.8 4.4 4.3 2.8 7.2C19 16.4 12 20.7 12 20.7Z" />
+              </svg>
+              <span>{{ currentImage.likesText }}</span>
+            </p>
           </div>
         </article>
       </div>
@@ -579,23 +731,88 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="project-grid" :class="{ 'is-revealed': projectCardsVisible }">
-          <NuxtLink
+          <button
             v-for="(project, index) in projects"
-            :key="project.title"
-            :to="project.to"
+            :key="project.id"
+            type="button"
             class="project-card project-card-reveal"
-            :style="{ '--project-mask-delay': `${projectMaskDelayMs[index]}ms` }"
+            :style="{ '--project-mask-delay': `${projectMaskDelayMs[index] ?? 0}ms` }"
+            @click="openProjectDetail(project)"
           >
             <img class="project-icon" :src="project.icon" :alt="`${project.title} logo`" />
             <div class="project-info">
               <h3 class="project-card-title">{{ project.title }}</h3>
               <p class="project-card-summary">{{ project.summary }}</p>
             </div>
-          </NuxtLink>
+          </button>
         </div>
       </div>
 
     </section>
+
+    <Transition name="project-modal-fade">
+      <div
+        v-if="projectModalVisible && activeProject"
+        class="project-modal-mask"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`${activeProject.title} 项目详情`"
+        @click.self="closeProjectDetail"
+      >
+        <article class="project-modal">
+          <button type="button" class="project-modal-close" aria-label="关闭项目详情" @click="closeProjectDetail">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 6L18 18" />
+              <path d="M18 6L6 18" />
+            </svg>
+          </button>
+
+          <header class="project-modal-head">
+            <img class="project-modal-icon" :src="activeProject.icon" :alt="`${activeProject.title} logo`" />
+            <div class="project-modal-head-meta">
+              <h3>{{ activeProject.title }}</h3>
+              <p>{{ activeProject.category }}</p>
+            </div>
+          </header>
+
+          <p class="project-modal-summary">{{ activeProject.summary }}</p>
+          <p class="project-modal-content">{{ activeProject.content }}</p>
+
+          <div v-if="activeProject.techStack.length" class="project-modal-tags">
+            <span v-for="tech in activeProject.techStack" :key="`${activeProject.id}-${tech}`">
+              {{ tech }}
+            </span>
+          </div>
+
+          <footer class="project-modal-foot">
+            <time :datetime="activeProject.updatedAt">
+              更新于 {{ formatProjectDate(activeProject.updatedAt) }}
+            </time>
+
+            <div class="project-modal-actions">
+              <a
+                v-if="activeProject.projectUrl"
+                :href="activeProject.projectUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="project-modal-link"
+              >
+                项目链接
+              </a>
+              <a
+                v-if="activeProject.githubUrl"
+                :href="activeProject.githubUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="project-modal-link"
+              >
+                GitHub
+              </a>
+            </div>
+          </footer>
+        </article>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -899,21 +1116,35 @@ onBeforeUnmount(() => {
 }
 
 .dice-button {
-  width: 1.88rem;
-  height: 1.88rem;
-  border-radius: 0.44rem;
-  border: 1px solid rgba(207, 233, 255, 0.18);
-  background: rgba(255, 255, 255, 0.04);
+  min-height: 1.96rem;
+  padding: 0.25rem 0.65rem 0.25rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(207, 233, 255, 0.24);
+  background: rgba(255, 255, 255, 0.06);
   color: rgba(238, 247, 255, 0.9);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.36rem;
   cursor: pointer;
+  transition: border-color 0.22s ease, background-color 0.22s ease, transform 0.22s ease;
+}
+
+.dice-button:hover {
+  border-color: rgba(176, 224, 248, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
 }
 
 .dice-button svg {
-  width: 1rem;
-  height: 1rem;
+  width: 0.98rem;
+  height: 0.98rem;
+}
+
+.dice-button span {
+  font-size: 0.78rem;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .dice-button path {
@@ -923,20 +1154,50 @@ onBeforeUnmount(() => {
   stroke-linejoin: round;
 }
 
-.scene-image {
+.scene-link {
   margin-top: 0.72rem;
+  display: block;
+  border-radius: 0.72rem;
+  color: inherit;
+  text-decoration: none;
+  background-image: none;
+  background-size: 0 0;
+}
+
+.scene-link:visited,
+.scene-link:hover,
+.scene-link:focus-visible {
+  color: inherit;
+  text-decoration: none;
+  background-image: none;
+  background-size: 0 0;
+}
+
+.scene-image {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: 0.72rem;
-  border: 1px solid rgba(221, 238, 255, 0.12);
-  filter: grayscale(0.85) contrast(1.06) brightness(0.9);
 }
 
 .image-caption {
   margin: 0.58rem 0 0;
-  color: rgba(195, 215, 238, 0.76);
-  font-size: 0.75rem;
+  color: rgba(224, 236, 248, 0.84);
+  font-size: 0.83rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.36rem;
+}
+
+.image-caption svg {
+  width: 0.96rem;
+  height: 0.96rem;
+}
+
+.image-caption path {
+  stroke: rgba(255, 154, 188, 0.95);
+  fill: rgba(255, 131, 173, 0.3);
+  stroke-width: 1.4;
 }
 
 .content-fade {
@@ -1652,9 +1913,18 @@ onBeforeUnmount(() => {
   padding: 0.95rem 1rem;
   border-radius: 0.82rem;
   overflow: hidden;
-  text-decoration: none;
+  border: 1px solid rgba(118, 170, 194, 0.16);
   color: inherit;
   background: rgba(27, 28, 33, 0.84);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.project-card:hover {
+  border-color: rgba(154, 211, 244, 0.35);
+  transform: translateY(-1px);
 }
 
 .project-card-reveal::before {
@@ -1692,6 +1962,8 @@ onBeforeUnmount(() => {
 
 .project-info {
   min-width: 0;
+  position: relative;
+  z-index: 3;
 }
 
 .project-card-title {
@@ -1711,6 +1983,153 @@ onBeforeUnmount(() => {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+}
+
+.project-modal-fade-enter-active,
+.project-modal-fade-leave-active {
+  transition: opacity 0.24s ease;
+}
+
+.project-modal-fade-enter-from,
+.project-modal-fade-leave-to {
+  opacity: 0;
+}
+
+.project-modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(2, 10, 21, 0.66);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.project-modal {
+  position: relative;
+  width: min(96vw, 40rem);
+  border-radius: 1rem;
+  border: 1px solid rgba(145, 198, 228, 0.24);
+  background: rgba(10, 20, 34, 0.94);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.46);
+  padding: 1.15rem 1.2rem;
+}
+
+.project-modal-close {
+  position: absolute;
+  right: 0.68rem;
+  top: 0.68rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(151, 204, 231, 0.28);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(236, 246, 255, 0.9);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.project-modal-close svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.project-modal-close path {
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.project-modal-head {
+  display: grid;
+  grid-template-columns: 3.8rem 1fr;
+  gap: 0.82rem;
+  align-items: center;
+}
+
+.project-modal-icon {
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 0.7rem;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.project-modal-head-meta h3 {
+  margin: 0;
+  font-size: 1.28rem;
+  line-height: 1.2;
+  color: rgba(238, 247, 255, 0.96);
+}
+
+.project-modal-head-meta p {
+  margin: 0.32rem 0 0;
+  font-size: 0.86rem;
+  color: rgba(180, 203, 220, 0.78);
+}
+
+.project-modal-summary {
+  margin: 0.95rem 0 0;
+  font-size: 0.95rem;
+  line-height: 1.72;
+  color: rgba(210, 226, 239, 0.9);
+}
+
+.project-modal-content {
+  margin: 0.7rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.78;
+  color: rgba(185, 207, 224, 0.78);
+  white-space: pre-wrap;
+}
+
+.project-modal-tags {
+  margin-top: 0.86rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.project-modal-tags span {
+  border-radius: 999px;
+  border: 1px solid rgba(114, 176, 214, 0.28);
+  padding: 0.16rem 0.5rem;
+  font-size: 0.8rem;
+  color: rgba(210, 231, 248, 0.86);
+  background: rgba(18, 33, 51, 0.72);
+}
+
+.project-modal-foot {
+  margin-top: 0.92rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.68rem;
+}
+
+.project-modal-foot time {
+  color: rgba(170, 197, 216, 0.72);
+  font-size: 0.82rem;
+}
+
+.project-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.52rem;
+}
+
+.project-modal-link {
+  border-radius: 999px;
+  border: 1px solid rgba(133, 191, 224, 0.32);
+  padding: 0.26rem 0.66rem;
+  color: rgba(226, 242, 255, 0.96);
+  background: rgba(24, 45, 67, 0.82);
+  font-size: 0.82rem;
 }
 
 @media (max-width: 980px) {
@@ -1867,6 +2286,20 @@ onBeforeUnmount(() => {
 
   .project-card-title {
     font-size: 1rem;
+  }
+
+  .project-modal {
+    width: min(96vw, 34rem);
+    padding: 0.95rem;
+  }
+
+  .project-modal-head {
+    grid-template-columns: 3.2rem 1fr;
+  }
+
+  .project-modal-icon {
+    width: 3rem;
+    height: 3rem;
   }
 
   .content-fade {

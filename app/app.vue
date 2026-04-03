@@ -1,22 +1,19 @@
 ﻿<script setup lang="ts">
 import SiteFooter from "~/components/SiteFooter.vue";
 import SiteNav from "~/components/SiteNav.vue";
-type LoaderPhase = "enter" | "boost" | "loading" | "exit";
+type LoaderPhase = "enter" | "loading" | "exit";
 
 const isRouteLoading = ref(false);
 const loaderPhase = ref<LoaderPhase>("enter");
 const { settings } = useSiteSettings();
 
-const ENTER_MS = 520;
-const BOOST_MS = 320;
-const EXIT_MS = 540;
-const MIN_LOADER_VISIBLE_MS = 920;
+const ENTER_MS = 420;
+const EXIT_MS = 360;
 
-let loaderStartAt = 0;
-let settleTimer: ReturnType<typeof setTimeout> | null = null;
-const phaseTimers: ReturnType<typeof setTimeout>[] = [];
+let phaseTimer: ReturnType<typeof setTimeout> | null = null;
 let enterGate: Promise<void> | null = null;
 let resolveEnterGate: (() => void) | null = null;
+let pendingStop = false;
 
 useHead(() => ({
   title: settings.value.siteTitle,
@@ -34,11 +31,10 @@ useHead(() => ({
   ],
 }));
 
-function clearPhaseTimers() {
-  while (phaseTimers.length) {
-    const timer = phaseTimers.pop();
-    if (timer) clearTimeout(timer);
-  }
+function clearPhaseTimer() {
+  if (!phaseTimer) return;
+  clearTimeout(phaseTimer);
+  phaseTimer = null;
 }
 
 function releaseEnterGate() {
@@ -49,73 +45,65 @@ function releaseEnterGate() {
   enterGate = null;
 }
 
-function clearSettleTimer() {
-  if (!settleTimer) return;
-  clearTimeout(settleTimer);
-  settleTimer = null;
-}
-
-function queuePhaseTimer(callback: () => void, durationMs: number) {
-  const timer = setTimeout(callback, durationMs);
-  phaseTimers.push(timer);
-}
-
 function startLoading() {
-  clearSettleTimer();
-
   if (!isRouteLoading.value) {
-    clearPhaseTimers();
+    clearPhaseTimer();
     releaseEnterGate();
     isRouteLoading.value = true;
     loaderPhase.value = "enter";
-    loaderStartAt = Date.now();
+    pendingStop = false;
     enterGate = new Promise<void>((resolve) => {
       resolveEnterGate = resolve;
     });
 
-    queuePhaseTimer(() => {
-      if (!isRouteLoading.value || loaderPhase.value !== "enter") return;
-      loaderPhase.value = "boost";
+    phaseTimer = setTimeout(() => {
+      phaseTimer = null;
+      if (!isRouteLoading.value || loaderPhase.value !== "enter") {
+        releaseEnterGate();
+        return;
+      }
+
+      loaderPhase.value = "loading";
       releaseEnterGate();
 
-      queuePhaseTimer(() => {
-        if (!isRouteLoading.value || loaderPhase.value !== "boost") return;
-        loaderPhase.value = "loading";
-      }, BOOST_MS);
+      if (pendingStop) {
+        pendingStop = false;
+        stopLoading();
+      }
     }, ENTER_MS);
+
     return enterGate;
   }
 
   if (loaderPhase.value === "exit") {
-    clearPhaseTimers();
+    clearPhaseTimer();
     loaderPhase.value = "loading";
+    pendingStop = false;
     releaseEnterGate();
   }
 
-  return Promise.resolve();
+  return enterGate ?? Promise.resolve();
 }
 
 function stopLoading() {
   if (!isRouteLoading.value) return;
 
+  if (loaderPhase.value === "enter") {
+    pendingStop = true;
+    return;
+  }
+
   releaseEnterGate();
-  const elapsed = Date.now() - loaderStartAt;
-  const remain = Math.max(0, MIN_LOADER_VISIBLE_MS - elapsed);
-  clearSettleTimer();
+  clearPhaseTimer();
+  loaderPhase.value = "exit";
 
-  settleTimer = setTimeout(() => {
-    if (!isRouteLoading.value) return;
-
-    clearPhaseTimers();
-    loaderPhase.value = "exit";
-
-    queuePhaseTimer(() => {
-      isRouteLoading.value = false;
-      loaderPhase.value = "enter";
-      clearPhaseTimers();
-      releaseEnterGate();
-    }, EXIT_MS);
-  }, remain);
+  phaseTimer = setTimeout(() => {
+    phaseTimer = null;
+    isRouteLoading.value = false;
+    loaderPhase.value = "enter";
+    pendingStop = false;
+    releaseEnterGate();
+  }, EXIT_MS);
 }
 
 if (import.meta.client) {
@@ -129,10 +117,6 @@ if (import.meta.client) {
     return true;
   });
 
-  router.afterEach(() => {
-    stopLoading();
-  });
-
   nuxtApp.hook("page:finish", () => {
     stopLoading();
   });
@@ -142,8 +126,8 @@ if (import.meta.client) {
   });
 
   onBeforeUnmount(() => {
-    clearPhaseTimers();
-    clearSettleTimer();
+    clearPhaseTimer();
+    pendingStop = false;
     releaseEnterGate();
   });
 }
@@ -164,6 +148,7 @@ if (import.meta.client) {
       aria-live="polite"
       aria-label="页面加载中"
     >
+      <div class="route-loader-mask" aria-hidden="true" />
       <img
         class="route-loader-gif"
         src="/images/loading.gif"
@@ -187,6 +172,19 @@ if (import.meta.client) {
   inset: 0;
   z-index: 140;
   pointer-events: auto;
+  overflow: hidden;
+}
+
+.route-loader-mask {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(20, 54, 84, 0.32) 0%, rgba(4, 12, 24, 0.66) 62%, rgba(3, 7, 20, 0.82) 100%),
+    linear-gradient(180deg, rgba(7, 17, 34, 0.3) 0%, rgba(5, 14, 28, 0.58) 100%);
+  backdrop-filter: blur(0px) saturate(100%);
+  -webkit-backdrop-filter: blur(0px) saturate(100%);
+  will-change: opacity, backdrop-filter;
 }
 
 .route-loader-gif {
@@ -195,56 +193,89 @@ if (import.meta.client) {
   top: 50%;
   width: clamp(6.5rem, 12vw, 9.8rem);
   height: auto;
-  transform: translate(-50%, 170%) scale(1);
+  transform: translate(-50%, -50%) scale(0.72);
   transform-origin: center center;
+  opacity: 0;
   filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.32));
-  will-change: transform;
+  will-change: transform, opacity;
 }
 
 .route-loader-overlay.is-enter .route-loader-gif {
-  animation: loader-enter 520ms cubic-bezier(0.18, 0.84, 0.3, 1) forwards;
+  animation: loader-gif-enter 420ms cubic-bezier(0.2, 0.86, 0.24, 1) forwards;
 }
 
-.route-loader-overlay.is-boost .route-loader-gif {
-  animation: loader-boost 320ms cubic-bezier(0.22, 0.9, 0.26, 1) forwards;
+.route-loader-overlay.is-enter .route-loader-mask {
+  animation: loader-mask-enter 420ms cubic-bezier(0.2, 0.86, 0.24, 1) forwards;
 }
 
 .route-loader-overlay.is-loading .route-loader-gif {
-  transform: translate(-50%, -50%) scale(1.3);
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+.route-loader-overlay.is-loading .route-loader-mask {
+  opacity: 1;
+  backdrop-filter: blur(12px) saturate(118%);
+  -webkit-backdrop-filter: blur(12px) saturate(118%);
 }
 
 .route-loader-overlay.is-exit .route-loader-gif {
-  animation: loader-exit 540ms cubic-bezier(0.2, 0.86, 0.25, 1) forwards;
+  animation: loader-gif-exit 360ms cubic-bezier(0.22, 0.84, 0.26, 1) forwards;
 }
 
-@keyframes loader-enter {
+.route-loader-overlay.is-exit .route-loader-mask {
+  animation: loader-mask-exit 360ms cubic-bezier(0.22, 0.84, 0.26, 1) forwards;
+}
+
+@keyframes loader-gif-enter {
   from {
-    transform: translate(-50%, 170%) scale(1);
+    transform: translate(-50%, -50%) scale(0.72);
+    opacity: 0;
   }
 
   to {
     transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
   }
 }
 
-@keyframes loader-boost {
+@keyframes loader-gif-exit {
   from {
     transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
   }
 
   to {
-    transform: translate(-50%, -50%) scale(1.3);
+    transform: translate(-50%, -50%) scale(0.74);
+    opacity: 0;
   }
 }
 
-@keyframes loader-exit {
+@keyframes loader-mask-enter {
   from {
-    transform: translate(-50%, -50%) scale(1.3);
+    opacity: 0;
+    backdrop-filter: blur(0px) saturate(100%);
+    -webkit-backdrop-filter: blur(0px) saturate(100%);
   }
 
   to {
-    transform: translate(-50%, 175%) scale(1.08);
+    opacity: 1;
+    backdrop-filter: blur(12px) saturate(118%);
+    -webkit-backdrop-filter: blur(12px) saturate(118%);
+  }
+}
+
+@keyframes loader-mask-exit {
+  from {
+    opacity: 1;
+    backdrop-filter: blur(12px) saturate(118%);
+    -webkit-backdrop-filter: blur(12px) saturate(118%);
+  }
+
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0px) saturate(100%);
+    -webkit-backdrop-filter: blur(0px) saturate(100%);
   }
 }
 </style>
-

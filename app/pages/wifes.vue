@@ -14,9 +14,9 @@ type WifeCard = {
 
 const DEFAULT_WIFE: WifeCard = {
   id: "wife-default",
-  cnName: "高木同学",
-  otherName: "Takagi",
-  image: "/images/wifes/takagi3-half.png",
+  cnName: "暂无",
+  otherName: "None",
+  image: "/images/loading.gif",
 };
 
 const wifeCards = computed(() => {
