@@ -307,8 +307,72 @@ function handleProjectModalKeydown(event: KeyboardEvent) {
   }
 }
 
+const HOME_BACKGROUND_FALLBACK = "/images/background.png";
+const homeBackgroundImage = ref("none");
+const homeBackgroundVisible = ref(false);
+let homeBackgroundLoadToken = 0;
+
+function toCssUrl(value: string) {
+  return `url("${value.replace(/"/g, '\\"')}")`;
+}
+
+function loadImageSource(src: string) {
+  return new Promise<boolean>((resolve) => {
+    const image = new Image();
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      resolve(ok);
+    };
+
+    image.decoding = "async";
+    image.onload = () => finish(true);
+    image.onerror = () => finish(false);
+    image.src = src;
+
+    if (image.complete) {
+      finish(image.naturalWidth > 0);
+    }
+  });
+}
+
+async function preloadHomeBackground(rawSrc: string) {
+  if (!import.meta.client) return;
+
+  const source = rawSrc.trim() || HOME_BACKGROUND_FALLBACK;
+  const token = ++homeBackgroundLoadToken;
+  homeBackgroundVisible.value = false;
+
+  const candidates = source === HOME_BACKGROUND_FALLBACK
+    ? [HOME_BACKGROUND_FALLBACK]
+    : [source, HOME_BACKGROUND_FALLBACK];
+
+  for (const candidate of candidates) {
+    const loaded = await loadImageSource(candidate);
+    if (token !== homeBackgroundLoadToken) return;
+
+    if (loaded) {
+      homeBackgroundImage.value = toCssUrl(candidate);
+      homeBackgroundVisible.value = true;
+      return;
+    }
+  }
+
+  homeBackgroundImage.value = "none";
+  homeBackgroundVisible.value = true;
+}
+
+const homeBackgroundSource = computed(() => settings.value.themeBackground || HOME_BACKGROUND_FALLBACK);
+
+watch(homeBackgroundSource, (source) => {
+  if (!import.meta.client) return;
+  void preloadHomeBackground(source);
+}, { immediate: true });
+
 const homeStyleVars = computed(() => ({
-  "--home-background-image": `url("${settings.value.themeBackground || "/images/background.png"}")`,
+  "--home-background-image": homeBackgroundImage.value,
+  "--home-background-opacity": homeBackgroundVisible.value ? "1" : "0",
 }));
 
 const ownerBioLines = computed(() =>
@@ -514,6 +578,8 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  homeBackgroundLoadToken += 1;
+
   if (import.meta.client) {
     document.body.style.overflow = "";
     window.removeEventListener("keydown", handleProjectModalKeydown);
@@ -843,6 +909,9 @@ onBeforeUnmount(() => {
   z-index: 0;
   pointer-events: none;
   background: var(--home-background-image) center top / cover no-repeat;
+  opacity: var(--home-background-opacity, 0);
+  transition: opacity 0.36s ease;
+  will-change: opacity;
 }
 
 .hero {
@@ -876,13 +945,13 @@ onBeforeUnmount(() => {
   background: rgba(2, 10, 25, 0.72);
   backdrop-filter: blur(16px) saturate(128%);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
-  transition: background 0.25s ease;
+  transition: box-shadow 0.25s ease;
   animation: owner-card-rise-in 720ms cubic-bezier(0.2, 0.86, 0.24, 1) both;
   will-change: transform, opacity;
 }
 
 .owner-card:hover {
-  background: transparent;
+  box-shadow: 0 30px 86px rgba(0, 0, 0, 0.5);
 }
 
 @keyframes owner-card-rise-in {

@@ -95,15 +95,22 @@ a:focus-visible {
   z-index: 1;
 }
 
+img:not([data-image-loader-ignore]):not(.app-img-is-loaded) {
+  opacity: 0;
+  visibility: hidden;
+}
+
 img.app-img-is-loading {
-  opacity: 0.24;
-  filter: blur(7px) saturate(0.72) brightness(0.82);
-  transform: scale(1.012);
-  animation: app-image-loading-pulse 1.12s ease-in-out infinite alternate;
-  will-change: opacity, filter, transform;
+  opacity: 0;
+  visibility: hidden;
+  filter: none;
+  transform: none;
+  animation: none;
+  will-change: opacity;
 }
 
 img.app-img-is-loaded {
+  visibility: visible;
   opacity: 1;
   filter: none;
   transform: none;
@@ -115,24 +122,4 @@ img.app-img-is-loaded {
 
 img.app-img-is-error {
   filter: grayscale(0.92) contrast(0.95) brightness(0.8);
-}
-
-@keyframes app-image-loading-pulse {
-  0% {
-    opacity: 0.2;
-    filter: blur(8px) saturate(0.66) brightness(0.76);
-    transform: scale(1.016);
-  }
-
-  100% {
-    opacity: 0.34;
-    filter: blur(6px) saturate(0.8) brightness(0.88);
-    transform: scale(1.008);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  img.app-img-is-loading {
-    animation: none;
-  }
 }

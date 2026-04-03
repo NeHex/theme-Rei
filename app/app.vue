@@ -22,11 +22,40 @@ useHead(() => ({
       name: "description",
       content: settings.value.siteDesc,
     },
+    {
+      name: "theme-color",
+      content: "#0f172a",
+    },
   ],
   link: [
     {
+      rel: "shortcut icon",
+      href: settings.value.siteFavicon || "/favicon.ico",
+    },
+    {
       rel: "icon",
       href: settings.value.siteFavicon || "/favicon.ico",
+    },
+    {
+      rel: "icon",
+      type: "image/png",
+      sizes: "32x32",
+      href: "/favicon-32x32.png",
+    },
+    {
+      rel: "icon",
+      type: "image/png",
+      sizes: "16x16",
+      href: "/favicon-16x16.png",
+    },
+    {
+      rel: "apple-touch-icon",
+      sizes: "180x180",
+      href: "/apple-touch-icon.png",
+    },
+    {
+      rel: "manifest",
+      href: "/site.webmanifest",
     },
   ],
 }));
