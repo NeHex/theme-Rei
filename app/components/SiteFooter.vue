@@ -186,6 +186,12 @@ function isExternalLink(url: string) {
     padding-top: 0.5rem;
   }
 
+  .footer-col {
+    display: flex;
+    flex-direction: row;
+    gap: 0.45rem;
+  }
+
   .footer-shell {
     width: min(96%, 1560px);
     padding: 0;

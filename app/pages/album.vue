@@ -373,6 +373,7 @@ function formatDate(dateInput: string) {
   }
 
   .album-shell {
+    margin-top:2em;
     width: min(98%, 1760px);
     grid-template-columns: 1fr;
     gap: 0.72rem;

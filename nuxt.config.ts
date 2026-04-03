@@ -4,10 +4,17 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   css: ["~/assets/css/base.css"],
   runtimeConfig: {
-    settingsApiBase: process.env.SETTINGS_API_BASE || "http://127.0.0.1:7878",
+    settingsApiBase:
+      process.env.NUXT_API_BASE ||
+      process.env.SETTINGS_API_BASE ||
+      process.env.API_BASE_URL ||
+      "http://127.0.0.1:7878",
     public: {
       settingsApiBase:
-        process.env.NUXT_PUBLIC_SETTINGS_API_BASE || "http://127.0.0.1:7878",
+        process.env.NUXT_PUBLIC_API_BASE ||
+        process.env.NUXT_PUBLIC_SETTINGS_API_BASE ||
+        process.env.API_BASE_URL ||
+        "http://127.0.0.1:7878",
     },
   },
   app: {

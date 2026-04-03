@@ -18,6 +18,11 @@ type NavItem = {
   to: string;
 };
 
+export type AboutMapPoint = {
+  label: string;
+  coords: [number, number];
+};
+
 export type WifeProfile = {
   cnName: string;
   otherName: string;
@@ -34,6 +39,8 @@ export type SiteSettings = {
   themeBackground: string;
   themeHeadmsg: string;
   themeNav: NavItem[];
+  themeAboutPages: Record<string, unknown>;
+  themeAboutMapPoints: AboutMapPoint[];
   themeWifes: WifeProfile[];
   userName: string;
   userDesc: string;
@@ -53,6 +60,11 @@ const DEFAULT_SITE_SETTINGS: SiteSettings = {
   themeNav: [
     { label: "关于本站", to: "/about" },
     { label: "友链", to: "/friends" },
+  ],
+  themeAboutPages: {},
+  themeAboutMapPoints: [
+    { label: "天津", coords: [117.200983, 39.084158] },
+    { label: "山东", coords: [118.000923, 36.675807] },
   ],
   themeWifes: [],
   userName: "UEGEE",
@@ -201,6 +213,77 @@ function parseThemeWifes(value: unknown): WifeProfile[] {
   return [];
 }
 
+function parseCoordPair(value: unknown): [number, number] | null {
+  if (Array.isArray(value) && value.length >= 2) {
+    const lng = Number(value[0]);
+    const lat = Number(value[1]);
+    if (
+      Number.isFinite(lng) &&
+      Number.isFinite(lat) &&
+      lng >= -180 &&
+      lng <= 180 &&
+      lat >= -90 &&
+      lat <= 90
+    ) {
+      return [lng, lat];
+    }
+    return null;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const lng = Number(record.lng ?? record.lon ?? record.longitude ?? record.x);
+    const lat = Number(record.lat ?? record.latitude ?? record.y);
+    if (
+      Number.isFinite(lng) &&
+      Number.isFinite(lat) &&
+      lng >= -180 &&
+      lng <= 180 &&
+      lat >= -90 &&
+      lat <= 90
+    ) {
+      return [lng, lat];
+    }
+    return null;
+  }
+
+  if (typeof value !== "string") return null;
+  const matches = value.match(/-?\d+(?:\.\d+)?/g);
+  if (!matches || matches.length < 2) return null;
+
+  const lng = Number(matches[0]);
+  const lat = Number(matches[1]);
+  if (
+    !Number.isFinite(lng) ||
+    !Number.isFinite(lat) ||
+    lng < -180 ||
+    lng > 180 ||
+    lat < -90 ||
+    lat > 90
+  ) {
+    return null;
+  }
+  return [lng, lat];
+}
+
+function parseThemeAboutMapPoints(value: unknown): AboutMapPoint[] {
+  const aboutRecord = parseJsonObject(value);
+  const mapRecord = parseJsonObject(aboutRecord.map);
+
+  return Object.entries(mapRecord)
+    .map(([label, coordsRaw]) => {
+      const coords = parseCoordPair(coordsRaw);
+      if (!coords) return null;
+      const trimmedLabel = asString(label).trim();
+      if (!trimmedLabel) return null;
+      return {
+        label: trimmedLabel,
+        coords,
+      } satisfies AboutMapPoint;
+    })
+    .filter((item): item is AboutMapPoint => Boolean(item));
+}
+
 function parseByType(type: SettingValueType, content: unknown) {
   if (type === "boolean") {
     if (typeof content === "boolean") return content;
@@ -252,7 +335,11 @@ function resolveSiteSettings(items: SettingApiItem[]) {
       label: asString(label).trim(),
       to: normalizeLink(asString(to).trim()),
     }))
-    .filter((item) => item.label && item.to);
+    .filter((item) => item.label && item.to)
+    .filter((item) => {
+      const route = item.to.toLowerCase().replace(/\/+$/, "");
+      return route !== "/wifes";
+    });
 
   const socialRecord = parseJsonObject(map.user_social_link);
   const socialLinks = Object.fromEntries(
@@ -265,6 +352,8 @@ function resolveSiteSettings(items: SettingApiItem[]) {
   const userDesc = userDescRaw.replace(/\\n/g, "\n");
 
   const themeWifes = parseThemeWifes(map.theme_wifes);
+  const themeAboutPages = parseJsonObject(map.theme_about_pages);
+  const themeAboutMapPoints = parseThemeAboutMapPoints(themeAboutPages);
 
   return {
     siteTitle: asString(map.site_title, DEFAULT_SITE_SETTINGS.siteTitle),
@@ -280,6 +369,10 @@ function resolveSiteSettings(items: SettingApiItem[]) {
     ),
     themeHeadmsg: asString(map.theme_headmsg, DEFAULT_SITE_SETTINGS.themeHeadmsg),
     themeNav: themeNav.length ? themeNav : DEFAULT_SITE_SETTINGS.themeNav,
+    themeAboutPages,
+    themeAboutMapPoints: themeAboutMapPoints.length
+      ? themeAboutMapPoints
+      : DEFAULT_SITE_SETTINGS.themeAboutMapPoints,
     themeWifes: themeWifes.length ? themeWifes : DEFAULT_SITE_SETTINGS.themeWifes,
     userName: asString(map.user_name, DEFAULT_SITE_SETTINGS.userName),
     userDesc,

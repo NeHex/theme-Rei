@@ -844,6 +844,7 @@ function onArticleCardLeave(event: MouseEvent) {
 
 @media (max-width: 760px) {
   .article-page {
+    margin-top: 2em;
     padding: 5.9rem 0.55rem 2.4rem;
   }
 

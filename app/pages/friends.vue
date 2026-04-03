@@ -343,6 +343,7 @@ function getStatusTag(status: FriendStatus) {
 
 @media (max-width: 760px) {
   .friends-page {
+    margin-top:2em;
     padding: 5.9rem 0.68rem 2.8rem;
   }
 

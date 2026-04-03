@@ -2162,13 +2162,14 @@ onBeforeUnmount(() => {
 @media (max-width: 760px) {
   .hero {
     min-height: auto;
-    padding-top: 4.1rem;
+    padding-top: 30rem;
     padding-bottom: 1.25rem;
   }
 
   .hero-card-slot {
     position: relative;
     bottom: auto;
+    margin-top: 1.1rem;
     padding: 0 0.75rem;
   }
 
