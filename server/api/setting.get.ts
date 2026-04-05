@@ -1,4 +1,4 @@
-﻿type SettingApiItem = {
+type SettingApiItem = {
   setting_key: string;
   setting_type: "string" | "int" | "float" | "boolean" | "json";
   setting_content: unknown;
@@ -11,32 +11,17 @@ type SettingApiResponse = {
   data: SettingApiItem[];
 };
 
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/, "");
-}
+import { backendFetch } from "../utils/backendFetch";
 
-export default defineEventHandler(async () => {
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase =
-    runtimeConfig.settingsApiBase ||
-    runtimeConfig.public.settingsApiBase ||
-    "http://127.0.0.1:7878";
-
+export default cachedEventHandler(async () => {
   try {
-    const response = await $fetch<SettingApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/setting`,
-      {
-        method: "GET",
-        timeout: 12000,
-        retry: 1,
-        retryDelay: 250,
-      },
-    );
-
-    return response;
+    return await backendFetch<SettingApiResponse>("/setting", { method: "GET" });
   } catch (error) {
     console.error("[setting-api] failed to fetch settings", error);
     return { data: [] as SettingApiItem[] };
   }
+}, {
+  maxAge: 300,
+  swr: true,
+  name: "api:setting",
 });
-

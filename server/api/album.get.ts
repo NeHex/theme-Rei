@@ -1,4 +1,4 @@
-﻿type AlbumApiItem = {
+type AlbumApiItem = {
   id: number;
   title: string;
   cover: string | null;
@@ -13,32 +13,13 @@ type AlbumApiResponse = {
   data: AlbumApiItem[];
 };
 
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/, "");
-}
+import { backendFetch } from "../utils/backendFetch";
 
 export default defineEventHandler(async () => {
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase =
-    runtimeConfig.settingsApiBase ||
-    runtimeConfig.public.settingsApiBase ||
-    "http://127.0.0.1:7878";
-
   try {
-    const response = await $fetch<AlbumApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/album`,
-      {
-        method: "GET",
-        timeout: 12000,
-        retry: 1,
-        retryDelay: 250,
-      },
-    );
-
-    return response;
+    return await backendFetch<AlbumApiResponse>("/album", { method: "GET" });
   } catch (error) {
     console.error("[album-api] failed to fetch albums", error);
     return { data: [] as AlbumApiItem[] };
   }
 });
-

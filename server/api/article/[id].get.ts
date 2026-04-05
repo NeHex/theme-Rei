@@ -1,4 +1,4 @@
-﻿type ArticleApiItem = {
+type ArticleApiItem = {
   id: number;
   title: string;
   articleTopImage: string | null;

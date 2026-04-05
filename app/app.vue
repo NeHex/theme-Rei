@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import SiteFooter from "~/components/SiteFooter.vue";
 import SiteNav from "~/components/SiteNav.vue";
 type LoaderPhase = "enter" | "loading" | "exit";

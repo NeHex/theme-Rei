@@ -1,6 +1,26 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
+import { mapArticleApiItem } from "~/composables/useArticles";
+import type { ArticleApiItem, ArticleViewItem } from "~/composables/useArticles";
+
+type ArticlePagination = {
+  page: number;
+  size: number;
+  total: number;
+  total_pages: number;
+};
+
+type ArticleTagStat = {
+  tag: string;
+  count: number;
+};
+
+type ArticleListApiResponse = {
+  data: ArticleApiItem[];
+  pagination?: Partial<ArticlePagination> | null;
+  tag_stats?: ArticleTagStat[];
+};
+
 const { settings } = useSiteSettings();
-const { articles } = useArticles();
 
 useHead(() => ({
   title: `文章 - ${settings.value.siteTitle}`,
@@ -17,70 +37,94 @@ const BLOG_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const blogAnimatedText = ref(BLOG_TEXT);
 let blogTextIntervalId: number | null = null;
 const blogTextTimeoutIds: number[] = [];
+let searchDebounceTimer: number | null = null;
+const debouncedKeyword = ref("");
 
-const normalizedKeyword = computed(() => searchKeyword.value.trim().toLowerCase());
+const articleQuery = computed(() => ({
+  page: currentPage.value,
+  size: pageSize,
+  sort: sortBy.value,
+  q: debouncedKeyword.value || undefined,
+  tag: activeTag.value || undefined,
+}));
 
-const filteredArticles = computed(() => {
-  return articles.value.filter((article) => {
-    const byKeyword =
-      normalizedKeyword.value.length === 0 ||
-      [article.title, article.summary, article.excerpt, article.tags.join(" ")]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedKeyword.value);
+const {
+  data: articleList,
+  pending: articlePending,
+  error: articleError,
+} = useAsyncData(
+  "article-list",
+  async () => {
+    const response = await $fetch<ArticleListApiResponse>("/api/article", {
+      query: articleQuery.value,
+    });
 
-    const byTag = !activeTag.value || article.tags.includes(activeTag.value);
-    return byKeyword && byTag;
-  });
-});
+    const items = (response.data ?? []).map(mapArticleApiItem);
+    const pagination = {
+      page: Number(response.pagination?.page ?? currentPage.value),
+      size: Number(response.pagination?.size ?? pageSize),
+      total: Number(response.pagination?.total ?? items.length),
+      total_pages: Number(response.pagination?.total_pages ?? (items.length > 0 ? 1 : 0)),
+    } satisfies ArticlePagination;
 
-const featuredArticle = computed(() => filteredArticles.value.find((article) => article.featured));
+    return {
+      items,
+      pagination,
+      tagStats: response.tag_stats ?? [],
+    };
+  },
+  {
+    watch: [articleQuery],
+    server: true,
+    lazy: false,
+    default: () => ({
+      items: [] as ArticleViewItem[],
+      pagination: {
+        page: 1,
+        size: pageSize,
+        total: 0,
+        total_pages: 0,
+      } satisfies ArticlePagination,
+      tagStats: [] as ArticleTagStat[],
+    }),
+  },
+);
 
-const sortedArticles = computed(() => {
-  const rest = filteredArticles.value.filter((article) => article.id !== featuredArticle.value?.id);
+const totalArticles = computed(() => articleList.value.pagination.total);
+const totalPages = computed(() => Math.max(1, articleList.value.pagination.total_pages || 0));
+const pageArticles = computed(() => articleList.value.items);
+const featuredArticle = computed(() => pageArticles.value.find((article) => article.featured));
+const pagedArticles = computed(() =>
+  pageArticles.value.filter((article) => article.id !== featuredArticle.value?.id),
+);
+const tagStats = computed(() => articleList.value.tagStats);
 
-  return [...rest].sort((a, b) => {
-    const aPublished = new Date(a.publishedAt).getTime();
-    const bPublished = new Date(b.publishedAt).getTime();
-    const aUpdated = new Date(a.updatedAt).getTime();
-    const bUpdated = new Date(b.updatedAt).getTime();
-
-    if (sortBy.value === "oldest") return aPublished - bPublished;
-    if (sortBy.value === "updated") return bUpdated - aUpdated;
-    return bPublished - aPublished;
-  });
-});
-
-const totalPages = computed(() => Math.max(1, Math.ceil(sortedArticles.value.length / pageSize)));
-
-const pagedArticles = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  const end = start + pageSize;
-  return sortedArticles.value.slice(start, end);
-});
-
-const tagStats = computed(() => {
-  const map = new Map<string, number>();
-  for (const article of articles.value) {
-    for (const tag of article.tags) {
-      map.set(tag, (map.get(tag) ?? 0) + 1);
-    }
+watch(searchKeyword, (value) => {
+  if (searchDebounceTimer !== null) {
+    globalThis.clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = null;
   }
 
-  return [...map.entries()]
-    .map(([tag, count]) => ({ tag, count }))
-    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+  currentPage.value = 1;
+  searchDebounceTimer = globalThis.setTimeout(() => {
+    debouncedKeyword.value = value.trim();
+    searchDebounceTimer = null;
+  }, 220);
 });
 
-watch([searchKeyword, activeTag, sortBy], () => {
+watch([activeTag, sortBy], () => {
   currentPage.value = 1;
 });
 
-watch(totalPages, (pageCount) => {
-  if (currentPage.value > pageCount) {
-    currentPage.value = pageCount;
-  }
-});
+watch(
+  () => articleList.value.pagination.total_pages,
+  (pageCount) => {
+    const safePageCount = Math.max(1, Number(pageCount || 0));
+    if (currentPage.value > safePageCount) {
+      currentPage.value = safePageCount;
+    }
+  },
+);
 
 function formatDate(dateInput: string) {
   const date = new Date(dateInput);
@@ -166,6 +210,10 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearBlogAnimationTimers();
+  if (searchDebounceTimer !== null) {
+    globalThis.clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = null;
+  }
 });
 
 function clearCardLeaveTimer(el: HTMLElement) {
@@ -252,7 +300,7 @@ function onArticleCardLeave(event: MouseEvent) {
         </NuxtLink>
 
         <div class="list-head">
-          <p>共 {{ filteredArticles.length }} 篇</p>
+          <p>共 {{ totalArticles }} 篇</p>
           <div class="sort-row">
             <button :class="{ active: sortBy === 'latest' }" @click="sortBy = 'latest'">最新</button>
             <button :class="{ active: sortBy === 'oldest' }" @click="sortBy = 'oldest'">最久</button>
@@ -261,47 +309,51 @@ function onArticleCardLeave(event: MouseEvent) {
         </div>
 
         <div class="post-list">
-          <NuxtLink
-            v-for="(article, index) in pagedArticles"
-            :key="article.id"
-            :to="`/article/${article.id}`"
-            class="post-item article-card-reveal"
-            :style="{ '--reveal-order': index + 1 }"
-            @mouseenter="onArticleCardEnter"
-            @mouseleave="onArticleCardLeave"
-          >
-            <div class="card-cover-side" aria-hidden="true">
-              <img :src="article.cover" alt="" />
-              <span class="card-cover-fade" />
-            </div>
-            <h3>{{ article.title }}</h3>
-            <p class="post-excerpt">{{ article.excerpt }}</p>
-
-            <div class="post-bottom">
-              <p class="post-meta">
-                <span>{{ fromNow(article.publishedAt) }}</span>
-                <strong>{{ article.category }}</strong>
-                <span>/</span>
-                <span>{{ article.tags[0] }}</span>
-              </p>
-
-              <div class="post-stats">
-                <span>
-                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M2.8 12s3.8-6.2 9.2-6.2s9.2 6.2 9.2 6.2s-3.8 6.2-9.2 6.2S2.8 12 2.8 12Z" />
-                    <circle cx="12" cy="12" r="2.7" />
-                  </svg>
-                  {{ formatCount(article.views) }}
-                </span>
-                <span>
-                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M12 20.2s-7-4.2-7-9.3c0-2.2 1.7-4 3.9-4c1.5 0 2.6.8 3.1 1.8c.5-1 1.6-1.8 3.1-1.8c2.2 0 3.9 1.8 3.9 4c0 5.1-7 9.3-7 9.3Z" />
-                  </svg>
-                  {{ article.likes }}
-                </span>
+          <p v-if="articleError" class="post-state">文章加载失败，请稍后重试。</p>
+          <p v-else-if="articlePending" class="post-state">文章加载中...</p>
+          <template v-else>
+            <NuxtLink
+              v-for="(article, index) in pagedArticles"
+              :key="article.id"
+              :to="`/article/${article.id}`"
+              class="post-item article-card-reveal"
+              :style="{ '--reveal-order': index + 1 }"
+              @mouseenter="onArticleCardEnter"
+              @mouseleave="onArticleCardLeave"
+            >
+              <div class="card-cover-side" aria-hidden="true">
+                <img :src="article.cover" alt="" />
+                <span class="card-cover-fade" />
               </div>
-            </div>
-          </NuxtLink>
+              <h3>{{ article.title }}</h3>
+              <p class="post-excerpt">{{ article.excerpt }}</p>
+
+              <div class="post-bottom">
+                <p class="post-meta">
+                  <span>{{ fromNow(article.publishedAt) }}</span>
+                  <strong>{{ article.category }}</strong>
+                  <span>/</span>
+                  <span>{{ article.tags[0] }}</span>
+                </p>
+
+                <div class="post-stats">
+                  <span>
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M2.8 12s3.8-6.2 9.2-6.2s9.2 6.2 9.2 6.2s-3.8 6.2-9.2 6.2S2.8 12 2.8 12Z" />
+                      <circle cx="12" cy="12" r="2.7" />
+                    </svg>
+                    {{ formatCount(article.views) }}
+                  </span>
+                  <span>
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M12 20.2s-7-4.2-7-9.3c0-2.2 1.7-4 3.9-4c1.5 0 2.6.8 3.1 1.8c.5-1 1.6-1.8 3.1-1.8c2.2 0 3.9 1.8 3.9 4c0 5.1-7 9.3-7 9.3Z" />
+                    </svg>
+                    {{ article.likes }}
+                  </span>
+                </div>
+              </div>
+            </NuxtLink>
+          </template>
         </div>
 
         <div class="pager">
@@ -531,6 +583,11 @@ function onArticleCardLeave(event: MouseEvent) {
   margin-top: 0.45rem;
   display: flex;
   flex-direction: column;
+}
+
+.post-state {
+  margin: 1rem 0 0;
+  color: var(--theme-text-mute);
 }
 
 .post-item {
@@ -877,4 +934,3 @@ function onArticleCardLeave(event: MouseEvent) {
   }
 }
 </style>
-

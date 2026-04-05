@@ -37,6 +37,8 @@ const dragOriginX = ref(0);
 const dragOriginY = ref(0);
 const minScale = 1;
 const maxScale = 4;
+const { lockScroll, unlockScroll } = useScrollLock();
+const isViewerLocked = ref(false);
 
 const currentImage = computed(() => props.images[currentIndex.value] || "");
 const readableUpdatedTime = computed(() => formatDateTime(props.album?.updatedAt || ""));
@@ -219,13 +221,15 @@ function formatDateTime(input: string) {
 }
 
 function lockBodyScroll() {
-  if (!import.meta.client) return;
-  document.body.style.overflow = "hidden";
+  if (isViewerLocked.value) return;
+  lockScroll();
+  isViewerLocked.value = true;
 }
 
 function unlockBodyScroll() {
-  if (!import.meta.client) return;
-  document.body.style.overflow = "";
+  if (!isViewerLocked.value) return;
+  unlockScroll();
+  isViewerLocked.value = false;
 }
 </script>
 

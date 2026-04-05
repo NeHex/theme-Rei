@@ -1,9 +1,10 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import MarkdownIt from "markdown-it";
 
 const route = useRoute();
 const { settings } = useSiteSettings();
 const { fetchPageDetail } = useSinglePages();
+const requestUrl = useRequestURL();
 
 const pageKey = computed(() => String(route.params.key ?? "").trim());
 
@@ -29,8 +30,93 @@ watchEffect(() => {
   });
 });
 
+function compactText(raw: string) {
+  return raw
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const siteBaseUrl = computed(() => {
+  const configured = String(settings.value.siteUrl || "").trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  return `${requestUrl.protocol}//${requestUrl.host}`;
+});
+
+const canonicalUrl = computed(() => {
+  const key = String(pageKey.value || "").replace(/^\/+|\/+$/g, "");
+  const path = key ? `/${encodeURIComponent(key)}` : "/";
+  return `${siteBaseUrl.value}${path}`;
+});
+
+const seoDescription = computed(() => {
+  const source = compactText(String(pageData.value?.content || "")) || settings.value.siteDesc;
+  return source.slice(0, 160) || settings.value.siteDesc;
+});
+
+const ogImage = computed(() => {
+  const cover = String(pageData.value?.coverImage || settings.value.userHeadpic || "").trim();
+  if (!cover) return "";
+  if (/^https?:\/\//i.test(cover)) return cover;
+  return `${siteBaseUrl.value}${cover.startsWith("/") ? cover : `/${cover}`}`;
+});
+
+const pageSchema = computed(() => {
+  if (!pageData.value) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: pageData.value.title,
+    description: seoDescription.value,
+    url: canonicalUrl.value,
+    dateModified: pageData.value.updatedAt,
+    image: ogImage.value || undefined,
+  };
+});
+
 useHead(() => ({
   title: `${pageData.value?.title || "独立页"} - ${settings.value.siteTitle}`,
+  link: [
+    {
+      rel: "canonical",
+      href: canonicalUrl.value,
+    },
+  ],
+  meta: [
+    {
+      name: "description",
+      content: seoDescription.value,
+    },
+    {
+      property: "og:type",
+      content: "website",
+    },
+    {
+      property: "og:title",
+      content: `${pageData.value?.title || "独立页"} - ${settings.value.siteTitle}`,
+    },
+    {
+      property: "og:description",
+      content: seoDescription.value,
+    },
+    {
+      property: "og:url",
+      content: canonicalUrl.value,
+    },
+    {
+      property: "og:image",
+      content: ogImage.value,
+    },
+  ],
+  script: pageSchema.value
+    ? [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(pageSchema.value),
+        },
+      ]
+    : [],
 }));
 
 const markdown = new MarkdownIt({

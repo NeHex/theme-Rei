@@ -1,4 +1,4 @@
-﻿export type SinglePageApiItem = {
+export type SinglePageApiItem = {
   id: number;
   page_key: string;
   title: string;

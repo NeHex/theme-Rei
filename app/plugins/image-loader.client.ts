@@ -1,6 +1,7 @@
 const LOADING_CLASS = "app-img-is-loading";
 const LOADED_CLASS = "app-img-is-loaded";
 const ERROR_CLASS = "app-img-is-error";
+const READY_CLASS = "app-image-loader-ready";
 const IGNORE_ATTR = "data-image-loader-ignore";
 const TRACK_ATTR = "data-image-loader-bound";
 const SOURCE_ATTR = "data-image-loader-source";
@@ -76,17 +77,21 @@ export default defineNuxtPlugin((nuxtApp) => {
   if (!import.meta.client) return;
 
   let observer: MutationObserver | null = null;
+  const resolveObserveRoot = () => document.getElementById("__nuxt") ?? document.body;
+
+  const stopObserver = () => {
+    if (!observer) return;
+    observer.disconnect();
+    observer = null;
+  };
 
   const start = () => {
+    document.documentElement.classList.add(READY_CLASS);
     scanImages(document);
 
+    stopObserver();
     observer = new MutationObserver((records) => {
       for (const record of records) {
-        if (record.type === "attributes" && record.target instanceof HTMLImageElement) {
-          prepareImage(record.target);
-          continue;
-        }
-
         for (const node of record.addedNodes) {
           if (node instanceof HTMLImageElement) {
             prepareImage(node);
@@ -100,11 +105,9 @@ export default defineNuxtPlugin((nuxtApp) => {
       }
     });
 
-    observer.observe(document.body, {
+    observer.observe(resolveObserveRoot(), {
       subtree: true,
       childList: true,
-      attributes: true,
-      attributeFilter: ["src", "srcset", IGNORE_ATTR],
     });
   };
 
@@ -118,11 +121,5 @@ export default defineNuxtPlugin((nuxtApp) => {
     requestAnimationFrame(() => scanImages(document));
   });
 
-  nuxtApp.hook("app:beforeMount", () => {
-    if (observer) {
-      observer.disconnect();
-      observer = null;
-    }
-  });
+  nuxtApp.hook("app:beforeMount", stopObserver);
 });
-

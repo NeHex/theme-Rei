@@ -1,4 +1,4 @@
-﻿type AlbumApiItem = {
+type AlbumApiItem = {
   id: number;
   title: string;
   cover: string | null;

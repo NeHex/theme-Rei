@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 type OwnerSpotlightItem = {
   id: string;
   name: string;
@@ -276,18 +276,22 @@ const projectMaskDelayMs = computed(() =>
 
 const activeProject = ref<ProjectItem | null>(null);
 const projectModalVisible = computed(() => Boolean(activeProject.value));
+const { lockScroll, unlockScroll } = useScrollLock();
+const isProjectModalLocked = ref(false);
 
 function openProjectDetail(project: ProjectItem) {
   activeProject.value = project;
-  if (import.meta.client) {
-    document.body.style.overflow = "hidden";
+  if (!isProjectModalLocked.value) {
+    lockScroll();
+    isProjectModalLocked.value = true;
   }
 }
 
 function closeProjectDetail() {
   activeProject.value = null;
-  if (import.meta.client) {
-    document.body.style.overflow = "";
+  if (isProjectModalLocked.value) {
+    unlockScroll();
+    isProjectModalLocked.value = false;
   }
 }
 
@@ -580,8 +584,12 @@ onMounted(() => {
 onBeforeUnmount(() => {
   homeBackgroundLoadToken += 1;
 
+  if (isProjectModalLocked.value) {
+    unlockScroll();
+    isProjectModalLocked.value = false;
+  }
+
   if (import.meta.client) {
-    document.body.style.overflow = "";
     window.removeEventListener("keydown", handleProjectModalKeydown);
   }
 

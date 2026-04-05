@@ -1,8 +1,9 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import MarkdownIt from "markdown-it";
 
 const route = useRoute();
 const { settings } = useSiteSettings();
+const requestUrl = useRequestURL();
 
 const articleId = computed(() => String(route.params.id ?? "").trim());
 const { article, pending, error } = useArticleDetail(articleId);
@@ -15,8 +16,115 @@ watchEffect(() => {
   });
 });
 
+function compactText(raw: string) {
+  return raw
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function toAbsoluteUrl(pathOrUrl: string) {
+  const input = String(pathOrUrl || "").trim();
+  if (!input) return "";
+  if (/^https?:\/\//i.test(input)) return input;
+  return `${siteBaseUrl.value}${input.startsWith("/") ? input : `/${input}`}`;
+}
+
+const siteBaseUrl = computed(() => {
+  const configured = String(settings.value.siteUrl || "").trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  return `${requestUrl.protocol}//${requestUrl.host}`;
+});
+
+const canonicalUrl = computed(() => {
+  const articlePath = articleId.value ? `/article/${encodeURIComponent(articleId.value)}` : "/article";
+  return `${siteBaseUrl.value}${articlePath}`;
+});
+
+const seoDescription = computed(() => {
+  const summary = String(article.value?.summary || "").trim();
+  const fallback = compactText(String(article.value?.content || ""));
+  const source = summary || fallback || settings.value.siteDesc;
+  return source.slice(0, 160) || settings.value.siteDesc;
+});
+
+const ogImage = computed(() => {
+  const cover = String(article.value?.cover || "").trim();
+  const fallback = String(settings.value.userHeadpic || "/images/head.jpg").trim();
+  return toAbsoluteUrl(cover || fallback);
+});
+
+const articleSchema = computed(() => {
+  if (!article.value) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: article.value.title,
+    description: seoDescription.value,
+    image: ogImage.value ? [ogImage.value] : undefined,
+    datePublished: article.value.publishedAt,
+    dateModified: article.value.updatedAt,
+    mainEntityOfPage: canonicalUrl.value,
+    author: {
+      "@type": "Person",
+      name: settings.value.userName || settings.value.siteTitle,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: settings.value.siteTitle,
+      logo: ogImage.value
+        ? {
+            "@type": "ImageObject",
+            url: ogImage.value,
+          }
+        : undefined,
+    },
+  };
+});
+
 useHead(() => ({
   title: `${article.value?.title ?? "文章"} - ${settings.value.siteTitle}`,
+  link: [
+    {
+      rel: "canonical",
+      href: canonicalUrl.value,
+    },
+  ],
+  meta: [
+    {
+      name: "description",
+      content: seoDescription.value,
+    },
+    {
+      property: "og:type",
+      content: "article",
+    },
+    {
+      property: "og:title",
+      content: `${article.value?.title ?? "文章"} - ${settings.value.siteTitle}`,
+    },
+    {
+      property: "og:description",
+      content: seoDescription.value,
+    },
+    {
+      property: "og:url",
+      content: canonicalUrl.value,
+    },
+    {
+      property: "og:image",
+      content: ogImage.value,
+    },
+  ],
+  script: articleSchema.value
+    ? [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(articleSchema.value),
+        },
+      ]
+    : [],
 }));
 
 const markdown = new MarkdownIt({
@@ -361,4 +469,3 @@ address {
   }
 }
 </style>
-

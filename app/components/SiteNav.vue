@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 const route = useRoute();
 const { settings } = useSiteSettings();
 const { pages: singlePages } = useSinglePages();
@@ -96,7 +96,7 @@ watch(
 </script>
 
 <template>
-  <header :key="route.fullPath" class="floating-nav-wrap">
+  <header class="floating-nav-wrap">
     <nav class="floating-nav">
       <div class="nav-main">
         <NuxtLink to="/" class="nav-avatar-link" aria-label="返回首页">

@@ -1,4 +1,6 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
+import { md5Hex } from "~/utils/md5";
+
 type CommentItem = {
   id: number;
   parent_id: number;
@@ -13,6 +15,7 @@ type CommentItem = {
   ip: string | null;
   create_time: string;
   update_time: string;
+  avatar_url?: string | null;
   replies: CommentItem[];
 };
 
@@ -155,31 +158,14 @@ function formatDateTime(dateString: string) {
   }).format(date);
 }
 
-async function sha256Hex(input: string) {
-  if (import.meta.server) {
-    const { createHash } = await import("node:crypto");
-    return createHash("sha256").update(input).digest("hex");
-  }
-
-  if (globalThis.crypto?.subtle) {
-    const bytes = new TextEncoder().encode(input);
-    const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
-    return Array.from(new Uint8Array(digest))
-      .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("");
-  }
-
-  return "";
-}
-
-async function getGravatarUrl(email: string | null) {
+function getGravatarUrl(email: string | null) {
   const normalized = String(email || "").trim().toLowerCase();
   if (!normalized) return DEFAULT_AVATAR;
 
   const cached = gravatarCache.get(normalized);
   if (cached) return cached;
 
-  const hash = await sha256Hex(normalized);
+  const hash = md5Hex(normalized);
   if (!hash) return DEFAULT_AVATAR;
 
   const url = `https://cn.gravatar.com/avatar/${hash}?s=${GRAVATAR_SIZE}&d=mp`;
@@ -187,9 +173,15 @@ async function getGravatarUrl(email: string | null) {
   return url;
 }
 
-async function mapCommentView(item: CommentItem): Promise<CommentViewItem> {
-  const replies = await Promise.all((item.replies || []).map((reply) => mapCommentView(reply)));
-  const avatarUrl = await getGravatarUrl(item.email);
+function resolveAvatarUrl(item: CommentItem) {
+  const backendAvatar = String(item.avatar_url || "").trim();
+  if (backendAvatar) return backendAvatar;
+  return getGravatarUrl(item.email);
+}
+
+function mapCommentView(item: CommentItem): CommentViewItem {
+  const replies = (item.replies || []).map((reply) => mapCommentView(reply));
+  const avatarUrl = resolveAvatarUrl(item);
 
   return {
     ...item,
@@ -198,8 +190,8 @@ async function mapCommentView(item: CommentItem): Promise<CommentViewItem> {
   };
 }
 
-async function toCommentViewList(items: CommentItem[]) {
-  return Promise.all((items || []).map((item) => mapCommentView(item)));
+function toCommentViewList(items: CommentItem[]) {
+  return (items || []).map((item) => mapCommentView(item));
 }
 
 async function loadComments() {
@@ -220,7 +212,7 @@ async function loadComments() {
       },
     });
 
-    comments.value = await toCommentViewList(response.data || []);
+    comments.value = toCommentViewList(response.data || []);
   } catch (error: any) {
     comments.value = [];
     loadError.value = String(error?.statusMessage || "评论加载失败");

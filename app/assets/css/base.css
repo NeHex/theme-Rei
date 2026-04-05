@@ -95,12 +95,12 @@ a:focus-visible {
   z-index: 1;
 }
 
-img:not([data-image-loader-ignore]):not(.app-img-is-loaded) {
-  opacity: 0;
-  visibility: hidden;
+img:not([data-image-loader-ignore]) {
+  opacity: 1;
+  visibility: visible;
 }
 
-img.app-img-is-loading {
+html.app-image-loader-ready img.app-img-is-loading {
   opacity: 0;
   visibility: hidden;
   filter: none;
@@ -109,7 +109,7 @@ img.app-img-is-loading {
   will-change: opacity;
 }
 
-img.app-img-is-loaded {
+html.app-image-loader-ready img.app-img-is-loaded {
   visibility: visible;
   opacity: 1;
   filter: none;
@@ -120,6 +120,6 @@ img.app-img-is-loaded {
     transform 0.32s ease;
 }
 
-img.app-img-is-error {
+html.app-image-loader-ready img.app-img-is-error {
   filter: grayscale(0.92) contrast(0.95) brightness(0.8);
 }

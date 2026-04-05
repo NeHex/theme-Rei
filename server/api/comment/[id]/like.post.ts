@@ -1,4 +1,4 @@
-﻿type CommentApiItem = {
+type CommentApiItem = {
   id: number;
   parent_id: number;
   target_type: string;

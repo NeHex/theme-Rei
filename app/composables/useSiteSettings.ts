@@ -1,4 +1,4 @@
-﻿type SettingValueType = "string" | "int" | "float" | "boolean" | "json";
+type SettingValueType = "string" | "int" | "float" | "boolean" | "json";
 
 type SettingApiItem = {
   setting_key: string;
@@ -337,6 +337,11 @@ function buildSettingMap(items: SettingApiItem[]) {
 
 function resolveSiteSettings(items: SettingApiItem[]) {
   const map = buildSettingMap(items);
+  const siteTitle = asString(map.site_title, DEFAULT_SITE_SETTINGS.siteTitle);
+  const siteDesc = asString(
+    map.site_desc,
+    asString(map.site_description, DEFAULT_SITE_SETTINGS.siteDesc),
+  );
 
   const themeNavRecord = parseJsonObject(map.theme_nav);
   const themeNav = Object.entries(themeNavRecord)
@@ -357,7 +362,10 @@ function resolveSiteSettings(items: SettingApiItem[]) {
       .filter(([, value]) => Boolean(value)),
   );
 
-  const userDescRaw = asString(map.user_desc, DEFAULT_SITE_SETTINGS.userDesc);
+  const userDescRaw = asString(
+    map.user_desc,
+    siteDesc || DEFAULT_SITE_SETTINGS.userDesc,
+  );
   const userDesc = userDescRaw.replace(/\\n/g, "\n");
 
   const themeWifes = parseThemeWifes(map.theme_wifes);
@@ -365,8 +373,8 @@ function resolveSiteSettings(items: SettingApiItem[]) {
   const themeAboutMapPoints = parseThemeAboutMapPoints(themeAboutPages);
 
   return {
-    siteTitle: asString(map.site_title, DEFAULT_SITE_SETTINGS.siteTitle),
-    siteDesc: asString(map.site_desc, DEFAULT_SITE_SETTINGS.siteDesc),
+    siteTitle,
+    siteDesc,
     siteFavicon: normalizeAssetPath(
       asString(map.site_favicon, DEFAULT_SITE_SETTINGS.siteFavicon),
     ),
@@ -383,7 +391,7 @@ function resolveSiteSettings(items: SettingApiItem[]) {
       ? themeAboutMapPoints
       : DEFAULT_SITE_SETTINGS.themeAboutMapPoints,
     themeWifes: themeWifes.length ? themeWifes : DEFAULT_SITE_SETTINGS.themeWifes,
-    userName: asString(map.user_name, DEFAULT_SITE_SETTINGS.userName),
+    userName: asString(map.user_name, siteTitle || DEFAULT_SITE_SETTINGS.userName),
     userDesc,
     userHeadpic: normalizeAssetPath(
       asString(map.user_headpic, DEFAULT_SITE_SETTINGS.userHeadpic),

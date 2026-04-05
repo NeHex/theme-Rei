@@ -14,31 +14,17 @@ type PageApiResponse = {
   data: PageApiItem[];
 };
 
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/, "");
-}
+import { backendFetch } from "../utils/backendFetch";
 
-export default defineEventHandler(async () => {
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase =
-    runtimeConfig.settingsApiBase ||
-    runtimeConfig.public.settingsApiBase ||
-    "http://127.0.0.1:7878";
-
+export default cachedEventHandler(async () => {
   try {
-    const response = await $fetch<PageApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/page`,
-      {
-        method: "GET",
-        timeout: 12000,
-        retry: 1,
-        retryDelay: 250,
-      },
-    );
-
-    return response;
+    return await backendFetch<PageApiResponse>("/page", { method: "GET" });
   } catch (error) {
     console.error("[page-api] failed to fetch pages", error);
     return { data: [] as PageApiItem[] };
   }
+}, {
+  maxAge: 300,
+  swr: true,
+  name: "api:page",
 });

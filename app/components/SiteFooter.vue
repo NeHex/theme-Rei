@@ -35,7 +35,7 @@ function isExternalLink(url: string) {
         <div class="footer-brand">
           <h3 class="brand-title">{{ settings.siteTitle }}</h3>
           <p class="brand-motto">{{ settings.siteDesc }}</p>
-          <p class="brand-copy">{{ copyrightText }} Powered By <a href="https://github.com/nehex" target="blank">NeHex</a>&<a href="https://github.com/NeHex/theme-Rei" target="blank">Rei</a></p>
+          <p class="brand-copy">{{ copyrightText }} Powered By <a href="https://github.com/nehex" target="_blank" rel="noopener noreferrer">NeHex</a>&<a href="https://github.com/NeHex/theme-Rei" target="_blank" rel="noopener noreferrer">Rei</a></p>
         </div>
 
         <nav class="footer-col" aria-label="快捷导航">

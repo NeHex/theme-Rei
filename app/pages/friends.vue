@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import type { FriendStatus, FriendViewItem } from "~/composables/useFriends";
 
 const { settings } = useSiteSettings();
@@ -65,6 +65,8 @@ const FRIEND_APPLY_REQUIREMENTS = [
 ];
 const FRIENDS_COMMENT_TARGET_TYPE = "friend_page";
 const FRIENDS_COMMENT_TARGET_ID = 1;
+const { lockScroll, unlockScroll } = useScrollLock();
+const isApplyModalLocked = ref(false);
 
 const applyModalVisible = ref(false);
 const applyStep = ref<FriendApplyStep>(1);
@@ -180,8 +182,16 @@ function onApplyDialogKeydown(event: KeyboardEvent) {
 }
 
 watch(applyModalVisible, (visible) => {
-  if (!import.meta.client) return;
-  document.body.style.overflow = visible ? "hidden" : "";
+  if (visible && !isApplyModalLocked.value) {
+    lockScroll();
+    isApplyModalLocked.value = true;
+    return;
+  }
+
+  if (!visible && isApplyModalLocked.value) {
+    unlockScroll();
+    isApplyModalLocked.value = false;
+  }
 });
 
 onMounted(() => {
@@ -189,8 +199,9 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (import.meta.client) {
-    document.body.style.overflow = "";
+  if (isApplyModalLocked.value) {
+    unlockScroll();
+    isApplyModalLocked.value = false;
   }
   window.removeEventListener("keydown", onApplyDialogKeydown);
 });

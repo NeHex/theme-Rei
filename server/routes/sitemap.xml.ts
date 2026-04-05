@@ -120,11 +120,19 @@ export default defineEventHandler(async (event) => {
   setHeader(event, "cache-control", "public, max-age=300, s-maxage=300");
 
   const requestUrl = getRequestURL(event);
-  const [settingResponse, articleResponse, pageResponse] = await Promise.all([
-    $fetch<SettingApiResponse>("/api/setting"),
-    $fetch<ArticleApiResponse>("/api/article"),
-    $fetch<PageApiResponse>("/api/page"),
-  ]);
+  let settingResponse: SettingApiResponse = { data: [] };
+  let articleResponse: ArticleApiResponse = { data: [] };
+  let pageResponse: PageApiResponse = { data: [] };
+
+  try {
+    [settingResponse, articleResponse, pageResponse] = await Promise.all([
+      $fetch<SettingApiResponse>("/api/setting"),
+      $fetch<ArticleApiResponse>("/api/article"),
+      $fetch<PageApiResponse>("/api/page"),
+    ]);
+  } catch (error) {
+    console.error("[sitemap-route] failed to fetch upstream data", error);
+  }
 
   const settingsMap = buildSettingMap(settingResponse.data ?? []);
   const configuredSiteUrl = asString(settingsMap.site_url, "").trim();

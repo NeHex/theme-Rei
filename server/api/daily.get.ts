@@ -1,4 +1,4 @@
-﻿type DailyApiItem = {
+type DailyApiItem = {
   id: number;
   title: string;
   content: string | null;

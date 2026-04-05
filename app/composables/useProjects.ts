@@ -1,4 +1,4 @@
-﻿export type ProjectApiItem = {
+export type ProjectApiItem = {
   id: number;
   title: string;
   cover: string | null;

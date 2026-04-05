@@ -1,4 +1,4 @@
-﻿type FriendApiItem = {
+type FriendApiItem = {
   id: number;
   title: string;
   description: string | null;

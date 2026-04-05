@@ -100,11 +100,17 @@ export default defineEventHandler(async (event) => {
   setHeader(event, "cache-control", "public, max-age=300, s-maxage=300");
 
   const requestUrl = getRequestURL(event);
+  let articleResponse: ArticleApiResponse = { data: [] };
+  let settingResponse: SettingApiResponse = { data: [] };
 
-  const [articleResponse, settingResponse] = await Promise.all([
-    $fetch<ArticleApiResponse>("/api/article"),
-    $fetch<SettingApiResponse>("/api/setting"),
-  ]);
+  try {
+    [articleResponse, settingResponse] = await Promise.all([
+      $fetch<ArticleApiResponse>("/api/article"),
+      $fetch<SettingApiResponse>("/api/setting"),
+    ]);
+  } catch (error) {
+    console.error("[feed-route] failed to fetch upstream data", error);
+  }
 
   const settingsMap = buildSettingMap(settingResponse.data ?? []);
   const siteTitle = asString(settingsMap.site_title, "NeHex");
