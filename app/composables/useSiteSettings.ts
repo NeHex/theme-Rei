@@ -13,6 +13,18 @@ type SettingApiResponse = {
   data: SettingApiItem[];
 };
 
+type ThemeProfile = Record<string, unknown>;
+
+type SettingThemeApiData = {
+  active_profile?: string | null;
+  profiles?: Record<string, ThemeProfile> | null;
+  current?: ThemeProfile | null;
+};
+
+type SettingThemeApiResponse = {
+  data: SettingThemeApiData | null;
+};
+
 type NavItem = {
   label: string;
   to: string;
@@ -102,8 +114,15 @@ function normalizeLink(value: string) {
 }
 
 function normalizeSocialLink(key: string, value: unknown) {
-  const normalized = normalizeLink(asString(value));
   const lowerKey = key.trim().toLowerCase();
+  if (typeof value === "boolean") {
+    if ((lowerKey === "feed" || lowerKey === "rss") && value) {
+      return "/feed";
+    }
+    return "";
+  }
+
+  const normalized = normalizeLink(asString(value));
   if ((lowerKey === "feed" || lowerKey === "rss") && normalized.replace(/\/+$/, "") === "/feed.xml") {
     return "/feed";
   }
@@ -130,6 +149,29 @@ function parseJsonObject(value: unknown) {
   }
 
   return {};
+}
+
+function parseThemeCurrentProfile(themeData: SettingThemeApiData | null | undefined) {
+  if (!themeData || typeof themeData !== "object") return {} as Record<string, unknown>;
+
+  const current = parseJsonObject(themeData.current);
+  if (Object.keys(current).length) return current;
+
+  const profiles = parseJsonObject(themeData.profiles);
+  const activeProfile = asString(themeData.active_profile).trim();
+  if (activeProfile) {
+    const matched = parseJsonObject(profiles[activeProfile]);
+    if (Object.keys(matched).length) return matched;
+  }
+
+  for (const value of Object.values(profiles)) {
+    const profile = parseJsonObject(value);
+    if (Object.keys(profile).length) {
+      return profile;
+    }
+  }
+
+  return {} as Record<string, unknown>;
 }
 
 function pickWifeRecord(value: unknown): WifeProfile | null {
@@ -335,8 +377,9 @@ function buildSettingMap(items: SettingApiItem[]) {
   return map;
 }
 
-function resolveSiteSettings(items: SettingApiItem[]) {
+function resolveSiteSettings(items: SettingApiItem[], themeData: SettingThemeApiData | null = null) {
   const map = buildSettingMap(items);
+  const currentThemeProfile = parseThemeCurrentProfile(themeData);
   const siteTitle = asString(map.site_title, DEFAULT_SITE_SETTINGS.siteTitle);
   const siteDesc = asString(
     map.site_desc,
@@ -355,7 +398,7 @@ function resolveSiteSettings(items: SettingApiItem[]) {
       return route !== "/wifes";
     });
 
-  const socialRecord = parseJsonObject(map.user_social_link);
+  const socialRecord = parseJsonObject(currentThemeProfile.social_link);
   const socialLinks = Object.fromEntries(
     Object.entries(socialRecord)
       .map(([key, value]) => [key, normalizeSocialLink(key, value)])
@@ -367,6 +410,14 @@ function resolveSiteSettings(items: SettingApiItem[]) {
     siteDesc || DEFAULT_SITE_SETTINGS.userDesc,
   );
   const userDesc = userDescRaw.replace(/\\n/g, "\n");
+
+  const profileBackground = normalizeAssetPath(
+    asString(
+      currentThemeProfile.background_images,
+      asString(currentThemeProfile.background, ""),
+    ),
+  );
+  const profileHeadmsg = asString(currentThemeProfile.headmsg, "");
 
   const themeWifes = parseThemeWifes(map.theme_wifes);
   const themeAboutPages = parseJsonObject(map.theme_about_pages);
@@ -381,10 +432,8 @@ function resolveSiteSettings(items: SettingApiItem[]) {
     siteUrl: asString(map.site_url, DEFAULT_SITE_SETTINGS.siteUrl),
     siteIcp: asString(map.site_icp, DEFAULT_SITE_SETTINGS.siteIcp),
     siteCreateTime: asString(map.site_createtime, DEFAULT_SITE_SETTINGS.siteCreateTime),
-    themeBackground: normalizeAssetPath(
-      asString(map.theme_background, DEFAULT_SITE_SETTINGS.themeBackground),
-    ),
-    themeHeadmsg: asString(map.theme_headmsg, DEFAULT_SITE_SETTINGS.themeHeadmsg),
+    themeBackground: profileBackground || DEFAULT_SITE_SETTINGS.themeBackground,
+    themeHeadmsg: profileHeadmsg || DEFAULT_SITE_SETTINGS.themeHeadmsg,
     themeNav: themeNav.length ? themeNav : DEFAULT_SITE_SETTINGS.themeNav,
     themeAboutPages,
     themeAboutMapPoints: themeAboutMapPoints.length
@@ -406,8 +455,12 @@ export function useSiteSettings() {
   const { data, pending, error, refresh } = useAsyncData<SiteSettings>(
     "site-settings",
     async () => {
-      const response = await $fetch<SettingApiResponse>("/api/setting");
-      return resolveSiteSettings(response.data ?? []);
+      const [settingResponse, themeResponse] = await Promise.all([
+        $fetch<SettingApiResponse>("/api/setting"),
+        $fetch<SettingThemeApiResponse>("/api/setting/theme").catch(() => ({ data: null })),
+      ]);
+
+      return resolveSiteSettings(settingResponse.data ?? [], themeResponse.data);
     },
     {
       default: () => ({ ...DEFAULT_SITE_SETTINGS }),
