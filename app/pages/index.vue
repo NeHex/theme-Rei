@@ -55,7 +55,7 @@ type SocialItem = {
 
 type DailyWeatherKey = "sun" | "rain" | "wind" | "snow" | "cloud";
 
-const { settings } = useSiteSettings();
+const { settings, pending: settingsPending } = useSiteSettings();
 const { articles: fetchedArticles } = useArticles();
 const { albums: fetchedAlbums } = useAlbums();
 const { dailies: fetchedDailies } = useDailies();
@@ -369,8 +369,9 @@ async function preloadHomeBackground(rawSrc: string) {
 
 const homeBackgroundSource = computed(() => settings.value.themeBackground || HOME_BACKGROUND_FALLBACK);
 
-watch(homeBackgroundSource, (source) => {
+watch([homeBackgroundSource, settingsPending], ([source, pending]) => {
   if (!import.meta.client) return;
+  if (pending && source === HOME_BACKGROUND_FALLBACK) return;
   void preloadHomeBackground(source);
 }, { immediate: true });
 
