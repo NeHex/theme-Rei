@@ -135,9 +135,43 @@ function stopLoading() {
   }, EXIT_MS);
 }
 
+function logThemeBanner() {
+  if (!import.meta.client) return;
+
+  const win = window as Window & { __reiThemeBannerLogged?: boolean };
+  if (win.__reiThemeBannerLogged) return;
+  win.__reiThemeBannerLogged = true;
+
+  const rootStyle = getComputedStyle(document.documentElement);
+  const accent = rootStyle.getPropertyValue("--theme-accent").trim() || "#2ad4e1";
+  const surface = rootStyle.getPropertyValue("--theme-surface-strong").trim() || "#081529";
+
+  console.log(
+    "%c Rei %c https://github.com/nehex/theme-rei ",
+    [
+      `background:${accent}`,
+      "color:#04101a",
+      "font-weight:700",
+      "padding:4px 10px",
+      "border-radius:8px 0 0 8px",
+    ].join(";"),
+    [
+      `background:${surface}`,
+      `color:${accent}`,
+      "font-weight:600",
+      "padding:4px 10px",
+      "border-radius:0 8px 8px 0",
+    ].join(";"),
+  );
+}
+
 if (import.meta.client) {
   const router = useRouter();
   const nuxtApp = useNuxtApp();
+
+  onMounted(() => {
+    logThemeBanner();
+  });
 
   router.beforeEach(async (to, from) => {
     if (to.fullPath !== from.fullPath) {

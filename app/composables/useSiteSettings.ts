@@ -129,6 +129,13 @@ function normalizeSocialLink(key: string, value: unknown) {
   return normalized;
 }
 
+function normalizeSocialKey(key: string) {
+  const lowerKey = key.trim().toLowerCase();
+  if (lowerKey === "mail") return "email";
+  if (lowerKey === "rss") return "feed";
+  return lowerKey;
+}
+
 function parseJsonObject(value: unknown) {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     return value as Record<string, unknown>;
@@ -386,7 +393,13 @@ function resolveSiteSettings(items: SettingApiItem[], themeData: SettingThemeApi
     asString(map.site_description, DEFAULT_SITE_SETTINGS.siteDesc),
   );
 
-  const themeNavRecord = parseJsonObject(map.theme_nav);
+  const profileNavRecord = parseJsonObject(
+    currentThemeProfile.nav_border ??
+      currentThemeProfile.theme_nav ??
+      currentThemeProfile.nav,
+  );
+  const settingNavRecord = parseJsonObject(map.theme_nav);
+  const themeNavRecord = Object.keys(profileNavRecord).length ? profileNavRecord : settingNavRecord;
   const themeNav = Object.entries(themeNavRecord)
     .map(([label, to]) => ({
       label: asString(label).trim(),
@@ -401,7 +414,7 @@ function resolveSiteSettings(items: SettingApiItem[], themeData: SettingThemeApi
   const socialRecord = parseJsonObject(currentThemeProfile.social_link);
   const socialLinks = Object.fromEntries(
     Object.entries(socialRecord)
-      .map(([key, value]) => [key, normalizeSocialLink(key, value)])
+      .map(([key, value]) => [normalizeSocialKey(key), normalizeSocialLink(key, value)])
       .filter(([, value]) => Boolean(value)),
   );
 
@@ -419,8 +432,21 @@ function resolveSiteSettings(items: SettingApiItem[], themeData: SettingThemeApi
   );
   const profileHeadmsg = asString(currentThemeProfile.headmsg, "");
 
-  const themeWifes = parseThemeWifes(map.theme_wifes);
-  const themeAboutPages = parseJsonObject(map.theme_about_pages);
+  const profileAboutPages = parseJsonObject(
+    currentThemeProfile.about_page ??
+      currentThemeProfile.about_pages ??
+      currentThemeProfile.theme_about_pages,
+  );
+  const settingAboutPages = parseJsonObject(map.theme_about_pages);
+  const themeAboutPages = Object.keys(profileAboutPages).length ? profileAboutPages : settingAboutPages;
+  const profileWifes = parseThemeWifes(
+    profileAboutPages.wifes_card ??
+      profileAboutPages.wifes ??
+      currentThemeProfile.wifes_card ??
+      currentThemeProfile.theme_wifes,
+  );
+  const settingWifes = parseThemeWifes(map.theme_wifes);
+  const themeWifes = profileWifes.length ? profileWifes : settingWifes;
   const themeAboutMapPoints = parseThemeAboutMapPoints(themeAboutPages);
 
   return {

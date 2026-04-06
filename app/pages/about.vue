@@ -177,13 +177,6 @@ const wifeRows = computed(() => {
   }
   return rows;
 });
-const wivesViewport = ref<HTMLElement | null>(null);
-const wivesPanOffset = ref({ x: 0, y: 0 });
-const wivesIsDragging = ref(false);
-const wivesSuppressClickUntil = ref(0);
-const wivesPanStyle = computed(() => ({
-  transform: `translate(calc(-50% + ${wivesPanOffset.value.x}px), ${wivesPanOffset.value.y}px)`,
-}));
 const activeWifeCard = ref<WifeCard | null>(null);
 const sloganWordDisplay = ref("");
 const sloganWords = computed(() => aboutSlogan.value.more);
@@ -195,12 +188,6 @@ let sloganScrambleTimer: ReturnType<typeof setInterval> | null = null;
 let skillsHoldTimer: ReturnType<typeof setTimeout> | null = null;
 let skillsCycleTimer: ReturnType<typeof setTimeout> | null = null;
 let skillsFlashTimers: ReturnType<typeof setTimeout>[] = [];
-let wivesPointerId: number | null = null;
-let wivesStartX = 0;
-let wivesStartY = 0;
-let wivesLastX = 0;
-let wivesLastY = 0;
-let wivesDidMove = false;
 
 const RANDOM_CHARS = "星河风云山海晨暮春秋花叶雪月光明安静温柔清雅澈灵逸曦朗心梦知远思念归";
 
@@ -333,63 +320,7 @@ function startSkillsBlinkLoop() {
   runSkillsBlinkCycle();
 }
 
-function onWivesPointerDown(event: PointerEvent) {
-  if (event.pointerType !== "touch" && event.button !== 0) return;
-  if (!wivesViewport.value) return;
-
-  wivesPointerId = event.pointerId;
-  wivesStartX = event.clientX;
-  wivesStartY = event.clientY;
-  wivesLastX = event.clientX;
-  wivesLastY = event.clientY;
-  wivesDidMove = false;
-  wivesIsDragging.value = false;
-}
-
-function onWivesPointerMove(event: PointerEvent) {
-  if (wivesPointerId !== event.pointerId) return;
-
-  const dx = event.clientX - wivesLastX;
-  const dy = event.clientY - wivesLastY;
-  wivesLastX = event.clientX;
-  wivesLastY = event.clientY;
-
-  const movedDistance = Math.hypot(event.clientX - wivesStartX, event.clientY - wivesStartY);
-  if (!wivesDidMove && movedDistance < 8) return;
-
-  if (!wivesDidMove) {
-    wivesDidMove = true;
-    wivesIsDragging.value = true;
-    wivesViewport.value?.setPointerCapture(event.pointerId);
-  }
-
-  event.preventDefault();
-  wivesPanOffset.value = {
-    x: wivesPanOffset.value.x + dx,
-    y: wivesPanOffset.value.y + dy,
-  };
-}
-
-function endWivesPointerDrag(event: PointerEvent) {
-  if (wivesPointerId !== event.pointerId) return;
-  if (wivesViewport.value?.hasPointerCapture(event.pointerId)) {
-    wivesViewport.value.releasePointerCapture(event.pointerId);
-  }
-
-  if (wivesDidMove) {
-    wivesSuppressClickUntil.value = Date.now() + 180;
-  }
-
-  wivesPointerId = null;
-  wivesDidMove = false;
-  wivesIsDragging.value = false;
-}
-
-function openWifeCard(card: WifeCard, event?: MouseEvent) {
-  if (Date.now() < wivesSuppressClickUntil.value) {
-    event?.preventDefault();
-    return;
-  }
+function openWifeCard(card: WifeCard) {
   activeWifeCard.value = card;
 }
 
@@ -559,8 +490,6 @@ onBeforeUnmount(() => {
   maplibreglModule = null;
   clearSloganTimers();
   clearSkillsTimers();
-  wivesPointerId = null;
-  wivesIsDragging.value = false;
 });
 </script>
 
@@ -616,38 +545,29 @@ onBeforeUnmount(() => {
         </article>
 
         <article class="module-card wives-wall-card">
-          <h2 class="wives-title">老婆墙</h2>
-          <div
-            ref="wivesViewport"
-            class="wives-viewport"
-            :class="{ 'is-dragging': wivesIsDragging }"
-            @pointerdown="onWivesPointerDown"
-            @pointermove="onWivesPointerMove"
-            @pointerup="endWivesPointerDrag"
-            @pointercancel="endWivesPointerDrag"
-          >
-            <div class="wives-drag-layer" :style="wivesPanStyle">
-                <div class="wives-grid">
-                  <div
-                    v-for="(row, rowIndex) in wifeRows"
-                    :key="`wives-row-${rowIndex}`"
-                    class="wives-row"
-                    :class="{ 'is-offset': rowIndex % 2 === 1 }"
+          <div class="wives-viewport">
+            <div class="wives-drag-layer">
+              <div class="wives-grid">
+                <div
+                  v-for="(row, rowIndex) in wifeRows"
+                  :key="`wives-row-${rowIndex}`"
+                  class="wives-row"
+                  :class="{ 'is-offset': rowIndex % 2 === 1 }"
+                >
+                  <button
+                    v-for="card in row"
+                    :key="card.id"
+                    type="button"
+                    class="wives-hex-card"
+                    :aria-label="`查看 ${card.cnName || card.otherName || '爱妻'}`"
+                    @click="openWifeCard(card)"
                   >
-                    <button
-                      v-for="card in row"
-                      :key="card.id"
-                      type="button"
-                      class="wives-hex-card"
-                      :aria-label="`查看 ${card.cnName || card.otherName || '爱妻'}`"
-                      @click="openWifeCard(card, $event)"
-                    >
-                      <span class="wives-hex-media">
-                        <img :src="card.image" alt="爱妻墙卡片" draggable="false" />
-                      </span>
-                    </button>
-                  </div>
+                    <span class="wives-hex-media">
+                      <img :src="card.image" alt="爱妻墙卡片" draggable="false" />
+                    </span>
+                  </button>
                 </div>
+              </div>
             </div>
           </div>
         </article>
@@ -1007,8 +927,7 @@ onBeforeUnmount(() => {
   position: relative;
   isolation: isolate;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 0.75rem;
+  grid-template-rows: minmax(0, 1fr);
   background: #030714;
 }
 
@@ -1050,38 +969,23 @@ onBeforeUnmount(() => {
   animation: wives-heart-drift-outline 16s linear infinite;
 }
 
-.wives-title {
-  margin: 0;
-  position: relative;
-  z-index: 5;
-  color: #f3f9ff;
-  font-size: 1.18rem;
-  line-height: 1.1;
-  text-shadow: 0 4px 14px rgba(1, 5, 12, 0.5);
-}
-
 .wives-viewport {
   position: relative;
   z-index: 1;
   min-height: 0;
   height: 100%;
-  overflow: hidden;
+  overflow: auto;
   user-select: none;
-  touch-action: none;
-  cursor: grab;
   border-radius: 0.78rem;
   background: linear-gradient(180deg, rgba(4, 14, 28, 0.2) 0%, rgba(2, 8, 17, 0.48) 100%);
 }
 
-.wives-viewport.is-dragging {
-  cursor: grabbing;
-}
-
 .wives-drag-layer {
-  position: absolute;
-  top: 0.65rem;
-  left: 50%;
-  will-change: transform;
+  position: relative;
+  width: fit-content;
+  margin: 0 auto;
+  padding-top: 0.65rem;
+  padding-bottom: 0.45rem;
 }
 
 .wives-grid {
