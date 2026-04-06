@@ -12,7 +12,7 @@ type SettingThemeApiResponse = {
   data: SettingThemeApiData | null;
 };
 
-export default cachedEventHandler(async () => {
+export default defineEventHandler(async () => {
   try {
     return await backendFetch<SettingThemeApiResponse>("/setting/theme", {
       method: "GET",
@@ -21,8 +21,4 @@ export default cachedEventHandler(async () => {
     console.error("[setting-theme-api] failed to fetch theme settings", error);
     return { data: null } satisfies SettingThemeApiResponse;
   }
-}, {
-  maxAge: 300,
-  swr: true,
-  name: "api:setting-theme",
 });

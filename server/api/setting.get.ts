@@ -13,15 +13,11 @@ type SettingApiResponse = {
 
 import { backendFetch } from "../utils/backendFetch";
 
-export default cachedEventHandler(async () => {
+export default defineEventHandler(async () => {
   try {
     return await backendFetch<SettingApiResponse>("/setting", { method: "GET" });
   } catch (error) {
     console.error("[setting-api] failed to fetch settings", error);
     return { data: [] as SettingApiItem[] };
   }
-}, {
-  maxAge: 300,
-  swr: true,
-  name: "api:setting",
 });

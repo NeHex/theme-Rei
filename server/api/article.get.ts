@@ -185,7 +185,7 @@ function paginate(items: ArticleApiItem[], page: number, size: number) {
   };
 }
 
-export default cachedEventHandler(async (event) => {
+export default defineEventHandler(async (event) => {
   const query = getQuery(event);
   const queryPage = pickQueryValue(query.page as string | string[] | undefined);
   const querySize = pickQueryValue(query.size as string | string[] | undefined);
@@ -256,17 +256,4 @@ export default cachedEventHandler(async (event) => {
       tag_stats: [] as ArticleTagStat[],
     };
   }
-}, {
-  maxAge: 120,
-  swr: true,
-  name: "api:article",
-  getKey: (event) => {
-    const query = getQuery(event);
-    const page = pickQueryValue(query.page as string | string[] | undefined) || "1";
-    const size = pickQueryValue(query.size as string | string[] | undefined) || String(DEFAULT_ARTICLE_PAGE_SIZE);
-    const keyword = normalizeText(pickQueryValue(query.q as string | string[] | undefined));
-    const tag = normalizeText(pickQueryValue(query.tag as string | string[] | undefined));
-    const sort = normalizeSort(pickQueryValue(query.sort as string | string[] | undefined));
-    return `${page}:${size}:${sort}:${keyword}:${tag}`;
-  },
 });

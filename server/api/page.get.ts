@@ -16,15 +16,11 @@ type PageApiResponse = {
 
 import { backendFetch } from "../utils/backendFetch";
 
-export default cachedEventHandler(async () => {
+export default defineEventHandler(async () => {
   try {
     return await backendFetch<PageApiResponse>("/page", { method: "GET" });
   } catch (error) {
     console.error("[page-api] failed to fetch pages", error);
     return { data: [] as PageApiItem[] };
   }
-}, {
-  maxAge: 300,
-  swr: true,
-  name: "api:page",
 });
