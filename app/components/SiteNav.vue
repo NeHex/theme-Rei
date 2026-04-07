@@ -17,14 +17,13 @@ const feedHref = computed(() => {
 });
 
 const dropdownLinks = computed(() => settings.value.themeNav);
-const homeDropdownLinks = computed(() =>
+const singlePageLinks = computed(() =>
   singlePages.value.map((page) => ({ label: page.title, to: page.to })),
 );
+const moreDropdownLinks = computed(() => [...singlePageLinks.value, ...dropdownLinks.value]);
 
-const hoveredHomeIndex = ref(-1);
 const hoveredMoreIndex = ref(-1);
 const isMobileMenuOpen = ref(false);
-const isMobileHomeSubmenuOpen = ref(false);
 const isMobileMoreSubmenuOpen = ref(false);
 
 function isExternalLink(url: string) {
@@ -35,21 +34,8 @@ function normalizeRouteKey(url: string) {
   return url.trim().toLowerCase().replace(/\/+$/, "") || "/";
 }
 
-function openHomeMenu() {
-  if (!homeDropdownLinks.value.length) return;
-  hoveredHomeIndex.value = 0;
-}
-
-function closeHomeMenu() {
-  hoveredHomeIndex.value = -1;
-}
-
-function focusHomeItem(index: number) {
-  hoveredHomeIndex.value = index;
-}
-
 function openMoreMenu() {
-  if (!dropdownLinks.value.length) return;
+  if (!moreDropdownLinks.value.length) return;
   hoveredMoreIndex.value = 0;
 }
 
@@ -75,12 +61,7 @@ function toggleMobileMenu() {
 
 function closeMobileMenu() {
   isMobileMenuOpen.value = false;
-  isMobileHomeSubmenuOpen.value = false;
   isMobileMoreSubmenuOpen.value = false;
-}
-
-function toggleMobileHomeSubmenu() {
-  isMobileHomeSubmenuOpen.value = !isMobileHomeSubmenuOpen.value;
 }
 
 function toggleMobileMoreSubmenu() {
@@ -103,36 +84,7 @@ watch(
           <img class="nav-avatar" :src="avatarSrc" :alt="avatarAlt" />
         </NuxtLink>
 
-        <div
-          v-if="homeDropdownLinks.length"
-          class="nav-dropdown nav-home-dropdown"
-          @mouseenter="openHomeMenu"
-          @mouseleave="closeHomeMenu"
-        >
-          <NuxtLink to="/" class="nav-link" :class="{ active: isHome }">首页</NuxtLink>
-
-          <div class="dropdown-menu home-dropdown-menu">
-            <span
-              class="dropdown-active-pill"
-              :class="{ 'is-visible': hoveredHomeIndex >= 0 }"
-              :style="{ '--pill-index': hoveredHomeIndex }"
-              aria-hidden="true"
-            />
-
-            <NuxtLink
-              v-for="(item, index) in homeDropdownLinks"
-              :key="`${item.label}-${item.to}`"
-              :to="item.to"
-              class="dropdown-link"
-              @mouseenter="focusHomeItem(index)"
-              @focus="focusHomeItem(index)"
-            >
-              {{ item.label }}
-            </NuxtLink>
-          </div>
-        </div>
-
-        <NuxtLink v-else to="/" class="nav-link" :class="{ active: isHome }">首页</NuxtLink>
+        <NuxtLink to="/" class="nav-link" :class="{ active: isHome }">首页</NuxtLink>
 
         <NuxtLink to="/article" class="nav-link" :class="{ active: isArticle }">文章</NuxtLink>
         <NuxtLink to="/album" class="nav-link" :class="{ active: isAlbum }">相册</NuxtLink>
@@ -157,7 +109,7 @@ watch(
               aria-hidden="true"
             />
 
-            <template v-for="(item, index) in dropdownLinks" :key="`${item.label}-${item.to}`">
+            <template v-for="(item, index) in moreDropdownLinks" :key="`${item.label}-${item.to}-${index}`">
               <a
                 v-if="isExternalLink(item.to)"
                 :href="item.to"
@@ -233,33 +185,7 @@ watch(
             >
               首页
             </NuxtLink>
-            <button
-              v-if="homeDropdownLinks.length"
-              type="button"
-              class="mobile-submenu-toggle"
-              :class="{ active: isMobileHomeSubmenuOpen }"
-              aria-label="展开首页子菜单"
-              @click="toggleMobileHomeSubmenu"
-            >
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M6.5 9.5L12 15L17.5 9.5" />
-              </svg>
-            </button>
           </div>
-          <Transition name="mobile-submenu">
-            <div v-if="isMobileHomeSubmenuOpen && homeDropdownLinks.length" class="mobile-submenu">
-              <NuxtLink
-                v-for="item in homeDropdownLinks"
-                :key="`${item.label}-${item.to}`"
-                :to="item.to"
-                class="mobile-submenu-link"
-                :class="{ active: isMobileLinkActive(item.to, false) }"
-                @click="closeMobileMenu"
-              >
-                {{ item.label }}
-              </NuxtLink>
-            </div>
-          </Transition>
         </div>
 
         <NuxtLink
@@ -291,7 +217,7 @@ watch(
           <div class="mobile-menu-group-head">
             <span class="mobile-menu-link static">更多</span>
             <button
-              v-if="dropdownLinks.length"
+              v-if="moreDropdownLinks.length"
               type="button"
               class="mobile-submenu-toggle"
               :class="{ active: isMobileMoreSubmenuOpen }"
@@ -304,8 +230,8 @@ watch(
             </button>
           </div>
           <Transition name="mobile-submenu">
-            <div v-if="isMobileMoreSubmenuOpen && dropdownLinks.length" class="mobile-submenu">
-              <template v-for="item in dropdownLinks" :key="`${item.label}-${item.to}`">
+            <div v-if="isMobileMoreSubmenuOpen && moreDropdownLinks.length" class="mobile-submenu">
+              <template v-for="(item, index) in moreDropdownLinks" :key="`${item.label}-${item.to}-${index}`">
                 <a
                   v-if="isExternalLink(item.to)"
                   :href="item.to"
@@ -478,10 +404,6 @@ watch(
   visibility: hidden;
   pointer-events: none;
   transition: all 0.24s cubic-bezier(0.2, 0.86, 0.24, 1);
-}
-
-.home-dropdown-menu {
-  min-width: 8.6rem;
 }
 
 .dropdown-menu::before {

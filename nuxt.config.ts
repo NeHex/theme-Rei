@@ -15,6 +15,7 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_SETTINGS_API_BASE ||
         process.env.API_BASE_URL ||
         "http://127.0.0.1:7878",
+      onlineCountWsUrl: process.env.NUXT_PUBLIC_ONLINE_WS_URL || "",
     },
   },
   app: {

@@ -1,6 +1,9 @@
 <script setup lang="ts">
+const route = useRoute();
+const runtimeConfig = useRuntimeConfig();
 const { settings } = useSiteSettings();
 const currentYear = new Date().getFullYear();
+type OnlineSocketState = "connecting" | "open" | "error";
 
 const startYear = computed(() => {
   const match = settings.value.siteCreateTime.match(/(19|20)\d{2}/);
@@ -23,8 +26,220 @@ const contactLinks = computed(() => {
   ].filter((item) => Boolean(item.href));
 });
 
+const onlineSocketState = ref<OnlineSocketState>("connecting");
+const onlineCount = ref(0);
+const onlineStatusText = computed(() => {
+  if (onlineSocketState.value === "open") return `当前${onlineCount.value}人在线中`;
+  if (onlineSocketState.value === "error") return "websocket链接失败";
+  return "websocket建立中";
+});
+
+let onlineSocket: WebSocket | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let isOnlineSocketActive = false;
+
+function normalizeOnlineCount(value: unknown): number | null {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || value < 0) return null;
+    return Math.floor(value);
+  }
+
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (!text) return null;
+  if (!/^\d+(\.\d+)?$/.test(text)) return null;
+  const parsed = Number.parseFloat(text);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return Math.floor(parsed);
+}
+
+function extractOnlineCountFromRecord(record: Record<string, unknown>): number | null {
+  const directCandidates = [record.online, record.onlineCount, record.count, record.value];
+  for (const candidate of directCandidates) {
+    const normalized = normalizeOnlineCount(candidate);
+    if (normalized !== null) return normalized;
+  }
+
+  const nestedData = record.data;
+  if (!nestedData || typeof nestedData !== "object" || Array.isArray(nestedData)) return null;
+
+  const nested = nestedData as Record<string, unknown>;
+  const nestedCandidates = [nested.online, nested.onlineCount, nested.count, nested.value];
+  for (const candidate of nestedCandidates) {
+    const normalized = normalizeOnlineCount(candidate);
+    if (normalized !== null) return normalized;
+  }
+  return null;
+}
+
+function parseOnlineCountMessage(rawText: string): number | null {
+  const text = rawText.trim();
+  if (!text) return null;
+
+  const direct = normalizeOnlineCount(text);
+  if (direct !== null) return direct;
+
+  try {
+    const payload: unknown = JSON.parse(text);
+    const normalized = normalizeOnlineCount(payload);
+    if (normalized !== null) return normalized;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+    return extractOnlineCountFromRecord(payload as Record<string, unknown>);
+  } catch {
+    return null;
+  }
+}
+
+function resolveOnlineWsBaseUrl() {
+  const configured = String(runtimeConfig.public.onlineCountWsUrl || "").trim();
+  if (configured) return configured;
+
+  const apiBase = String(runtimeConfig.public.settingsApiBase || "").trim();
+  if (!apiBase) return "";
+
+  const normalized = apiBase.replace(/\/+$/, "");
+  if (/^https?:\/\//i.test(normalized)) {
+    return `${normalized.replace(/^http/i, "ws")}/ws/online`;
+  }
+  if (/^wss?:\/\//i.test(normalized)) {
+    return `${normalized}/ws/online`;
+  }
+
+  return "";
+}
+
+function buildOnlineWsUrl() {
+  if (!import.meta.client) return "";
+  const baseUrl = resolveOnlineWsBaseUrl();
+  if (!baseUrl) return "";
+
+  try {
+    const wsUrl = new URL(baseUrl, window.location.origin);
+    wsUrl.searchParams.set("page_path", route.path || "/");
+    wsUrl.searchParams.set("page_full", route.fullPath || route.path || "/");
+    return wsUrl.toString();
+  } catch {
+    return "";
+  }
+}
+
+function clearReconnectTimer() {
+  if (!reconnectTimer) return;
+  clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+}
+
+function scheduleReconnect() {
+  if (!isOnlineSocketActive) return;
+  clearReconnectTimer();
+  reconnectTimer = setTimeout(() => {
+    connectOnlineSocket();
+  }, 5000);
+}
+
+function closeOnlineSocket(manual = false) {
+  if (!onlineSocket) return;
+  const socket = onlineSocket;
+  onlineSocket = null;
+
+  if (manual) {
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onerror = null;
+    socket.onclose = null;
+  }
+
+  socket.close();
+}
+
+function connectOnlineSocket() {
+  if (!import.meta.client || !isOnlineSocketActive) return;
+  if (onlineSocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(onlineSocket.readyState)) return;
+
+  const wsUrl = buildOnlineWsUrl();
+  if (!wsUrl) {
+    onlineSocketState.value = "error";
+    scheduleReconnect();
+    return;
+  }
+
+  clearReconnectTimer();
+  onlineSocketState.value = "connecting";
+
+  try {
+    const socket = new WebSocket(wsUrl);
+    onlineSocket = socket;
+
+    socket.onopen = () => {
+      if (onlineSocket !== socket) return;
+      onlineSocketState.value = "open";
+    };
+
+    socket.onmessage = (event) => {
+      if (onlineSocket !== socket) return;
+
+      let rawText = "";
+      if (typeof event.data === "string") {
+        rawText = event.data;
+      } else if (event.data instanceof ArrayBuffer) {
+        rawText = new TextDecoder().decode(new Uint8Array(event.data));
+      } else {
+        return;
+      }
+
+      const nextOnlineCount = parseOnlineCountMessage(rawText);
+      if (nextOnlineCount === null) return;
+
+      onlineCount.value = nextOnlineCount;
+      onlineSocketState.value = "open";
+    };
+
+    socket.onerror = () => {
+      if (onlineSocket !== socket) return;
+      onlineSocketState.value = "error";
+    };
+
+    socket.onclose = () => {
+      if (onlineSocket === socket) {
+        onlineSocket = null;
+      }
+      onlineSocketState.value = "error";
+      scheduleReconnect();
+    };
+  } catch {
+    onlineSocketState.value = "error";
+    scheduleReconnect();
+  }
+}
+
+function reconnectOnlineSocket() {
+  closeOnlineSocket(true);
+  connectOnlineSocket();
+}
+
 function isExternalLink(url: string) {
   return /^https?:\/\//.test(url) || url.startsWith("mailto:");
+}
+
+if (import.meta.client) {
+  onMounted(() => {
+    isOnlineSocketActive = true;
+    connectOnlineSocket();
+  });
+
+  onBeforeUnmount(() => {
+    isOnlineSocketActive = false;
+    clearReconnectTimer();
+    closeOnlineSocket(true);
+  });
+
+  watch(
+    () => route.fullPath,
+    () => {
+      if (!isOnlineSocketActive) return;
+      reconnectOnlineSocket();
+    },
+  );
 }
 </script>
 
@@ -33,7 +248,13 @@ function isExternalLink(url: string) {
     <div class="footer-shell">
       <section class="footer-top">
         <div class="footer-brand">
-          <h3 class="brand-title">{{ settings.siteTitle }}</h3>
+          <div class="brand-title-row">
+            <h3 class="brand-title">{{ settings.siteTitle }}</h3>
+            <p class="online-status" :class="`is-${onlineSocketState}`" role="status" aria-live="polite">
+              <span class="online-status-dot" aria-hidden="true" />
+              <span>{{ onlineStatusText }}</span>
+            </p>
+          </div>
           <p class="brand-motto">{{ settings.siteDesc }}</p>
           <p class="brand-copy">{{ copyrightText }} Powered By <a href="https://github.com/nehex" target="_blank" rel="noopener noreferrer">NeHex</a>&<a href="https://github.com/NeHex/theme-Rei" target="_blank" rel="noopener noreferrer">Rei</a></p>
         </div>
@@ -101,8 +322,9 @@ function isExternalLink(url: string) {
 
 .footer-top {
   display: grid;
-  grid-template-columns: 1.9fr 0.8fr 0.8fr 0.8fr;
-  gap: 2.1rem;
+  grid-template-columns: minmax(0, 1fr) repeat(3, max-content);
+  row-gap: 1rem;
+  column-gap: clamp(8rem, 2.8vw, 2.6rem);
   padding: 0.85rem 0 1rem;
 }
 
@@ -110,10 +332,56 @@ function isExternalLink(url: string) {
   min-width: 0;
 }
 
+.brand-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.42rem;
+  flex-wrap: wrap;
+}
+
 .brand-title {
   margin: 0;
   font-size: 1.42rem;
   color: rgba(236, 246, 255, 0.96);
+}
+
+.online-status {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.56rem;
+  border-radius: 999px;
+  background: rgba(249, 209, 98, 0.1);
+  color: rgba(255, 222, 133, 0.95);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.online-status-dot {
+  width: 0.46rem;
+  height: 0.46rem;
+  border-radius: 999px;
+  background: #f5c85f;
+}
+
+.online-status.is-open {
+  background: rgba(74, 218, 138, 0.12);
+  color: rgba(152, 248, 191, 0.95);
+}
+
+.online-status.is-open .online-status-dot {
+  background: #47d985;
+}
+
+.online-status.is-error {
+  background: rgba(255, 103, 103, 0.12);
+  color: rgba(255, 149, 149, 0.95);
+}
+
+.online-status.is-error .online-status-dot {
+  background: #ff6464;
 }
 
 .brand-motto {
@@ -133,6 +401,7 @@ function isExternalLink(url: string) {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+  justify-self: end;
 }
 
 .footer-col h4 {
