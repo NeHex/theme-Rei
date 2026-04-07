@@ -30,6 +30,24 @@ type WifeCard = {
   image: string;
 };
 
+type EducationCard = {
+  text: string;
+  university: string;
+  start: string;
+  end: string;
+};
+
+type VisitorDataCard = {
+  title: string;
+  tips: string;
+};
+
+type LifeTargetCard = {
+  text: string;
+  finish: string[];
+  notYet: string[];
+};
+
 const DEFAULT_SKILL_LANGUAGES = [
   "python",
   "vue",
@@ -63,6 +81,53 @@ const DEFAULT_WIFE: WifeCard = {
   otherName: "None",
   image: "/images/loading.gif",
 };
+
+const DEFAULT_EDUCATION: EducationCard = {
+  text: "好好学习，天天向上",
+  university: "未知学校",
+  start: "开始",
+  end: "结束",
+};
+
+const DEFAULT_VISITOR_DATA: VisitorDataCard = {
+  title: "访问数据",
+  tips: "本站自主统计",
+};
+
+const DEFAULT_HOBBIES = ["jk", "computer", "hardware", "linux"];
+
+const DEFAULT_LIFE_TARGET: LifeTargetCard = {
+  text: "人生目标",
+  finish: ["建造属于自己的HomeLab"],
+  notYet: ["拥有一辆自己的汽车", "有一份稳定的工作"],
+};
+
+function splitEducationTimeRange(value: string) {
+  const normalized = value
+    .replace(/[~～—–]/g, "-")
+    .replace(/\s*至\s*/g, "-")
+    .replace(/\s*\/\s*/g, "-")
+    .trim();
+
+  if (!normalized) {
+    return { start: DEFAULT_EDUCATION.start, end: DEFAULT_EDUCATION.end };
+  }
+
+  const parts = normalized
+    .split("-")
+    .map((item) => item.trim())
+    .filter((item) => Boolean(item));
+
+  if (parts.length >= 2) {
+    return { start: parts[0], end: parts[1] };
+  }
+
+  if (parts.length === 1) {
+    return { start: parts[0], end: "至今" };
+  }
+
+  return { start: DEFAULT_EDUCATION.start, end: DEFAULT_EDUCATION.end };
+}
 
 const footprintPoints = computed(() => settings.value.themeAboutMapPoints);
 const aboutWelcome = computed(() => {
@@ -159,6 +224,112 @@ const aboutSkills = computed(() => {
   });
 
   return { title, items };
+});
+const aboutEducation = computed(() => {
+  const aboutPages = settings.value.themeAboutPages;
+  const aboutRecord =
+    aboutPages && typeof aboutPages === "object" && !Array.isArray(aboutPages)
+      ? (aboutPages as Record<string, unknown>)
+      : {};
+  const educationRaw = aboutRecord.education;
+  const educationRecord =
+    educationRaw && typeof educationRaw === "object" && !Array.isArray(educationRaw)
+      ? (educationRaw as Record<string, unknown>)
+      : {};
+
+  const text =
+    typeof educationRecord.text === "string" && educationRecord.text.trim()
+      ? educationRecord.text.trim()
+      : DEFAULT_EDUCATION.text;
+  const university =
+    typeof educationRecord.university === "string" && educationRecord.university.trim()
+      ? educationRecord.university.trim()
+      : DEFAULT_EDUCATION.university;
+  const timeRaw =
+    typeof educationRecord.time === "string" && educationRecord.time.trim()
+      ? educationRecord.time.trim()
+      : `${DEFAULT_EDUCATION.start}/${DEFAULT_EDUCATION.end}`;
+  const { start, end } = splitEducationTimeRange(timeRaw);
+
+  return { text, university, start, end } satisfies EducationCard;
+});
+const aboutVisitorData = computed(() => {
+  const aboutPages = settings.value.themeAboutPages;
+  const aboutRecord =
+    aboutPages && typeof aboutPages === "object" && !Array.isArray(aboutPages)
+      ? (aboutPages as Record<string, unknown>)
+      : {};
+  const visitorRaw = aboutRecord.visitor_data;
+  const visitorRecord =
+    visitorRaw && typeof visitorRaw === "object" && !Array.isArray(visitorRaw)
+      ? (visitorRaw as Record<string, unknown>)
+      : {};
+
+  const title =
+    typeof visitorRecord.title === "string" && visitorRecord.title.trim()
+      ? visitorRecord.title.trim()
+      : DEFAULT_VISITOR_DATA.title;
+  const tips =
+    typeof visitorRecord.tips === "string" && visitorRecord.tips.trim()
+      ? visitorRecord.tips.trim()
+      : DEFAULT_VISITOR_DATA.tips;
+
+  return { title, tips } satisfies VisitorDataCard;
+});
+const aboutHobbies = computed(() => {
+  const aboutPages = settings.value.themeAboutPages;
+  const aboutRecord =
+    aboutPages && typeof aboutPages === "object" && !Array.isArray(aboutPages)
+      ? (aboutPages as Record<string, unknown>)
+      : {};
+
+  const hobbyRaw = aboutRecord.hobby;
+  const parsed = Array.isArray(hobbyRaw)
+    ? hobbyRaw
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter((item) => Boolean(item))
+    : [];
+
+  if (parsed.length) return parsed;
+  return DEFAULT_HOBBIES;
+});
+const aboutLifeTarget = computed(() => {
+  const aboutPages = settings.value.themeAboutPages;
+  const aboutRecord =
+    aboutPages && typeof aboutPages === "object" && !Array.isArray(aboutPages)
+      ? (aboutPages as Record<string, unknown>)
+      : {};
+  const lifeTargetRaw = aboutRecord.life_target;
+  const lifeTargetRecord =
+    lifeTargetRaw && typeof lifeTargetRaw === "object" && !Array.isArray(lifeTargetRaw)
+      ? (lifeTargetRaw as Record<string, unknown>)
+      : {};
+  const targetRaw = lifeTargetRecord.target;
+  const targetRecord =
+    targetRaw && typeof targetRaw === "object" && !Array.isArray(targetRaw)
+      ? (targetRaw as Record<string, unknown>)
+      : {};
+
+  const text =
+    typeof lifeTargetRecord.text === "string" && lifeTargetRecord.text.trim()
+      ? lifeTargetRecord.text.trim()
+      : DEFAULT_LIFE_TARGET.text;
+  const finish = Array.isArray(targetRecord.finish)
+    ? targetRecord.finish
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter((item) => Boolean(item))
+    : [];
+  const notYet = Array.isArray(targetRecord.not_yet)
+    ? targetRecord.not_yet
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter((item) => Boolean(item))
+    : [];
+
+  return {
+    text,
+    finish: finish.length ? finish : DEFAULT_LIFE_TARGET.finish,
+    notYet: notYet.length ? notYet : DEFAULT_LIFE_TARGET.notYet,
+  } satisfies LifeTargetCard;
 });
 const wifeCards = computed(() => {
   const source = settings.value.themeWifes.length ? settings.value.themeWifes : [DEFAULT_WIFE];
@@ -571,6 +742,81 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </article>
+
+        <article class="module-card education-card">
+          <p class="education-kicker">教育历程</p>
+          <div class="education-body">
+            <div class="education-timeline" aria-label="教育时间线">
+              <div class="education-point">
+                <span class="education-dot" aria-hidden="true" />
+                <span class="education-time">{{ aboutEducation.start }}</span>
+              </div>
+              <span class="education-track" aria-hidden="true" />
+              <div class="education-point">
+                <span class="education-dot" aria-hidden="true" />
+                <span class="education-time">{{ aboutEducation.end }}</span>
+              </div>
+            </div>
+            <div class="education-content">
+              <h2 class="education-text">{{ aboutEducation.text }}</h2>
+              <p class="education-university">{{ aboutEducation.university }}</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="module-card visitor-card">
+          <p class="visitor-kicker">Visitor Data</p>
+          <div class="visitor-body">
+            <h2 class="visitor-title">{{ aboutVisitorData.title }}</h2>
+            <p class="visitor-tips">{{ aboutVisitorData.tips }}</p>
+          </div>
+        </article>
+
+        <article class="module-card hobby-card">
+          <p class="hobby-kicker">兴趣爱好</p>
+          <div class="hobby-notes" aria-label="爱好列表">
+            <span
+              v-for="(hobby, index) in aboutHobbies"
+              :key="`${hobby}-${index}`"
+              class="hobby-note"
+            >
+              {{ hobby }}
+            </span>
+          </div>
+        </article>
+
+        <article class="module-card life-target-card">
+          <p class="target-kicker">Life Target</p>
+          <h2 class="target-title">{{ aboutLifeTarget.text }}</h2>
+
+          <section class="target-group" aria-label="已完成目标">
+            <p class="target-group-title">已完成</p>
+            <ul class="target-list">
+              <li
+                v-for="(item, index) in aboutLifeTarget.finish"
+                :key="`finish-${index}-${item}`"
+                class="target-item is-finished"
+              >
+                <span class="target-checkbox" aria-hidden="true" />
+                <span class="target-text">{{ item }}</span>
+              </li>
+            </ul>
+          </section>
+
+          <section class="target-group" aria-label="未完成目标">
+            <p class="target-group-title">未完成</p>
+            <ul class="target-list">
+              <li
+                v-for="(item, index) in aboutLifeTarget.notYet"
+                :key="`pending-${index}-${item}`"
+                class="target-item is-pending"
+              >
+                <span class="target-checkbox" aria-hidden="true" />
+                <span class="target-text">{{ item }}</span>
+              </li>
+            </ul>
+          </section>
+        </article>
       </section>
     </main>
 
@@ -969,6 +1215,292 @@ onBeforeUnmount(() => {
   animation: wives-heart-drift-outline 16s linear infinite;
 }
 
+.education-card {
+  grid-column: 1 / 2;
+  grid-row: 4;
+  min-height: 13.8rem;
+  padding: 1rem 1.05rem 1.05rem;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.8rem;
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.22);
+}
+
+.education-kicker {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  color: rgba(170, 206, 230, 0.82);
+}
+
+.education-body {
+  display: grid;
+  grid-template-columns: minmax(0, 7rem) minmax(0, 1fr);
+  gap: 1rem;
+  min-height: 0;
+}
+
+.education-timeline {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(1.8rem, 1fr) auto;
+  align-items: center;
+}
+
+.education-point {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.education-dot {
+  width: 0.56rem;
+  height: 0.56rem;
+  border-radius: 999px;
+  background: #7ce8f5;
+  box-shadow:
+    0 0 0 1px rgba(178, 241, 255, 0.8),
+    0 0 12px rgba(111, 224, 244, 0.6);
+}
+
+.education-time {
+  font-size: 0.8rem;
+  color: rgba(220, 236, 248, 0.9);
+  line-height: 1;
+}
+
+.education-track {
+  width: 2px;
+  height: 100%;
+  margin-left: 0.24rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(124, 232, 245, 0.9) 0%, rgba(124, 232, 245, 0.18) 100%);
+}
+
+.education-content {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 0.62rem;
+}
+
+.education-text {
+  margin: 0;
+  font-size: clamp(1.22rem, 2.24vw, 1.78rem);
+  line-height: 1.42;
+  color: rgba(240, 248, 255, 0.98);
+  text-shadow: 0 5px 16px rgba(1, 6, 14, 0.34);
+}
+
+.education-university {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(200, 220, 236, 0.9);
+}
+
+.visitor-card {
+  grid-column: 2 / 3;
+  grid-row: 4;
+  min-height: 13.8rem;
+  padding: 1rem 1.05rem 1.05rem;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.8rem;
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.22);
+}
+
+.visitor-kicker {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  color: rgba(170, 206, 230, 0.82);
+}
+
+.visitor-body {
+  min-width: 0;
+  min-height: 0;
+  border-radius: 0.78rem;
+  border: 1px solid rgba(121, 177, 207, 0.28);
+  background: linear-gradient(145deg, rgba(10, 23, 38, 0.68) 0%, rgba(5, 14, 26, 0.88) 100%);
+  padding: 0.95rem 1rem;
+  display: grid;
+  align-content: center;
+  gap: 0.58rem;
+}
+
+.visitor-title {
+  margin: 0;
+  font-size: clamp(1.42rem, 2.58vw, 2.15rem);
+  line-height: 1.1;
+  color: rgba(240, 248, 255, 0.98);
+  text-shadow: 0 5px 16px rgba(1, 6, 14, 0.34);
+}
+
+.visitor-tips {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(200, 220, 236, 0.9);
+}
+
+.hobby-card {
+  grid-column: 1 / 2;
+  grid-row: 5;
+  min-height: 13.8rem;
+  padding: 1rem 1.05rem 1.05rem;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.8rem;
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.22);
+}
+
+.hobby-kicker {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  color: rgba(170, 206, 230, 0.82);
+}
+
+.hobby-notes {
+  min-height: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.62rem;
+  align-content: start;
+}
+
+.hobby-note {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  max-width: 100%;
+  padding: 0.44rem 0.78rem 0.44rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(228, 236, 247, 0.42);
+  background:
+    linear-gradient(180deg, rgba(249, 252, 255, 0.97) 0%, rgba(232, 241, 250, 0.94) 100%),
+    linear-gradient(140deg, rgba(255, 255, 255, 0.52), rgba(206, 224, 240, 0.3));
+  color: rgba(25, 44, 63, 0.96);
+  font-size: 0.86rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  box-shadow:
+    0 6px 14px rgba(1, 8, 16, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  white-space: nowrap;
+}
+
+.hobby-note::before {
+  content: "";
+  width: 0.38rem;
+  height: 0.38rem;
+  margin-right: 0.44rem;
+  border-radius: 999px;
+  background: rgba(79, 143, 195, 0.74);
+  box-shadow: 0 0 0 1px rgba(230, 243, 255, 0.9);
+}
+
+.life-target-card {
+  grid-column: 2 / 3;
+  grid-row: 5 / span 2;
+  min-height: 28.6rem;
+  padding: 1rem 1.05rem 1.05rem;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  gap: 0.72rem;
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.22);
+}
+
+.target-kicker {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  color: rgba(170, 206, 230, 0.82);
+}
+
+.target-title {
+  margin: 0;
+  font-size: clamp(1.24rem, 2.06vw, 1.62rem);
+  line-height: 1.2;
+  color: rgba(240, 248, 255, 0.98);
+}
+
+.target-group {
+  min-width: 0;
+}
+
+.target-group-title {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: rgba(190, 215, 236, 0.84);
+}
+
+.target-list {
+  margin: 0.56rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.48rem;
+}
+
+.target-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.target-checkbox {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.28rem;
+  flex: none;
+  position: relative;
+}
+
+.target-text {
+  min-width: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.target-item.is-finished .target-checkbox {
+  border: 1px solid rgba(120, 233, 189, 0.8);
+  background: linear-gradient(150deg, rgba(71, 217, 133, 0.95) 0%, rgba(50, 168, 110, 0.95) 100%);
+  box-shadow:
+    0 0 0 1px rgba(33, 109, 75, 0.26),
+    0 3px 8px rgba(8, 44, 28, 0.34);
+}
+
+.target-item.is-finished .target-checkbox::after {
+  content: "";
+  position: absolute;
+  left: 0.31rem;
+  top: 0.15rem;
+  width: 0.22rem;
+  height: 0.45rem;
+  border: solid rgba(244, 255, 249, 0.98);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.target-item.is-finished .target-text {
+  color: rgba(224, 248, 236, 0.95);
+}
+
+.target-item.is-pending .target-checkbox {
+  border: 1px solid rgba(159, 182, 203, 0.55);
+  background: linear-gradient(180deg, rgba(120, 141, 160, 0.36) 0%, rgba(88, 107, 124, 0.32) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.target-item.is-pending .target-text {
+  color: rgba(172, 194, 214, 0.84);
+}
+
 .wives-viewport {
   position: relative;
   z-index: 1;
@@ -1218,7 +1750,11 @@ onBeforeUnmount(() => {
   .slogan-card,
   .skills-card,
   .footprint-card,
-  .wives-wall-card {
+  .wives-wall-card,
+  .education-card,
+  .visitor-card,
+  .hobby-card,
+  .life-target-card {
     grid-column: 1;
     grid-row: auto;
   }
@@ -1266,6 +1802,37 @@ onBeforeUnmount(() => {
   .wives-wall-card {
     min-height: 29.5rem;
     padding: 0.7rem;
+  }
+
+  .education-card {
+    min-height: 0;
+  }
+
+  .education-body {
+    grid-template-columns: minmax(0, 5.8rem) minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .visitor-card {
+    min-height: 0;
+  }
+
+  .hobby-card {
+    min-height: 0;
+  }
+
+  .hobby-notes {
+    gap: 0.52rem;
+    justify-content: flex-start;
+  }
+
+  .hobby-note {
+    max-width: calc(100vw - 4.6rem);
+  }
+
+  .life-target-card {
+    min-height: 0;
+    grid-template-rows: auto auto auto auto;
   }
 
   .wives-grid {
