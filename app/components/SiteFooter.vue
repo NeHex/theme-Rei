@@ -28,6 +28,11 @@ const contactLinks = computed(() => {
 
 const onlineSocketState = ref<OnlineSocketState>("connecting");
 const onlineCount = ref(0);
+const onlineCountEnabled = computed(() => {
+  const configured = runtimeConfig.public.websocketFutionEnabled;
+  if (typeof configured === "boolean") return configured;
+  return String(configured || "").trim().toLowerCase() === "true";
+});
 const onlineStatusText = computed(() => {
   if (onlineSocketState.value === "open") return `当前${onlineCount.value}人在线中`;
   if (onlineSocketState.value === "error") return "websocket链接失败";
@@ -91,6 +96,7 @@ function parseOnlineCountMessage(rawText: string): number | null {
 }
 
 function resolveOnlineWsBaseUrl() {
+  if (!onlineCountEnabled.value) return "";
   const configured = String(runtimeConfig.public.onlineCountWsUrl || "").trim();
   if (configured) return configured;
 
@@ -139,7 +145,7 @@ function clearReconnectTimer() {
 }
 
 function scheduleReconnect() {
-  if (!isOnlineSocketActive) return;
+  if (!isOnlineSocketActive || !onlineCountEnabled.value) return;
   clearReconnectTimer();
   reconnectTimer = setTimeout(() => {
     connectOnlineSocket();
@@ -162,7 +168,7 @@ function closeOnlineSocket(manual = false) {
 }
 
 function connectOnlineSocket() {
-  if (!import.meta.client || !isOnlineSocketActive) return;
+  if (!import.meta.client || !isOnlineSocketActive || !onlineCountEnabled.value) return;
   if (onlineSocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(onlineSocket.readyState)) return;
 
   const wsUrl = buildOnlineWsUrl();
@@ -232,6 +238,7 @@ function isExternalLink(url: string) {
 
 if (import.meta.client) {
   onMounted(() => {
+    if (!onlineCountEnabled.value) return;
     isOnlineSocketActive = true;
     connectOnlineSocket();
   });
@@ -245,7 +252,7 @@ if (import.meta.client) {
   watch(
     () => route.fullPath,
     () => {
-      if (!isOnlineSocketActive) return;
+      if (!isOnlineSocketActive || !onlineCountEnabled.value) return;
       reconnectOnlineSocket();
     },
   );
@@ -259,7 +266,7 @@ if (import.meta.client) {
         <div class="footer-brand">
           <div class="brand-title-row">
             <h3 class="brand-title">{{ settings.siteTitle }}</h3>
-            <p class="online-status" :class="`is-${onlineSocketState}`" role="status" aria-live="polite">
+            <p v-if="onlineCountEnabled" class="online-status" :class="`is-${onlineSocketState}`" role="status" aria-live="polite">
               <span class="online-status-dot" aria-hidden="true" />
               <span>{{ onlineStatusText }}</span>
             </p>

@@ -1,4 +1,8 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+const websocketFutionEnabled = String(process.env.WEBSOCKET_FUTION || "TRUE")
+  .trim()
+  .toLowerCase() === "true";
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
@@ -16,6 +20,7 @@ export default defineNuxtConfig({
         process.env.API_BASE_URL ||
         "http://127.0.0.1:7878",
       onlineCountWsUrl: process.env.NUXT_PUBLIC_ONLINE_WS_URL || "",
+      websocketFutionEnabled,
     },
   },
   app: {
