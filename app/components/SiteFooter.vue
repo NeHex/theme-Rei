@@ -115,6 +115,15 @@ function buildOnlineWsUrl() {
 
   try {
     const wsUrl = new URL(baseUrl, window.location.origin);
+    if (wsUrl.protocol === "http:" || wsUrl.protocol === "https:") {
+      wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
+    }
+    if (!["ws:", "wss:"].includes(wsUrl.protocol)) {
+      return "";
+    }
+    if (window.location.protocol === "https:" && wsUrl.protocol === "ws:") {
+      wsUrl.protocol = "wss:";
+    }
     wsUrl.searchParams.set("page_path", route.path || "/");
     wsUrl.searchParams.set("page_full", route.fullPath || route.path || "/");
     return wsUrl.toString();
