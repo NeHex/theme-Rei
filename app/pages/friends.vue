@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import type { FriendStatus, FriendViewItem } from "~/composables/useFriends";
+import { isExternalSiteLink, resolveSiteHostname } from "~/utils/link";
 
+const requestUrl = useRequestURL();
 const { settings } = useSiteSettings();
+const siteHostname = computed(() =>
+  resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
+);
 
 useHead(() => ({
   title: `友链 - ${settings.value.siteTitle}`,
@@ -54,6 +59,10 @@ function getStatusTag(status: FriendStatus) {
   if (status === "ok") return "正常";
   if (status === "missing") return "失联";
   return "屏蔽";
+}
+
+function isExternalLink(url: string) {
+  return isExternalSiteLink(url, siteHostname.value);
 }
 
 type FriendApplyStep = 1 | 2;
@@ -238,8 +247,8 @@ onBeforeUnmount(() => {
             class="friend-card friend-card-reveal"
             :class="{ 'is-disabled': group.status !== 'ok' }"
             :href="group.status === 'ok' ? item.url : undefined"
-            :target="group.status === 'ok' ? '_blank' : undefined"
-            :rel="group.status === 'ok' ? 'noopener noreferrer' : undefined"
+            :target="group.status === 'ok' && isExternalLink(item.url) ? '_blank' : undefined"
+            :rel="group.status === 'ok' && isExternalLink(item.url) ? 'noopener noreferrer' : undefined"
             :style="{
               ...getCardStyle(item),
               '--friend-order': groupIndex * 20 + itemIndex,
@@ -287,8 +296,9 @@ onBeforeUnmount(() => {
               <h3>{{ localSiteInfo.title }}</h3>
               <a
                 :href="localSiteInfo.url"
-                target="_blank"
-                rel="noopener noreferrer"
+                :class="{ 'external-link': isExternalLink(localSiteInfo.url) }"
+                :target="isExternalLink(localSiteInfo.url) ? '_blank' : undefined"
+                :rel="isExternalLink(localSiteInfo.url) ? 'noopener noreferrer' : undefined"
               >{{ localSiteInfo.url }}</a>
               <p>{{ localSiteInfo.description }}</p>
             </div>
@@ -503,14 +513,17 @@ onBeforeUnmount(() => {
 
 .local-site-main {
   margin-top: 0.72rem;
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: stretch;
   gap: 0.88rem;
 }
 
 .local-site-icon {
-  width: 3.2rem;
-  height: 3.2rem;
+  height: 100%;
+  width: auto;
+  aspect-ratio: 1 / 1;
+  align-self: stretch;
   border-radius: 0.72rem;
   object-fit: cover;
   border: 1px solid rgba(153, 206, 236, 0.3);
@@ -532,9 +545,6 @@ onBeforeUnmount(() => {
   display: inline-block;
   max-width: 100%;
   color: #77ccf7;
-  text-decoration: none;
-  background-image: none;
-  background-size: 0 0;
   overflow-wrap: anywhere;
 }
 
@@ -980,7 +990,7 @@ onBeforeUnmount(() => {
   }
 
   .local-site-main {
-    align-items: center;
+    align-items: stretch;
   }
 
   .friend-apply-open-btn {

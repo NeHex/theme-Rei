@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import MarkdownIt from "markdown-it";
+import { installMarkdownExternalLinkRule, resolveSiteHostname } from "~/utils/link";
 
 const route = useRoute();
 const { settings } = useSiteSettings();
@@ -43,6 +44,9 @@ const siteBaseUrl = computed(() => {
   if (configured) return configured.replace(/\/+$/, "");
   return `${requestUrl.protocol}//${requestUrl.host}`;
 });
+const siteHostname = computed(() =>
+  resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
+);
 
 const canonicalUrl = computed(() => {
   const key = String(pageKey.value || "").replace(/^\/+|\/+$/g, "");
@@ -125,6 +129,7 @@ const markdown = new MarkdownIt({
   typographer: true,
   breaks: true,
 });
+installMarkdownExternalLinkRule(markdown, () => siteHostname.value);
 
 const renderedContent = computed(() => markdown.render(pageData.value?.content || ""));
 </script>

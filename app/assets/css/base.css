@@ -75,18 +75,37 @@ samp {
 a,
 a:visited {
   color: #0F9CB8;
-  text-decoration: none;
-  background-image: linear-gradient(currentColor, currentColor);
-  background-repeat: no-repeat;
-  background-position: 100% 100%;
-  background-size: 0 1px;
-  transition: color 0.22s ease, background-size 0.24s ease;
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: rgba(15, 156, 184, 0.72);
+  transition: color 0.22s ease, text-decoration-color 0.24s ease;
 }
 
 a:hover,
 a:focus-visible {
   color: #FFFCDF;
-  background-size: 100% 1px;
+  text-decoration-color: currentColor;
+}
+
+a.external-link::after {
+  content: "";
+  display: inline-block;
+  width: 0.88em;
+  height: 0.88em;
+  margin-left: 0.28em;
+  vertical-align: text-top;
+  background-color: currentColor;
+  opacity: 0.9;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M6 3h7v7' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M13 3L3 13' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M13 9v4H3V3h4' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M6 3h7v7' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M13 3L3 13' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M13 9v4H3V3h4' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 #__nuxt {

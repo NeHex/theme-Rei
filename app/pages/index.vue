@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isExternalSiteLink, resolveSiteHostname } from "~/utils/link";
+
 type OwnerSpotlightItem = {
   id: string;
   name: string;
@@ -56,10 +58,14 @@ type SocialItem = {
 type DailyWeatherKey = "sun" | "rain" | "wind" | "snow" | "cloud";
 
 const { settings, pending: settingsPending } = useSiteSettings();
+const requestUrl = useRequestURL();
 const { articles: fetchedArticles } = useArticles();
 const { albums: fetchedAlbums } = useAlbums();
 const { dailies: fetchedDailies } = useDailies();
 const { projects: fetchedProjects } = useProjects();
+const siteHostname = computed(() =>
+  resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
+);
 
 const fallbackOwnerSpotlight: OwnerSpotlightItem = {
   id: "fallback",
@@ -105,7 +111,7 @@ const fallbackDailyRecords: readonly DailyRecord[] = [
     summary:
       "请前往后台更新你的日常",
     weatherKey: "sun",
-    to: "#",
+    to: "/daily",
   }
 ];
 
@@ -179,16 +185,20 @@ function mapDailyWeatherKey(rawWeather: string): DailyWeatherKey {
 }
 
 const dailyRecords = computed<DailyRecord[]>(() => {
-  const items = fetchedDailies.value.slice(0, 4).map((daily) => {
-    return {
-      year: formatDailyYear(daily.createdAt),
-      date: formatDailyDate(daily.createdAt),
-      title: daily.title,
-      summary: daily.summary,
-      weatherKey: mapDailyWeatherKey(daily.weather),
-      to: `/daily/${encodeURIComponent(daily.id)}`,
-    };
-  });
+  const items = fetchedDailies.value
+    .slice()
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 4)
+    .map((daily) => {
+      return {
+        year: formatDailyYear(daily.createdAt),
+        date: formatDailyDate(daily.createdAt),
+        title: daily.title,
+        summary: daily.summary,
+        weatherKey: mapDailyWeatherKey(daily.weather),
+        to: `/daily#daily-${encodeURIComponent(daily.id)}`,
+      };
+    });
 
   return items.length ? items : [...fallbackDailyRecords];
 });
@@ -245,6 +255,46 @@ const projects = computed<ProjectItem[]>(() => {
     updatedAt: project.updatedAt,
   }));
 });
+
+const projectLanguagePalette = [
+  "#8b949e",
+  "#f1e05a",
+  "#3572a5",
+  "#e34c26",
+  "#89e051",
+  "#563d7c",
+  "#2b7489",
+  "#00add8",
+  "#f34b7d",
+];
+
+function getProjectLanguages(project: ProjectItem) {
+  const unique = new Set(
+    project.techStack
+      .map((item) => item.trim())
+      .filter(Boolean),
+  );
+  if (unique.size) return [...unique];
+
+  const fallbackCategory = project.category.trim();
+  if (fallbackCategory && fallbackCategory !== "默认") return [fallbackCategory];
+  return ["未标注"];
+}
+
+function getProjectLanguageColor(language: string, index: number) {
+  const key = `${language}-${index}`;
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 33 + key.charCodeAt(i)) >>> 0;
+  }
+  return projectLanguagePalette[hash % projectLanguagePalette.length];
+}
+
+function getProjectCategoryLabel(project: ProjectItem) {
+  const value = project.category.trim();
+  if (!value || value === "默认") return "未分类";
+  return value;
+}
 
 const spotlightOrder = ref<number[]>([]);
 const spotlightCursor = ref(0);
@@ -413,7 +463,7 @@ const socialMaskIconMap: Record<"github" | "bilibili" | "steam" | "neteasemusic"
 };
 
 function isExternalLink(url: string) {
-  return /^https?:\/\//.test(url) || url.startsWith("mailto:");
+  return isExternalSiteLink(url, siteHostname.value);
 }
 
 function getSocialMaskIcon(icon: SocialItem["icon"]) {
@@ -814,10 +864,22 @@ onBeforeUnmount(() => {
             :style="{ '--project-mask-delay': `${projectMaskDelayMs[index] ?? 0}ms` }"
             @click="openProjectDetail(project)"
           >
-            <img class="project-icon" :src="project.icon" :alt="`${project.title} logo`" />
-            <div class="project-info">
+            <header class="project-card-head">
               <h3 class="project-card-title">{{ project.title }}</h3>
-              <p class="project-card-summary">{{ project.summary }}</p>
+              <span class="project-visibility">{{ getProjectCategoryLabel(project) }}</span>
+            </header>
+            <p class="project-card-summary">{{ project.summary }}</p>
+            <div class="project-card-meta">
+              <div class="project-language-list">
+                <span
+                  v-for="(language, languageIndex) in getProjectLanguages(project)"
+                  :key="`${project.id}-${language}`"
+                  class="project-language-item"
+                  :style="{ '--project-language-color': getProjectLanguageColor(language, languageIndex) }"
+                >
+                  {{ language }}
+                </span>
+              </div>
             </div>
           </button>
         </div>
@@ -869,18 +931,18 @@ onBeforeUnmount(() => {
               <a
                 v-if="activeProject.projectUrl"
                 :href="activeProject.projectUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="project-modal-link"
+                :class="['project-modal-link', { 'external-link': isExternalLink(activeProject.projectUrl) }]"
+                :target="isExternalLink(activeProject.projectUrl) ? '_blank' : undefined"
+                :rel="isExternalLink(activeProject.projectUrl) ? 'noopener noreferrer' : undefined"
               >
                 项目链接
               </a>
               <a
                 v-if="activeProject.githubUrl"
                 :href="activeProject.githubUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="project-modal-link"
+                :class="['project-modal-link', { 'external-link': isExternalLink(activeProject.githubUrl) }]"
+                :target="isExternalLink(activeProject.githubUrl) ? '_blank' : undefined"
+                :rel="isExternalLink(activeProject.githubUrl) ? 'noopener noreferrer' : undefined"
               >
                 GitHub
               </a>
@@ -1371,9 +1433,10 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-decoration: none;
   color: #e9f3ff;
-  min-height: 30rem;
+  aspect-ratio: 16 / 9;
+  min-height: 12rem;
   background: #0c1320;
-  box-shadow: 0 12px 42px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 
 .post-card-reveal {
@@ -1493,24 +1556,24 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 1.15rem 1.1rem 1.2rem;
+  padding: 0.92rem 0.95rem 0.98rem;
 }
 
 .post-title {
   margin: 0;
-  font-size: clamp(1.28rem, 1.35vw, 1.74rem);
+  font-size: clamp(1rem, 1.1vw, 1.3rem);
   line-height: 1.3;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .post-summary {
-  margin: 0.72rem 0 0;
+  margin: 0.48rem 0 0;
   color: rgba(220, 233, 244, 0.7);
-  font-size: 0.9rem;
-  line-height: 1.65;
+  font-size: 0.82rem;
+  line-height: 1.5;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
 }
 
@@ -1985,25 +2048,31 @@ onBeforeUnmount(() => {
 
 .project-card {
   position: relative;
-  display: grid;
-  grid-template-columns: 3.6rem 1fr;
-  align-items: center;
-  gap: 0.85rem;
-  padding: 0.95rem 1rem;
-  border-radius: 0.82rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.72rem;
+  min-height: 7.2rem;
+  padding: 0.82rem 0.95rem;
+  border-radius: 0.46rem;
   overflow: hidden;
-  border: 1px solid rgba(118, 170, 194, 0.16);
+  border: 1px solid #30363d;
   color: inherit;
-  background: rgba(27, 28, 33, 0.84);
+  background: #0d1117;
   text-align: left;
   cursor: pointer;
   font-family: inherit;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .project-card:hover {
-  border-color: rgba(154, 211, 244, 0.35);
-  transform: translateY(-1px);
+  border-color: #58a6ff;
+  background: #111722;
+}
+
+.project-card > * {
+  position: relative;
+  z-index: 3;
 }
 
 .project-card-reveal::before {
@@ -2031,37 +2100,75 @@ onBeforeUnmount(() => {
   }
 }
 
-.project-icon {
-  width: 3.1rem;
-  height: 3.1rem;
-  object-fit: cover;
-  border-radius: 0.62rem;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.project-info {
+.project-card-head {
+  width: 100%;
   min-width: 0;
-  position: relative;
-  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.62rem;
 }
 
 .project-card-title {
   margin: 0;
-  color: rgba(236, 246, 255, 0.96);
-  font-size: 1.06rem;
-  line-height: 1.25;
-  font-weight: 700;
+  min-width: 0;
+  color: #58a6ff;
+  font-size: 1rem;
+  line-height: 1.3;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-visibility {
+  flex-shrink: 0;
+  border: 1px solid #30363d;
+  border-radius: 999px;
+  padding: 0.03rem 0.52rem;
+  color: #8b949e;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  font-weight: 600;
 }
 
 .project-card-summary {
-  margin: 0.38rem 0 0;
-  color: rgba(192, 210, 225, 0.65);
-  font-size: 0.86rem;
-  line-height: 1.55;
+  margin: 0;
+  color: #8b949e;
+  font-size: 0.84rem;
+  line-height: 1.45;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+}
+
+.project-card-meta {
+  margin-top: auto;
+  width: 100%;
+}
+
+.project-language-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem 0.82rem;
+}
+
+.project-language-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #8b949e;
+  font-size: 0.77rem;
+  line-height: 1.2;
+}
+
+.project-language-item::before {
+  content: "";
+  width: 0.52rem;
+  height: 0.52rem;
+  border-radius: 50%;
+  background: var(--project-language-color, #8b949e);
 }
 
 .project-modal-fade-enter-active,
@@ -2278,7 +2385,8 @@ onBeforeUnmount(() => {
   }
 
   .post-card {
-    min-height: 22.5rem;
+    aspect-ratio: 16 / 9;
+    min-height: 10.5rem;
   }
 
   .post-content {
@@ -2354,18 +2462,26 @@ onBeforeUnmount(() => {
   }
 
   .project-card {
-    grid-template-columns: 3.2rem 1fr;
-    gap: 0.72rem;
-    padding: 0.85rem 0.9rem;
-  }
-
-  .project-icon {
-    width: 2.7rem;
-    height: 2.7rem;
+    min-height: 6.8rem;
+    gap: 0.65rem;
+    padding: 0.76rem 0.82rem;
   }
 
   .project-card-title {
-    font-size: 1rem;
+    font-size: 0.95rem;
+  }
+
+  .project-card-summary {
+    font-size: 0.8rem;
+  }
+
+  .project-language-item {
+    font-size: 0.72rem;
+  }
+
+  .project-language-item::before {
+    width: 0.46rem;
+    height: 0.46rem;
   }
 
   .project-modal {

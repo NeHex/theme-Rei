@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { isExternalSiteLink, resolveSiteHostname } from "~/utils/link";
+
 const route = useRoute();
+const requestUrl = useRequestURL();
 const runtimeConfig = useRuntimeConfig();
 const { settings } = useSiteSettings();
 const currentYear = new Date().getFullYear();
@@ -38,6 +41,9 @@ const onlineStatusText = computed(() => {
   if (onlineSocketState.value === "error") return "websocket链接失败";
   return "websocket建立中";
 });
+const siteHostname = computed(() =>
+  resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
+);
 
 let onlineSocket: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -233,7 +239,7 @@ function reconnectOnlineSocket() {
 }
 
 function isExternalLink(url: string) {
-  return /^https?:\/\//.test(url) || url.startsWith("mailto:");
+  return isExternalSiteLink(url, siteHostname.value);
 }
 
 if (import.meta.client) {
@@ -272,7 +278,7 @@ if (import.meta.client) {
             </p>
           </div>
           <p class="brand-motto">{{ settings.siteDesc }}</p>
-          <p class="brand-copy">{{ copyrightText }} Powered By <a href="https://github.com/nehex" target="_blank" rel="noopener noreferrer">NeHex</a>&<a href="https://github.com/NeHex/theme-Rei" target="_blank" rel="noopener noreferrer">Rei</a></p>
+          <p class="brand-copy">{{ copyrightText }} Powered By <a href="https://github.com/nehex" target="_blank" rel="noopener noreferrer" class="external-link">NeHex</a>&<a href="https://github.com/NeHex/theme-Rei" target="_blank" rel="noopener noreferrer" class="external-link">Rei</a></p>
         </div>
 
         <nav class="footer-col" aria-label="快捷导航">
@@ -289,6 +295,7 @@ if (import.meta.client) {
             <a
               v-if="isExternalLink(item.to)"
               :href="item.to"
+              class="external-link"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -306,6 +313,7 @@ if (import.meta.client) {
             v-for="item in contactLinks"
             :key="item.label"
             :href="item.href"
+            :class="{ 'external-link': isExternalLink(item.href) }"
             :target="isExternalLink(item.href) ? '_blank' : undefined"
             :rel="isExternalLink(item.href) ? 'noopener noreferrer' : undefined"
           >
@@ -464,6 +472,10 @@ if (import.meta.client) {
     grid-template-columns: 1fr 1fr;
     gap: 1.3rem;
   }
+
+  .footer-col {
+    justify-self: start;
+  }
 }
 
 @media (max-width: 760px) {
@@ -490,8 +502,21 @@ if (import.meta.client) {
 
   .footer-bottom {
     padding-top: 0.66rem;
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .bottom-left,
+  .bottom-right {
+    white-space: nowrap;
+    font-size: 0.72rem;
+  }
+
+  .bottom-left {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 </style>

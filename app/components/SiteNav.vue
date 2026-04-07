@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { isExternalSiteLink, resolveSiteHostname } from "~/utils/link";
+
 const route = useRoute();
+const requestUrl = useRequestURL();
 const { settings } = useSiteSettings();
 const { pages: singlePages } = useSinglePages();
 
@@ -21,13 +24,16 @@ const singlePageLinks = computed(() =>
   singlePages.value.map((page) => ({ label: page.title, to: page.to })),
 );
 const moreDropdownLinks = computed(() => [...singlePageLinks.value, ...dropdownLinks.value]);
+const siteHostname = computed(() =>
+  resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
+);
 
 const hoveredMoreIndex = ref(-1);
 const isMobileMenuOpen = ref(false);
 const isMobileMoreSubmenuOpen = ref(false);
 
 function isExternalLink(url: string) {
-  return /^https?:\/\//.test(url) || url.startsWith("mailto:");
+  return isExternalSiteLink(url, siteHostname.value);
 }
 
 function normalizeRouteKey(url: string) {
@@ -78,195 +84,187 @@ watch(
 
 <template>
   <header class="floating-nav-wrap">
-    <nav class="floating-nav">
-      <div class="nav-main">
-        <NuxtLink to="/" class="nav-avatar-link" aria-label="返回首页">
-          <img class="nav-avatar" :src="avatarSrc" :alt="avatarAlt" />
-        </NuxtLink>
+    <nav class="floating-nav" :class="{ 'is-expanded': isMobileMenuOpen }">
+      <div class="nav-head">
+        <div class="nav-main">
+          <NuxtLink to="/" class="nav-avatar-link" aria-label="返回首页">
+            <img class="nav-avatar" :src="avatarSrc" :alt="avatarAlt" />
+          </NuxtLink>
 
-        <NuxtLink to="/" class="nav-link" :class="{ active: isHome }">首页</NuxtLink>
+          <NuxtLink to="/" class="nav-link" :class="{ active: isHome }">首页</NuxtLink>
 
-        <NuxtLink to="/article" class="nav-link" :class="{ active: isArticle }">文章</NuxtLink>
-        <NuxtLink to="/album" class="nav-link" :class="{ active: isAlbum }">相册</NuxtLink>
-        <NuxtLink to="/archive" class="nav-link" :class="{ active: isArchive }">归档</NuxtLink>
+          <NuxtLink to="/article" class="nav-link" :class="{ active: isArticle }">文章</NuxtLink>
+          <NuxtLink to="/album" class="nav-link" :class="{ active: isAlbum }">相册</NuxtLink>
+          <NuxtLink to="/archive" class="nav-link" :class="{ active: isArchive }">归档</NuxtLink>
 
-        <div
-          class="nav-dropdown"
-          @mouseenter="openMoreMenu"
-          @mouseleave="closeMoreMenu"
-        >
-          <button type="button" class="nav-link nav-link-more" aria-haspopup="true">
-            更多
-            <svg class="nav-caret" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M6.5 9.5L12 15L17.5 9.5" />
-            </svg>
-          </button>
-          <div class="dropdown-menu">
-            <span
-              class="dropdown-active-pill"
-              :class="{ 'is-visible': hoveredMoreIndex >= 0 }"
-              :style="{ '--pill-index': hoveredMoreIndex }"
-              aria-hidden="true"
-            />
-
-            <template v-for="(item, index) in moreDropdownLinks" :key="`${item.label}-${item.to}-${index}`">
-              <a
-                v-if="isExternalLink(item.to)"
-                :href="item.to"
-                class="dropdown-link"
-                target="_blank"
-                rel="noopener noreferrer"
-                @mouseenter="focusMoreItem(index)"
-                @focus="focusMoreItem(index)"
-              >
-                {{ item.label }}
-              </a>
-              <NuxtLink
-                v-else
-                :to="item.to"
-                class="dropdown-link"
-                @mouseenter="focusMoreItem(index)"
-                @focus="focusMoreItem(index)"
-              >
-                {{ item.label }}
-              </NuxtLink>
-            </template>
-          </div>
-        </div>
-      </div>
-
-      <a
-        :href="feedHref"
-        class="feed-link"
-        aria-label="Feed RSS"
-        :target="isExternalLink(feedHref) ? '_blank' : undefined"
-        :rel="isExternalLink(feedHref) ? 'noopener noreferrer' : undefined"
-      >
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M4 18a2 2 0 1 0 0 4a2 2 0 0 0 0-4Z" />
-          <path d="M4 10a10 10 0 0 1 10 10" />
-          <path d="M4 4a16 16 0 0 1 16 16" />
-        </svg>
-      </a>
-
-      <button
-        type="button"
-        class="mobile-menu-toggle"
-        :class="{ active: isMobileMenuOpen }"
-        aria-label="打开菜单"
-        :aria-expanded="isMobileMenuOpen ? 'true' : 'false'"
-        @click="toggleMobileMenu"
-      >
-        <span />
-        <span />
-        <span />
-      </button>
-    </nav>
-
-    <Transition name="mobile-menu-fade">
-      <button
-        v-if="isMobileMenuOpen"
-        type="button"
-        class="mobile-menu-backdrop"
-        aria-label="关闭菜单"
-        @click="closeMobileMenu"
-      />
-    </Transition>
-
-    <Transition name="mobile-menu-panel">
-      <div v-if="isMobileMenuOpen" class="mobile-menu-panel" role="menu">
-        <div class="mobile-menu-group">
-          <div class="mobile-menu-group-head">
-            <NuxtLink
-              to="/"
-              class="mobile-menu-link"
-              :class="{ active: isMobileLinkActive('/', false) }"
-              @click="closeMobileMenu"
-            >
-              首页
-            </NuxtLink>
-          </div>
-        </div>
-
-        <NuxtLink
-          to="/article"
-          class="mobile-menu-link"
-          :class="{ active: isMobileLinkActive('/article', false) }"
-          @click="closeMobileMenu"
-        >
-          文章
-        </NuxtLink>
-        <NuxtLink
-          to="/album"
-          class="mobile-menu-link"
-          :class="{ active: isMobileLinkActive('/album', false) }"
-          @click="closeMobileMenu"
-        >
-          相册
-        </NuxtLink>
-        <NuxtLink
-          to="/archive"
-          class="mobile-menu-link"
-          :class="{ active: isMobileLinkActive('/archive', false) }"
-          @click="closeMobileMenu"
-        >
-          归档
-        </NuxtLink>
-
-        <div class="mobile-menu-group">
-          <div class="mobile-menu-group-head">
-            <span class="mobile-menu-link static">更多</span>
-            <button
-              v-if="moreDropdownLinks.length"
-              type="button"
-              class="mobile-submenu-toggle"
-              :class="{ active: isMobileMoreSubmenuOpen }"
-              aria-label="展开更多子菜单"
-              @click="toggleMobileMoreSubmenu"
-            >
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <div
+            class="nav-dropdown"
+            @mouseenter="openMoreMenu"
+            @mouseleave="closeMoreMenu"
+          >
+            <button type="button" class="nav-link nav-link-more" aria-haspopup="true">
+              更多
+              <svg class="nav-caret" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M6.5 9.5L12 15L17.5 9.5" />
               </svg>
             </button>
-          </div>
-          <Transition name="mobile-submenu">
-            <div v-if="isMobileMoreSubmenuOpen && moreDropdownLinks.length" class="mobile-submenu">
+            <div class="dropdown-menu">
+              <span
+                class="dropdown-active-pill"
+                :class="{ 'is-visible': hoveredMoreIndex >= 0 }"
+                :style="{ '--pill-index': hoveredMoreIndex }"
+                aria-hidden="true"
+              />
+
               <template v-for="(item, index) in moreDropdownLinks" :key="`${item.label}-${item.to}-${index}`">
                 <a
                   v-if="isExternalLink(item.to)"
                   :href="item.to"
-                  class="mobile-submenu-link"
+                  class="dropdown-link external-link"
                   target="_blank"
                   rel="noopener noreferrer"
-                  @click="closeMobileMenu"
+                  @mouseenter="focusMoreItem(index)"
+                  @focus="focusMoreItem(index)"
                 >
                   {{ item.label }}
                 </a>
                 <NuxtLink
                   v-else
                   :to="item.to"
-                  class="mobile-submenu-link"
-                  :class="{ active: isMobileLinkActive(item.to, false) }"
-                  @click="closeMobileMenu"
+                  class="dropdown-link"
+                  @mouseenter="focusMoreItem(index)"
+                  @focus="focusMoreItem(index)"
                 >
                   {{ item.label }}
                 </NuxtLink>
               </template>
             </div>
-          </Transition>
+          </div>
         </div>
 
         <a
           :href="feedHref"
-          class="mobile-menu-link"
+          class="feed-link"
+          aria-label="Feed RSS"
           :target="isExternalLink(feedHref) ? '_blank' : undefined"
           :rel="isExternalLink(feedHref) ? 'noopener noreferrer' : undefined"
-          @click="closeMobileMenu"
         >
-          RSS
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 18a2 2 0 1 0 0 4a2 2 0 0 0 0-4Z" />
+            <path d="M4 10a10 10 0 0 1 10 10" />
+            <path d="M4 4a16 16 0 0 1 16 16" />
+          </svg>
         </a>
+
+        <button
+          type="button"
+          class="mobile-menu-toggle"
+          :class="{ active: isMobileMenuOpen }"
+          :aria-label="isMobileMenuOpen ? '收起菜单' : '展开菜单'"
+          :aria-expanded="isMobileMenuOpen ? 'true' : 'false'"
+          @click="toggleMobileMenu"
+        >
+          <span />
+          <span />
+          <span />
+        </button>
       </div>
-    </Transition>
+
+      <Transition name="mobile-nav-expand">
+        <div v-if="isMobileMenuOpen" class="mobile-nav-body" role="menu">
+          <div class="mobile-menu-group">
+            <div class="mobile-menu-group-head">
+              <NuxtLink
+                to="/"
+                class="mobile-menu-link"
+                :class="{ active: isMobileLinkActive('/', false) }"
+                @click="closeMobileMenu"
+              >
+                首页
+              </NuxtLink>
+            </div>
+          </div>
+
+          <NuxtLink
+            to="/article"
+            class="mobile-menu-link"
+            :class="{ active: isMobileLinkActive('/article', false) }"
+            @click="closeMobileMenu"
+          >
+            文章
+          </NuxtLink>
+          <NuxtLink
+            to="/album"
+            class="mobile-menu-link"
+            :class="{ active: isMobileLinkActive('/album', false) }"
+            @click="closeMobileMenu"
+          >
+            相册
+          </NuxtLink>
+          <NuxtLink
+            to="/archive"
+            class="mobile-menu-link"
+            :class="{ active: isMobileLinkActive('/archive', false) }"
+            @click="closeMobileMenu"
+          >
+            归档
+          </NuxtLink>
+
+          <div class="mobile-menu-group">
+            <div class="mobile-menu-group-head">
+              <span class="mobile-menu-link static">更多</span>
+              <button
+                v-if="moreDropdownLinks.length"
+                type="button"
+                class="mobile-submenu-toggle"
+                :class="{ active: isMobileMoreSubmenuOpen }"
+                aria-label="展开更多子菜单"
+                @click="toggleMobileMoreSubmenu"
+              >
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M6.5 9.5L12 15L17.5 9.5" />
+                </svg>
+              </button>
+            </div>
+            <Transition name="mobile-submenu">
+              <div v-if="isMobileMoreSubmenuOpen && moreDropdownLinks.length" class="mobile-submenu">
+                <template v-for="(item, index) in moreDropdownLinks" :key="`${item.label}-${item.to}-${index}`">
+                  <a
+                    v-if="isExternalLink(item.to)"
+                    :href="item.to"
+                    class="mobile-submenu-link external-link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    @click="closeMobileMenu"
+                  >
+                    {{ item.label }}
+                  </a>
+                  <NuxtLink
+                    v-else
+                    :to="item.to"
+                    class="mobile-submenu-link"
+                    :class="{ active: isMobileLinkActive(item.to, false) }"
+                    @click="closeMobileMenu"
+                  >
+                    {{ item.label }}
+                  </NuxtLink>
+                </template>
+              </div>
+            </Transition>
+          </div>
+
+          <a
+            :href="feedHref"
+            :class="['mobile-menu-link', { 'external-link': isExternalLink(feedHref) }]"
+            :target="isExternalLink(feedHref) ? '_blank' : undefined"
+            :rel="isExternalLink(feedHref) ? 'noopener noreferrer' : undefined"
+            @click="closeMobileMenu"
+          >
+            RSS
+          </a>
+        </div>
+      </Transition>
+    </nav>
   </header>
 </template>
 
@@ -281,8 +279,9 @@ watch(
 }
 
 .floating-nav {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   position: relative;
   z-index: 91;
   border-radius: 999px;
@@ -296,6 +295,11 @@ watch(
 .floating-nav:hover {
   background: rgba(6, 46, 86, 0.84);
   box-shadow: 0 14px 42px rgba(0, 0, 0, 0.56);
+}
+
+.nav-head {
+  display: inline-flex;
+  align-items: center;
 }
 
 .nav-main {
@@ -550,11 +554,7 @@ watch(
   transform: translateY(-0.38rem) rotate(-45deg);
 }
 
-.mobile-menu-backdrop {
-  display: none;
-}
-
-.mobile-menu-panel {
+.mobile-nav-body {
   display: none;
 }
 
@@ -674,11 +674,26 @@ watch(
   .floating-nav {
     width: 100%;
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     box-sizing: border-box;
-    min-height: 3.8rem;
+    min-height: 0;
+    gap: 0;
+    padding: 0.54rem 0.62rem;
+    border-radius: 6rem;
+    border: 1px solid rgba(166, 215, 255, 0.24);
+    transition: border-radius 0.24s ease, box-shadow 0.22s ease, background 0.22s ease;
+  }
+
+  .floating-nav.is-expanded {
+    border-radius: 1rem;
+  }
+
+  .nav-head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 0.5rem;
-    padding: 0.68rem 0.72rem;
   }
 
   .nav-main {
@@ -724,50 +739,62 @@ watch(
     transform: translateY(-0.43rem) rotate(-45deg);
   }
 
-  .mobile-menu-backdrop {
-    position: fixed;
-    inset: 6.05rem 0 0;
-    z-index: 88;
-    border: 0;
-    background: rgba(3, 12, 24, 0.38);
-  }
-
-  .mobile-menu-panel {
+  .mobile-nav-body {
     display: grid;
-    position: fixed;
-    top: 6.28rem;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(92vw, 19.5rem);
-    z-index: 89;
     gap: 0.24rem;
-    padding: 0.5rem;
-    border-radius: 0.72rem;
-    border: 1px solid rgba(166, 215, 255, 0.24);
-    background: rgba(4, 36, 70, 0.95);
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(12px);
+    margin-top: 0.46rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(166, 215, 255, 0.2);
   }
 
-  .mobile-menu-fade-enter-active,
-  .mobile-menu-fade-leave-active {
-    transition: opacity 0.2s ease;
+  .mobile-nav-expand-enter-active,
+  .mobile-nav-expand-leave-active {
+    overflow: hidden;
+    will-change: max-height, opacity, transform;
+    transform-origin: top center;
+    transition:
+      max-height 0.3s cubic-bezier(0.2, 0.86, 0.24, 1),
+      opacity 0.22s ease,
+      transform 0.26s cubic-bezier(0.2, 0.86, 0.24, 1),
+      margin-top 0.24s ease,
+      padding-top 0.24s ease,
+      border-top-color 0.24s ease;
   }
 
-  .mobile-menu-fade-enter-from,
-  .mobile-menu-fade-leave-to {
+  .mobile-nav-expand-enter-from,
+  .mobile-nav-expand-leave-to {
+    max-height: 0;
     opacity: 0;
+    transform: translateY(-0.35rem) scaleY(0.92);
+    margin-top: 0;
+    padding-top: 0;
+    border-top-color: transparent;
   }
 
-  .mobile-menu-panel-enter-active,
-  .mobile-menu-panel-leave-active {
-    transition: all 0.22s cubic-bezier(0.2, 0.86, 0.24, 1);
+  .mobile-nav-expand-enter-to,
+  .mobile-nav-expand-leave-from {
+    max-height: 28rem;
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
   }
 
-  .mobile-menu-panel-enter-from,
-  .mobile-menu-panel-leave-to {
+  .mobile-nav-expand-enter-active .mobile-menu-link,
+  .mobile-nav-expand-enter-active .mobile-submenu-toggle,
+  .mobile-nav-expand-enter-active .mobile-submenu-link,
+  .mobile-nav-expand-leave-active .mobile-menu-link,
+  .mobile-nav-expand-leave-active .mobile-submenu-toggle,
+  .mobile-nav-expand-leave-active .mobile-submenu-link {
+    transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.2, 0.86, 0.24, 1);
+  }
+
+  .mobile-nav-expand-enter-from .mobile-menu-link,
+  .mobile-nav-expand-enter-from .mobile-submenu-toggle,
+  .mobile-nav-expand-enter-from .mobile-submenu-link,
+  .mobile-nav-expand-leave-to .mobile-menu-link,
+  .mobile-nav-expand-leave-to .mobile-submenu-toggle,
+  .mobile-nav-expand-leave-to .mobile-submenu-link {
     opacity: 0;
-    transform: translate(-50%, -0.35rem);
+    transform: translateY(-0.22rem);
   }
 
   .mobile-submenu-enter-active,
