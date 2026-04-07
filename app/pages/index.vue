@@ -186,7 +186,7 @@ const dailyRecords = computed<DailyRecord[]>(() => {
       title: daily.title,
       summary: daily.summary,
       weatherKey: mapDailyWeatherKey(daily.weather),
-      to: "/archive",
+      to: `/daily/${encodeURIComponent(daily.id)}`,
     };
   });
 

@@ -41,14 +41,16 @@ function truncate(text: string, maxLength: number) {
 }
 
 export function mapDailyApiItem(item: DailyApiItem): DailyViewItem {
-  const content = compactText(item.content) || "暂无内容";
+  const rawContent = (item.content || "").replace(/\r\n/g, "\n").trim();
+  const content = rawContent || "暂无内容";
+  const summarySource = compactText(rawContent) || content;
   const weather = (item.weather || "").trim();
 
   return {
     id: String(item.id),
     title: item.title || "未命名日常",
     content,
-    summary: truncate(content, 96),
+    summary: truncate(summarySource, 96),
     weather,
     createdAt: normalizeDate(item.create_time),
   };
