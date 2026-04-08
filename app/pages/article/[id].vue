@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import MarkdownIt from "markdown-it";
+import { mapArticleApiItem } from "~/composables/useArticles";
+import type { ArticleApiItem } from "~/composables/useArticles";
 import { installMarkdownExternalLinkRule, resolveSiteHostname } from "~/utils/link";
 
 const route = useRoute();
@@ -8,6 +10,49 @@ const requestUrl = useRequestURL();
 
 const articleId = computed(() => String(route.params.id ?? "").trim());
 const { article, pending, error } = useArticleDetail(articleId);
+const displayViews = ref(0);
+const displayLikes = ref(0);
+const isLiking = ref(false);
+const isLiked = ref(false);
+const likeHint = ref("");
+
+type ArticleDetailApiResponse = {
+  data: ArticleApiItem;
+};
+
+watch(
+  article,
+  (next) => {
+    displayViews.value = Number(next?.views || 0);
+    displayLikes.value = Number(next?.likes || 0);
+  },
+  { immediate: true },
+);
+
+watch(articleId, () => {
+  isLiked.value = false;
+  likeHint.value = "";
+});
+
+watch(
+  articleId,
+  async (id) => {
+    if (import.meta.server) return;
+    if (!id) return;
+
+    try {
+      const response = await $fetch<ArticleDetailApiResponse>(`/api/article/${id}/read`, {
+        method: "POST",
+      });
+      const mapped = mapArticleApiItem(response.data);
+      displayViews.value = mapped.views;
+      displayLikes.value = mapped.likes;
+    } catch (error) {
+      console.warn("[article-detail] failed to increase read count", error);
+    }
+  },
+  { immediate: true },
+);
 
 watchEffect(() => {
   if (!error.value) return;
@@ -163,6 +208,33 @@ function handleCommentSubmit(payload: {
 }) {
   console.log("[comment-mock-submit]", payload);
 }
+
+async function likeCurrentArticle() {
+  if (!article.value || isLiking.value || isLiked.value) return;
+  isLiking.value = true;
+  likeHint.value = "";
+
+  try {
+    const response = await $fetch<ArticleDetailApiResponse>(`/api/article/${article.value.id}/like`, {
+      method: "POST",
+    });
+    const mapped = mapArticleApiItem(response.data);
+    displayViews.value = mapped.views;
+    displayLikes.value = mapped.likes;
+    isLiked.value = true;
+    likeHint.value = "已点赞";
+  } catch (error: any) {
+    const statusCode = Number(error?.statusCode || error?.response?.status || 0);
+    if (statusCode === 409) {
+      isLiked.value = true;
+      likeHint.value = "你已点赞过";
+      return;
+    }
+    likeHint.value = "点赞失败，请稍后重试";
+  } finally {
+    isLiking.value = false;
+  }
+}
 </script>
 
 <template>
@@ -184,7 +256,9 @@ function handleCommentSubmit(payload: {
           <div class="article-meta-row">
             <time :datetime="article.publishedAt">{{ formatDate(article.publishedAt) }}</time>
             <span class="meta-dot" aria-hidden="true"></span>
-            <span>阅读 {{ formatCount(article.views) }}</span>
+            <span>阅读 {{ formatCount(displayViews) }}</span>
+            <span class="meta-dot" aria-hidden="true"></span>
+            <span>点赞 {{ formatCount(displayLikes) }}</span>
             <span class="meta-dot" aria-hidden="true"></span>
             <span>分类 <mark>{{ article.category }}</mark></span>
           </div>
@@ -196,6 +270,18 @@ function handleCommentSubmit(payload: {
           <address>
             最后更新：{{ formatDate(article.updatedAt) }}
           </address>
+
+          <div class="article-actions">
+            <button
+              class="article-like-button"
+              type="button"
+              :disabled="isLiking || isLiked"
+              @click="likeCurrentArticle"
+            >
+              {{ isLiked ? "已点赞" : isLiking ? "点赞中..." : "点赞 +1" }}
+            </button>
+            <span v-if="likeHint" class="article-like-hint">{{ likeHint }}</span>
+          </div>
         </header>
 
         <article class="article-card">
@@ -329,6 +415,41 @@ address {
   margin-top: 0.65rem;
   font-style: normal;
   color: rgba(171, 196, 216, 0.78);
+}
+
+.article-actions {
+  margin-top: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.article-like-button {
+  border: 1px solid rgba(123, 193, 222, 0.32);
+  border-radius: 999px;
+  background: rgba(8, 27, 42, 0.72);
+  color: rgba(225, 242, 255, 0.96);
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0.46rem 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.article-like-button:hover:not(:disabled) {
+  border-color: rgba(160, 222, 249, 0.6);
+  background: rgba(11, 38, 59, 0.88);
+}
+
+.article-like-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.article-like-hint {
+  color: rgba(176, 206, 226, 0.9);
+  font-size: 0.84rem;
 }
 
 .article-card {

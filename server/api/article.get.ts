@@ -6,6 +6,7 @@ type ArticleApiItem = {
   articleTopImage: string | null;
   class: string;
   read: number;
+  like_count: number;
   lastEditTime: string;
   tag: string | null;
   top: number;

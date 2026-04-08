@@ -4,6 +4,7 @@ export type ArticleApiItem = {
   articleTopImage: string | null;
   class: string;
   read: number;
+  like_count: number;
   lastEditTime: string;
   tag: string | null;
   top: number;
@@ -78,7 +79,7 @@ export function mapArticleApiItem(item: ArticleApiItem): ArticleViewItem {
     category: item.class || "default",
     tags: parseTags(item.tag),
     views: item.read || 0,
-    likes: 0,
+    likes: item.like_count || 0,
     top: item.top || 0,
     featured: (item.top || 0) > 0,
     content: rawContent || "暂无正文内容。",

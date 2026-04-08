@@ -26,7 +26,8 @@ const emit = defineEmits<{
 
 const stageRef = ref<HTMLElement | null>(null);
 const currentIndex = ref(0);
-const scale = ref(1);
+const zoomFactor = ref(1);
+const fitScale = ref(1);
 const translateX = ref(0);
 const translateY = ref(0);
 const isDragging = ref(false);
@@ -35,12 +36,18 @@ const dragStartX = ref(0);
 const dragStartY = ref(0);
 const dragOriginX = ref(0);
 const dragOriginY = ref(0);
-const minScale = 1;
-const maxScale = 4;
+const imageNaturalWidth = ref(0);
+const imageNaturalHeight = ref(0);
+const MIN_ZOOM_FACTOR = 1;
+const MAX_ZOOM_FACTOR = 4;
+const SCALE_EPSILON = 0.0001;
 const { lockScroll, unlockScroll } = useScrollLock();
 const isViewerLocked = ref(false);
+let stageResizeObserver: ResizeObserver | null = null;
 
 const currentImage = computed(() => props.images[currentIndex.value] || "");
+const currentScale = computed(() => fitScale.value * zoomFactor.value);
+const canPan = computed(() => currentScale.value - fitScale.value > SCALE_EPSILON);
 const readableUpdatedTime = computed(() => formatDateTime(props.album?.updatedAt || ""));
 const readableCreatedTime = computed(() => formatDateTime(props.album?.createdAt || ""));
 const imageFileName = computed(() => {
@@ -60,7 +67,11 @@ watch(
     if (open) {
       currentIndex.value = clampIndex(props.startIndex);
       resetTransform();
+      clearImageMetrics();
       lockBodyScroll();
+      nextTick(() => {
+        updateFitScale(true);
+      });
       return;
     }
 
@@ -76,6 +87,7 @@ watch(
     if (!props.modelValue) return;
     currentIndex.value = clampIndex(nextIndex);
     resetTransform();
+    clearImageMetrics();
   },
 );
 
@@ -84,27 +96,59 @@ watch(
   () => {
     currentIndex.value = clampIndex(currentIndex.value);
     resetTransform();
+    clearImageMetrics();
   },
 );
 
 watch(currentIndex, () => {
   resetTransform();
+  clearImageMetrics();
 });
 
 onMounted(() => {
   window.addEventListener("keydown", handleKeyDown);
+
+  if ("ResizeObserver" in window) {
+    stageResizeObserver = new ResizeObserver(() => {
+      updateFitScale();
+    });
+    if (stageRef.value) {
+      stageResizeObserver.observe(stageRef.value);
+    }
+  }
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", handleKeyDown);
   unlockBodyScroll();
+  stageResizeObserver?.disconnect();
+  stageResizeObserver = null;
 });
+
+watch(
+  stageRef,
+  (next, prev) => {
+    if (!stageResizeObserver) return;
+    if (prev) stageResizeObserver.unobserve(prev);
+    if (next) {
+      stageResizeObserver.observe(next);
+      updateFitScale();
+    }
+  },
+  { flush: "post" },
+);
 
 function clampIndex(value: number) {
   if (!props.images.length) return 0;
   if (value < 0) return 0;
   if (value > props.images.length - 1) return props.images.length - 1;
   return value;
+}
+
+function clearImageMetrics() {
+  imageNaturalWidth.value = 0;
+  imageNaturalHeight.value = 0;
+  fitScale.value = 1;
 }
 
 function closeViewer() {
@@ -122,9 +166,38 @@ function prevImage() {
 }
 
 function resetTransform() {
-  scale.value = 1;
+  zoomFactor.value = MIN_ZOOM_FACTOR;
   translateX.value = 0;
   translateY.value = 0;
+}
+
+function clampTranslate() {
+  if (!stageRef.value || !imageNaturalWidth.value || !imageNaturalHeight.value) {
+    translateX.value = 0;
+    translateY.value = 0;
+    return;
+  }
+
+  const rect = stageRef.value.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+
+  const renderedWidth = imageNaturalWidth.value * currentScale.value;
+  const renderedHeight = imageNaturalHeight.value * currentScale.value;
+
+  const maxOffsetX = Math.max(0, (renderedWidth - rect.width) / 2);
+  const maxOffsetY = Math.max(0, (renderedHeight - rect.height) / 2);
+
+  if (maxOffsetX <= SCALE_EPSILON) {
+    translateX.value = 0;
+  } else {
+    translateX.value = clamp(translateX.value, -maxOffsetX, maxOffsetX);
+  }
+
+  if (maxOffsetY <= SCALE_EPSILON) {
+    translateY.value = 0;
+  } else {
+    translateY.value = clamp(translateY.value, -maxOffsetY, maxOffsetY);
+  }
 }
 
 function handleKeyDown(event: KeyboardEvent) {
@@ -151,11 +224,16 @@ function handleKeyDown(event: KeyboardEvent) {
 function onWheel(event: WheelEvent) {
   if (!props.modelValue) return;
   if (!stageRef.value) return;
+  if (!currentImage.value) return;
+  if (!imageNaturalWidth.value || !imageNaturalHeight.value) return;
 
-  const previousScale = scale.value;
+  const previousScale = currentScale.value;
+  const previousZoom = zoomFactor.value;
   const delta = -event.deltaY * 0.0012;
-  const nextScale = clamp(previousScale * (1 + delta), minScale, maxScale);
-  if (nextScale === previousScale) return;
+  const nextZoom = clamp(previousZoom * (1 + delta), MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
+  if (Math.abs(nextZoom - previousZoom) <= SCALE_EPSILON) return;
+
+  const nextScale = fitScale.value * nextZoom;
 
   const rect = stageRef.value.getBoundingClientRect();
   const cursorX = event.clientX - rect.left - rect.width / 2;
@@ -164,13 +242,15 @@ function onWheel(event: WheelEvent) {
 
   translateX.value = cursorX - ratio * (cursorX - translateX.value);
   translateY.value = cursorY - ratio * (cursorY - translateY.value);
-  scale.value = nextScale;
+  zoomFactor.value = nextZoom;
+  clampTranslate();
 }
 
 function onPointerDown(event: PointerEvent) {
   if (!props.modelValue) return;
   if (!stageRef.value) return;
   if (!currentImage.value) return;
+  if (!canPan.value) return;
 
   isDragging.value = true;
   activePointerId.value = event.pointerId;
@@ -189,6 +269,7 @@ function onPointerMove(event: PointerEvent) {
   const distanceY = event.clientY - dragStartY.value;
   translateX.value = dragOriginX.value + distanceX;
   translateY.value = dragOriginY.value + distanceY;
+  clampTranslate();
 }
 
 function onPointerUp(event: PointerEvent) {
@@ -197,8 +278,45 @@ function onPointerUp(event: PointerEvent) {
 }
 
 function releaseDragging() {
+  if (stageRef.value && activePointerId.value !== null && stageRef.value.hasPointerCapture(activePointerId.value)) {
+    stageRef.value.releasePointerCapture(activePointerId.value);
+  }
   isDragging.value = false;
   activePointerId.value = null;
+}
+
+function updateFitScale(forceReset = false) {
+  if (!stageRef.value) return;
+  if (!imageNaturalWidth.value || !imageNaturalHeight.value) return;
+
+  const rect = stageRef.value.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+
+  const nextFitScale = Math.min(
+    rect.width / imageNaturalWidth.value,
+    rect.height / imageNaturalHeight.value,
+  );
+  if (!Number.isFinite(nextFitScale) || nextFitScale <= 0) return;
+
+  fitScale.value = nextFitScale;
+
+  if (forceReset || zoomFactor.value <= MIN_ZOOM_FACTOR + SCALE_EPSILON) {
+    resetTransform();
+    return;
+  }
+
+  clampTranslate();
+}
+
+function onImageLoad(event: Event) {
+  const element = event.target as HTMLImageElement | null;
+  if (!element) return;
+
+  imageNaturalWidth.value = element.naturalWidth || 0;
+  imageNaturalHeight.value = element.naturalHeight || 0;
+  nextTick(() => {
+    updateFitScale(true);
+  });
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -246,7 +364,7 @@ function unlockBodyScroll() {
             <div
               ref="stageRef"
               class="viewer-stage"
-              :class="{ dragging: isDragging }"
+              :class="{ dragging: isDragging, pannable: canPan }"
               @wheel.prevent="onWheel"
               @pointerdown="onPointerDown"
               @pointermove="onPointerMove"
@@ -259,8 +377,9 @@ function unlockBodyScroll() {
                 :src="currentImage"
                 :alt="album?.title || '相册图片'"
                 draggable="false"
+                @load="onImageLoad"
                 :style="{
-                  transform: `translate(${translateX}px, ${translateY}px) scale(${scale})`,
+                  transform: `translate(-50%, -50%) translate(${translateX}px, ${translateY}px) scale(${currentScale})`,
                 }"
               />
 
@@ -334,6 +453,7 @@ function unlockBodyScroll() {
   position: absolute;
   left: 0.9rem;
   top: 0.9rem;
+  z-index: 20;
   width: 2rem;
   height: 2rem;
   border-radius: 0.5rem;
@@ -346,6 +466,7 @@ function unlockBodyScroll() {
 }
 
 .viewer-layout {
+  height: 100%;
   min-height: 0;
   padding: 1rem 1rem 0.4rem;
   display: grid;
@@ -354,12 +475,15 @@ function unlockBodyScroll() {
 }
 
 .viewer-stage-wrap {
+  min-width: 0;
   min-height: 0;
   display: grid;
 }
 
 .viewer-stage {
+  position: relative;
   min-height: 0;
+  height: 100%;
   border-radius: 0.65rem;
   overflow: hidden;
   background: rgba(2, 36, 43, 0.7);
@@ -374,9 +498,16 @@ function unlockBodyScroll() {
 }
 
 .viewer-stage img {
-  max-width: 100%;
-  max-height: 100%;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: none;
+  max-height: none;
+  width: auto;
+  height: auto;
+  display: block;
   object-fit: contain;
+  transform-origin: center center;
   will-change: transform;
   user-select: none;
   pointer-events: none;
