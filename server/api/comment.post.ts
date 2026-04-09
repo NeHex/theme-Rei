@@ -1,3 +1,5 @@
+import { resolveAdminIdentity } from "../utils/adminIdentity";
+
 type CommentApiItem = {
   id: number;
   parent_id: number;
@@ -9,6 +11,7 @@ type CommentApiItem = {
   website: string | null;
   like_count: number;
   status: number;
+  is_admin?: boolean;
   ip: string | null;
   create_time: string;
   update_time: string;
@@ -54,6 +57,8 @@ export default defineEventHandler(async (event) => {
     event.node.req.socket.remoteAddress ||
     "";
   const userAgent = getRequestHeader(event, "user-agent") || "";
+  const requestCookie = getRequestHeader(event, "cookie") || "";
+  const adminIdentity = resolveAdminIdentity(event);
 
   try {
     const response = await $fetch<CommentDetailApiResponse>(
@@ -64,6 +69,13 @@ export default defineEventHandler(async (event) => {
         headers: {
           "x-forwarded-for": forwardedFor,
           "user-agent": userAgent,
+          ...(requestCookie ? { cookie: requestCookie } : {}),
+          ...(adminIdentity
+            ? {
+                "x-nehex-admin-marker": adminIdentity.marker,
+                "x-nehex-admin-source": adminIdentity.source,
+              }
+            : {}),
         },
         timeout: 12000,
       },
@@ -81,4 +93,3 @@ export default defineEventHandler(async (event) => {
     });
   }
 });
-

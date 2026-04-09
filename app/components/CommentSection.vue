@@ -12,6 +12,7 @@ type CommentItem = {
   website: string | null;
   like_count: number;
   status: number;
+  is_admin?: boolean;
   ip: string | null;
   create_time: string;
   update_time: string;
@@ -67,12 +68,18 @@ const isSending = ref(false);
 const sendError = ref("");
 const likeError = ref("");
 const gravatarCache = new Map<string, string>();
+const { settings } = useSiteSettings();
+const adminMarkerCookie = useCookie<string>("nehex_admin_marker", {
+  sameSite: "lax",
+  default: () => "",
+});
 const likedCommentCookie = useCookie<string>("comment_liked_ids", {
   sameSite: "lax",
   maxAge: 60 * 60 * 24 * 365,
   default: () => "",
 });
 const likedCommentIds = ref<Set<number>>(new Set());
+const isAdminCommenter = computed(() => Boolean(String(adminMarkerCookie.value || "").trim()));
 
 const resolvedTargetId = computed(() => {
   const value = props.targetId || props.articleId;
@@ -185,6 +192,7 @@ function mapCommentView(item: CommentItem): CommentViewItem {
 
   return {
     ...item,
+    is_admin: Boolean(item.is_admin),
     avatar_url: avatarUrl,
     replies,
   };
@@ -233,6 +241,10 @@ async function handleSubmit() {
   const parentId = replyTo.value?.id || 0;
 
   try {
+    const submitNickname = isAdminCommenter.value
+      ? String(settings.value.userName || "").trim() || "站长"
+      : draftNickname.value.trim() || getDefaultNickname();
+
     await $fetch<CommentCreateResponse>("/api/comment", {
       method: "POST",
       body: {
@@ -240,9 +252,9 @@ async function handleSubmit() {
         target_type: props.targetType,
         target_id: resolvedTargetId.value,
         content,
-        nickname: draftNickname.value.trim() || getDefaultNickname(),
-        email: normalizeOptional(draftEmail.value),
-        website: normalizeOptional(draftWebsite.value),
+        nickname: submitNickname,
+        email: isAdminCommenter.value ? undefined : normalizeOptional(draftEmail.value),
+        website: isAdminCommenter.value ? undefined : normalizeOptional(draftWebsite.value),
       },
     });
 
@@ -254,6 +266,11 @@ async function handleSubmit() {
     });
 
     draftContent.value = "";
+    if (isAdminCommenter.value) {
+      draftNickname.value = "";
+      draftEmail.value = "";
+      draftWebsite.value = "";
+    }
     replyTo.value = null;
 
     await loadComments();
@@ -316,11 +333,12 @@ onMounted(() => {
     </header>
 
     <form v-if="allowInput" class="comment-editor" @submit.prevent="handleSubmit">
-      <div class="comment-editor-grid">
+      <div v-if="!isAdminCommenter" class="comment-editor-grid">
         <input v-model="draftNickname" type="text" class="comment-input" placeholder="昵称（必填）" maxlength="100" />
         <input v-model="draftEmail" type="email" class="comment-input" placeholder="邮箱（选填）" maxlength="255" />
         <input v-model="draftWebsite" type="url" class="comment-input comment-input-full" placeholder="网站（选填）" maxlength="255" />
       </div>
+      <p v-else class="comment-admin-hint">已识别站长身份，无需填写昵称、邮箱和网站。</p>
 
       <textarea
         v-model="draftContent"
@@ -359,7 +377,10 @@ onMounted(() => {
             />
 
             <div class="comment-author-wrap">
-              <h3>{{ comment.nickname }}</h3>
+              <h3>
+                <span>{{ comment.nickname }}</span>
+                <span v-if="comment.is_admin" class="comment-admin-badge">站长</span>
+              </h3>
               <time :datetime="comment.create_time">{{ formatDateTime(comment.create_time) }}</time>
             </div>
           </header>
@@ -390,7 +411,10 @@ onMounted(() => {
                   />
 
                   <div class="comment-author-wrap">
-                    <h4>{{ reply.nickname }}</h4>
+                    <h4>
+                      <span>{{ reply.nickname }}</span>
+                      <span v-if="reply.is_admin" class="comment-admin-badge">站长</span>
+                    </h4>
                     <time :datetime="reply.create_time">{{ formatDateTime(reply.create_time) }}</time>
                   </div>
                 </header>
@@ -461,6 +485,12 @@ onMounted(() => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
   margin-bottom: 0.6rem;
+}
+
+.comment-admin-hint {
+  margin: 0 0 0.6rem;
+  color: rgba(171, 198, 219, 0.9);
+  font-size: 0.82rem;
 }
 
 .comment-input {
@@ -598,6 +628,9 @@ onMounted(() => {
 
 .comment-author-wrap h3,
 .comment-author-wrap h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
   margin: 0;
   font-size: 0.96rem;
   color: rgba(231, 243, 255, 0.96);
@@ -610,6 +643,19 @@ onMounted(() => {
 .comment-author-wrap time {
   color: rgba(168, 196, 217, 0.72);
   font-size: 0.78rem;
+}
+
+.comment-admin-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(110, 226, 255, 0.5);
+  background: rgba(27, 132, 170, 0.35);
+  color: rgba(213, 245, 255, 0.98);
+  font-size: 0.68rem;
+  line-height: 1;
+  padding: 0.16rem 0.42rem;
 }
 
 .comment-content {

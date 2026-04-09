@@ -9,6 +9,7 @@ type CommentApiItem = {
   website: string | null;
   like_count: number;
   status: number;
+  is_admin?: boolean;
   ip: string | null;
   create_time: string;
   update_time: string;
@@ -64,4 +65,3 @@ export default defineEventHandler(async (event) => {
     return { data: [] as CommentApiItem[] };
   }
 });
-

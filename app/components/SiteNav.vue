@@ -2,6 +2,7 @@
 import { isExternalSiteLink, resolveSiteHostname } from "~/utils/link";
 
 const route = useRoute();
+const runtimeConfig = useRuntimeConfig();
 const requestUrl = useRequestURL();
 const { settings } = useSiteSettings();
 const { pages: singlePages } = useSinglePages();
@@ -23,7 +24,30 @@ const dropdownLinks = computed(() => settings.value.themeNav);
 const singlePageLinks = computed(() =>
   singlePages.value.map((page) => ({ label: page.title, to: page.to })),
 );
-const moreDropdownLinks = computed(() => [...singlePageLinks.value, ...dropdownLinks.value]);
+const adminMarkerCookie = useCookie<string>("nehex_admin_marker", {
+  sameSite: "lax",
+  default: () => "",
+});
+const adminConsoleUrl = computed(() => {
+  const configuredUrl = String(runtimeConfig.public.adminConsoleUrl || "/admin").trim();
+  if (!configuredUrl) return "/admin";
+  if (configuredUrl.startsWith("/")) return configuredUrl;
+  if (configuredUrl.startsWith("http://") || configuredUrl.startsWith("https://")) return configuredUrl;
+  return `/${configuredUrl.replace(/^\/+/, "")}`;
+});
+const hasAdminMarker = computed(() => Boolean(String(adminMarkerCookie.value || "").trim()));
+const moreDropdownLinks = computed(() => {
+  const baseLinks = [...singlePageLinks.value, ...dropdownLinks.value];
+  if (!hasAdminMarker.value) return baseLinks;
+
+  const consoleLink = {
+    label: "站长控制台",
+    to: adminConsoleUrl.value,
+  };
+  const duplicated = baseLinks.some((item) => item.label === consoleLink.label || item.to === consoleLink.to);
+  if (duplicated) return baseLinks;
+  return [consoleLink, ...baseLinks];
+});
 const siteHostname = computed(() =>
   resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
 );
@@ -53,6 +77,19 @@ function focusMoreItem(index: number) {
   hoveredMoreIndex.value = index;
 }
 
+function clearFocusedNavElement() {
+  if (!import.meta.client) return;
+  const activeElement = document.activeElement;
+  if (activeElement instanceof HTMLElement) {
+    activeElement.blur();
+  }
+}
+
+function handleDesktopMoreLinkClick() {
+  closeMoreMenu();
+  clearFocusedNavElement();
+}
+
 function isMobileLinkActive(to: string, external: boolean) {
   if (external) return false;
   const current = normalizeRouteKey(route.path);
@@ -78,6 +115,8 @@ watch(
   () => route.fullPath,
   () => {
     closeMobileMenu();
+    closeMoreMenu();
+    clearFocusedNavElement();
   },
 );
 </script>
@@ -91,11 +130,39 @@ watch(
             <img class="nav-avatar" :src="avatarSrc" :alt="avatarAlt" />
           </NuxtLink>
 
-          <NuxtLink to="/" class="nav-link" :class="{ active: isHome }">首页</NuxtLink>
+          <NuxtLink to="/" class="nav-link" :class="{ active: isHome }">
+            <svg class="nav-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3.5 10.5L12 3.5L20.5 10.5V20.5H3.5V10.5Z" />
+              <path d="M9.5 20.5V14.5H14.5V20.5" />
+            </svg>
+            首页
+          </NuxtLink>
 
-          <NuxtLink to="/article" class="nav-link" :class="{ active: isArticle }">文章</NuxtLink>
-          <NuxtLink to="/album" class="nav-link" :class="{ active: isAlbum }">相册</NuxtLink>
-          <NuxtLink to="/archive" class="nav-link" :class="{ active: isArchive }">归档</NuxtLink>
+          <NuxtLink to="/article" class="nav-link" :class="{ active: isArticle }">
+            <svg class="nav-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="4" y="4" width="16" height="16" rx="2.5" />
+              <path d="M8 9H16" />
+              <path d="M8 12.5H16" />
+              <path d="M8 16H13" />
+            </svg>
+            文章
+          </NuxtLink>
+          <NuxtLink to="/album" class="nav-link" :class="{ active: isAlbum }">
+            <svg class="nav-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+              <circle cx="9" cy="10" r="1.8" />
+              <path d="M5.5 17L10.5 12L14 15.5L16.5 13L18.5 15" />
+            </svg>
+            相册
+          </NuxtLink>
+          <NuxtLink to="/archive" class="nav-link" :class="{ active: isArchive }">
+            <svg class="nav-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="4" y="5" width="16" height="5" rx="1.5" />
+              <rect x="5.5" y="10" width="13" height="9" rx="1.5" />
+              <path d="M10 14.5H14" />
+            </svg>
+            归档
+          </NuxtLink>
 
           <div
             class="nav-dropdown"
@@ -103,6 +170,11 @@ watch(
             @mouseleave="closeMoreMenu"
           >
             <button type="button" class="nav-link nav-link-more" aria-haspopup="true">
+              <svg class="nav-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="6.5" cy="12" r="1.5" />
+                <circle cx="12" cy="12" r="1.5" />
+                <circle cx="17.5" cy="12" r="1.5" />
+              </svg>
               更多
               <svg class="nav-caret" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M6.5 9.5L12 15L17.5 9.5" />
@@ -125,6 +197,7 @@ watch(
                   rel="noopener noreferrer"
                   @mouseenter="focusMoreItem(index)"
                   @focus="focusMoreItem(index)"
+                  @click="handleDesktopMoreLinkClick"
                 >
                   {{ item.label }}
                 </a>
@@ -134,6 +207,7 @@ watch(
                   class="dropdown-link"
                   @mouseenter="focusMoreItem(index)"
                   @focus="focusMoreItem(index)"
+                  @click="handleDesktopMoreLinkClick"
                 >
                   {{ item.label }}
                 </NuxtLink>
@@ -180,6 +254,10 @@ watch(
                 :class="{ active: isMobileLinkActive('/', false) }"
                 @click="closeMobileMenu"
               >
+                <svg class="mobile-menu-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M3.5 10.5L12 3.5L20.5 10.5V20.5H3.5V10.5Z" />
+                  <path d="M9.5 20.5V14.5H14.5V20.5" />
+                </svg>
                 首页
               </NuxtLink>
             </div>
@@ -191,6 +269,12 @@ watch(
             :class="{ active: isMobileLinkActive('/article', false) }"
             @click="closeMobileMenu"
           >
+            <svg class="mobile-menu-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="4" y="4" width="16" height="16" rx="2.5" />
+              <path d="M8 9H16" />
+              <path d="M8 12.5H16" />
+              <path d="M8 16H13" />
+            </svg>
             文章
           </NuxtLink>
           <NuxtLink
@@ -199,6 +283,11 @@ watch(
             :class="{ active: isMobileLinkActive('/album', false) }"
             @click="closeMobileMenu"
           >
+            <svg class="mobile-menu-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+              <circle cx="9" cy="10" r="1.8" />
+              <path d="M5.5 17L10.5 12L14 15.5L16.5 13L18.5 15" />
+            </svg>
             相册
           </NuxtLink>
           <NuxtLink
@@ -207,12 +296,24 @@ watch(
             :class="{ active: isMobileLinkActive('/archive', false) }"
             @click="closeMobileMenu"
           >
+            <svg class="mobile-menu-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="4" y="5" width="16" height="5" rx="1.5" />
+              <rect x="5.5" y="10" width="13" height="9" rx="1.5" />
+              <path d="M10 14.5H14" />
+            </svg>
             归档
           </NuxtLink>
 
           <div class="mobile-menu-group">
             <div class="mobile-menu-group-head">
-              <span class="mobile-menu-link static">更多</span>
+              <span class="mobile-menu-link static">
+                <svg class="mobile-menu-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="6.5" cy="12" r="1.5" />
+                  <circle cx="12" cy="12" r="1.5" />
+                  <circle cx="17.5" cy="12" r="1.5" />
+                </svg>
+                更多
+              </span>
               <button
                 v-if="moreDropdownLinks.length"
                 type="button"
@@ -260,6 +361,11 @@ watch(
             :rel="isExternalLink(feedHref) ? 'noopener noreferrer' : undefined"
             @click="closeMobileMenu"
           >
+            <svg class="mobile-menu-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 18a2 2 0 1 0 0 4a2 2 0 0 0 0-4Z" />
+              <path d="M4 10a10 10 0 0 1 10 10" />
+              <path d="M4 4a16 16 0 0 1 16 16" />
+            </svg>
             RSS
           </a>
         </div>
@@ -328,6 +434,7 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.36rem;
   min-width: 3.4rem;
   border-radius: 999px;
   padding: 0.62rem 0.98rem;
@@ -340,6 +447,21 @@ watch(
   transition: all 0.18s ease;
   background-image: none;
   background-size: 0 0;
+}
+
+.nav-link-icon {
+  width: 0.98rem;
+  height: 0.98rem;
+  flex: 0 0 auto;
+}
+
+.nav-link-icon path,
+.nav-link-icon circle,
+.nav-link-icon rect {
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .nav-link:hover {
@@ -561,6 +683,7 @@ watch(
 .mobile-menu-link {
   display: flex;
   align-items: center;
+  gap: 0.44rem;
   min-height: 2.48rem;
   border-radius: 0.54rem;
   padding: 0 0.7rem;
@@ -571,6 +694,21 @@ watch(
   color: rgba(232, 242, 255, 0.92);
   background-image: none;
   background-size: 0 0;
+}
+
+.mobile-menu-link-icon {
+  width: 0.92rem;
+  height: 0.92rem;
+  flex: 0 0 auto;
+}
+
+.mobile-menu-link-icon path,
+.mobile-menu-link-icon circle,
+.mobile-menu-link-icon rect {
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .mobile-menu-link.active {

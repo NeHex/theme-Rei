@@ -8,6 +8,14 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   css: ["~/assets/css/base.css"],
   runtimeConfig: {
+    adminMarkerCookieName:
+      process.env.NUXT_ADMIN_MARKER_COOKIE_NAME ||
+      process.env.ADMIN_MARKER_COOKIE_NAME ||
+      "nehex_admin_marker",
+    adminSessionCookieNames:
+      process.env.NUXT_ADMIN_SESSION_COOKIE_NAMES ||
+      process.env.ADMIN_SESSION_COOKIE_NAMES ||
+      "nehex_admin_session,admin_session,nehex_admin_token,admin_token",
     settingsApiBase:
       process.env.NUXT_API_BASE ||
       process.env.SETTINGS_API_BASE ||
@@ -20,6 +28,10 @@ export default defineNuxtConfig({
         process.env.API_BASE_URL ||
         "http://127.0.0.1:7878",
       onlineCountWsUrl: process.env.NUXT_PUBLIC_ONLINE_WS_URL || "",
+      adminConsoleUrl:
+        process.env.NUXT_PUBLIC_ADMIN_CONSOLE_URL ||
+        process.env.ADMIN_CONSOLE_URL ||
+        "/admin",
       websocketFutionEnabled,
     },
   },
