@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { md5Hex } from "~/utils/md5";
+import { readAdminMarker, syncAdminMarker as requestAdminMarkerSync } from "~/composables/useAdminMarker";
 
 type CommentItem = {
   id: number;
@@ -79,7 +80,13 @@ const likedCommentCookie = useCookie<string>("comment_liked_ids", {
   default: () => "",
 });
 const likedCommentIds = ref<Set<number>>(new Set());
-const isAdminCommenter = computed(() => Boolean(String(adminMarkerCookie.value || "").trim()));
+const mountedOnClient = ref(false);
+const syncedAdminMarker = ref("");
+let syncAdminMarkerTask: Promise<string> | null = null;
+const isAdminCommenter = computed(() => {
+  if (!mountedOnClient.value) return false;
+  return Boolean(getResolvedAdminMarker());
+});
 
 const resolvedTargetId = computed(() => {
   const value = props.targetId || props.articleId;
@@ -102,6 +109,38 @@ function getDefaultNickname() {
 function normalizeOptional(value: string) {
   const normalized = value.trim();
   return normalized || undefined;
+}
+
+function getResolvedAdminMarker() {
+  const markerFromSyncedState = String(syncedAdminMarker.value || "").trim();
+  if (markerFromSyncedState) return markerFromSyncedState;
+
+  const markerFromCookie = String(adminMarkerCookie.value || "").trim();
+  if (markerFromCookie) return markerFromCookie;
+
+  if (!import.meta.client) return "";
+  return readAdminMarker();
+}
+
+async function syncAdminMarkerFromConsole() {
+  if (!import.meta.client) return "";
+  if (syncAdminMarkerTask) return syncAdminMarkerTask;
+
+  syncAdminMarkerTask = (async () => {
+    const syncedMarker = String((await requestAdminMarkerSync()) || "").trim();
+    if (syncedMarker) {
+      syncedAdminMarker.value = syncedMarker;
+      return syncedMarker;
+    }
+
+    const fallbackMarker = String(readAdminMarker() || adminMarkerCookie.value || "").trim();
+    syncedAdminMarker.value = fallbackMarker;
+    return fallbackMarker;
+  })().finally(() => {
+    syncAdminMarkerTask = null;
+  });
+
+  return syncAdminMarkerTask;
 }
 
 function parseLikedCommentIds(rawValue: string | null | undefined) {
@@ -241,12 +280,21 @@ async function handleSubmit() {
   const parentId = replyTo.value?.id || 0;
 
   try {
+    if (!getResolvedAdminMarker()) {
+      await syncAdminMarkerFromConsole();
+    }
+    const adminMarker = getResolvedAdminMarker();
     const submitNickname = isAdminCommenter.value
       ? String(settings.value.userName || "").trim() || "站长"
       : draftNickname.value.trim() || getDefaultNickname();
 
     await $fetch<CommentCreateResponse>("/api/comment", {
       method: "POST",
+      headers: adminMarker
+        ? {
+            "x-nehex-admin-marker": adminMarker,
+          }
+        : undefined,
       body: {
         parent_id: parentId,
         target_type: props.targetType,
@@ -321,7 +369,10 @@ watch([() => props.targetType, resolvedTargetId], () => {
 }, { immediate: true });
 
 onMounted(() => {
+  mountedOnClient.value = true;
   syncLikedCommentsFromCookie();
+  syncedAdminMarker.value = String(readAdminMarker() || adminMarkerCookie.value || "").trim();
+  void syncAdminMarkerFromConsole();
 });
 </script>
 

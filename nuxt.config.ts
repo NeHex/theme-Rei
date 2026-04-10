@@ -32,6 +32,10 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_ADMIN_CONSOLE_URL ||
         process.env.ADMIN_CONSOLE_URL ||
         "/admin",
+      adminPublicMarkerUrl:
+        process.env.NUXT_PUBLIC_ADMIN_PUBLIC_MARKER_URL ||
+        process.env.ADMIN_PUBLIC_MARKER_URL ||
+        "",
       websocketFutionEnabled,
     },
   },
