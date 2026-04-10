@@ -27,6 +27,11 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_SETTINGS_API_BASE ||
         process.env.API_BASE_URL ||
         "http://127.0.0.1:7878",
+      adminMarkerCookieName:
+        process.env.NUXT_PUBLIC_ADMIN_MARKER_COOKIE_NAME ||
+        process.env.NUXT_ADMIN_MARKER_COOKIE_NAME ||
+        process.env.ADMIN_MARKER_COOKIE_NAME ||
+        "nehex_admin_marker",
       onlineCountWsUrl: process.env.NUXT_PUBLIC_ONLINE_WS_URL || "",
       adminConsoleUrl:
         process.env.NUXT_PUBLIC_ADMIN_CONSOLE_URL ||

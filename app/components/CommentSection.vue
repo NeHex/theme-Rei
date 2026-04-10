@@ -70,7 +70,10 @@ const sendError = ref("");
 const likeError = ref("");
 const gravatarCache = new Map<string, string>();
 const { settings } = useSiteSettings();
-const adminMarkerCookie = useCookie<string>("nehex_admin_marker", {
+const runtimeConfig = useRuntimeConfig();
+const adminMarkerCookieName = String(runtimeConfig.public.adminMarkerCookieName || "nehex_admin_marker")
+  .trim() || "nehex_admin_marker";
+const adminMarkerCookie = useCookie<string>(adminMarkerCookieName, {
   sameSite: "lax",
   default: () => "",
 });

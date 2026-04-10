@@ -6,6 +6,8 @@ const runtimeConfig = useRuntimeConfig();
 const requestUrl = useRequestURL();
 const { settings } = useSiteSettings();
 const { pages: singlePages } = useSinglePages();
+const adminMarkerCookieName = String(runtimeConfig.public.adminMarkerCookieName || "nehex_admin_marker")
+  .trim() || "nehex_admin_marker";
 
 const isHome = computed(() => route.path === "/");
 const isArticle = computed(() => route.path.startsWith("/article"));
@@ -24,7 +26,7 @@ const dropdownLinks = computed(() => settings.value.themeNav);
 const singlePageLinks = computed(() =>
   singlePages.value.map((page) => ({ label: page.title, to: page.to })),
 );
-const adminMarkerCookie = useCookie<string>("nehex_admin_marker", {
+const adminMarkerCookie = useCookie<string>(adminMarkerCookieName, {
   sameSite: "lax",
   default: () => "",
 });
