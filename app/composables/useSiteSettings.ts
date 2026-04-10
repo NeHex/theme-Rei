@@ -54,6 +54,7 @@ export type SiteSettings = {
   themeAboutPages: Record<string, unknown>;
   themeAboutMapPoints: AboutMapPoint[];
   themeWifes: WifeProfile[];
+  commentMemes: Record<string, Record<string, string>>;
   userName: string;
   userDesc: string;
   userHeadpic: string;
@@ -79,6 +80,7 @@ const DEFAULT_SITE_SETTINGS: SiteSettings = {
     { label: "山东", coords: [118.000923, 36.675807] },
   ],
   themeWifes: [],
+  commentMemes: {},
   userName: "UEGEE",
   userDesc: "一个长期主义者，记录技术、生活和创作。",
   userHeadpic: "/images/head.jpg",
@@ -271,6 +273,31 @@ function parseThemeWifes(value: unknown): WifeProfile[] {
   return [];
 }
 
+function parseThemeCommentMemes(value: unknown) {
+  const normalizedGroups: Record<string, Record<string, string>> = {};
+  const rootRecord = parseJsonObject(value);
+
+  for (const [groupKeyRaw, groupValueRaw] of Object.entries(rootRecord)) {
+    const groupKey = asString(groupKeyRaw).trim();
+    if (!groupKey) continue;
+
+    const groupRecord = parseJsonObject(groupValueRaw);
+    const normalizedGroup: Record<string, string> = {};
+    for (const [codeRaw, urlRaw] of Object.entries(groupRecord)) {
+      const code = asString(codeRaw).trim();
+      const url = normalizeAssetPath(asString(urlRaw).trim());
+      if (!code || !url) continue;
+      normalizedGroup[code] = url;
+    }
+
+    if (Object.keys(normalizedGroup).length > 0) {
+      normalizedGroups[groupKey] = normalizedGroup;
+    }
+  }
+
+  return normalizedGroups;
+}
+
 function parseCoordPair(value: unknown): [number, number] | null {
   if (Array.isArray(value) && value.length >= 2) {
     const lng = Number(value[0]);
@@ -448,6 +475,15 @@ function resolveSiteSettings(items: SettingApiItem[], themeData: SettingThemeApi
   const settingWifes = parseThemeWifes(map.theme_wifes);
   const themeWifes = profileWifes.length ? profileWifes : settingWifes;
   const themeAboutMapPoints = parseThemeAboutMapPoints(themeAboutPages);
+  const profileCommentMemes = parseThemeCommentMemes(
+    currentThemeProfile.comment_memes ?? currentThemeProfile.commentMemes,
+  );
+  const settingCommentMemes = parseThemeCommentMemes(
+    map.comment_memes ?? map.theme_comment_memes,
+  );
+  const commentMemes = Object.keys(profileCommentMemes).length
+    ? profileCommentMemes
+    : settingCommentMemes;
 
   return {
     siteTitle,
@@ -466,6 +502,7 @@ function resolveSiteSettings(items: SettingApiItem[], themeData: SettingThemeApi
       ? themeAboutMapPoints
       : DEFAULT_SITE_SETTINGS.themeAboutMapPoints,
     themeWifes: themeWifes.length ? themeWifes : DEFAULT_SITE_SETTINGS.themeWifes,
+    commentMemes,
     userName: asString(map.user_name, siteTitle || DEFAULT_SITE_SETTINGS.userName),
     userDesc,
     userHeadpic: normalizeAssetPath(

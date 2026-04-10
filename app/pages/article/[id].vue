@@ -15,6 +15,8 @@ const displayLikes = ref(0);
 const isLiking = ref(false);
 const isLiked = ref(false);
 const likeHint = ref("");
+const shareHint = ref("");
+let actionHintTimer: ReturnType<typeof setTimeout> | null = null;
 
 type ArticleDetailApiResponse = {
   data: ArticleApiItem;
@@ -32,6 +34,7 @@ watch(
 watch(articleId, () => {
   isLiked.value = false;
   likeHint.value = "";
+  shareHint.value = "";
 });
 
 watch(
@@ -185,6 +188,15 @@ const markdown = new MarkdownIt({
 installMarkdownExternalLinkRule(markdown, () => siteHostname.value);
 
 const renderedMarkdown = computed(() => markdown.render(article.value?.content || ""));
+const articleInfoStyle = computed<Record<string, string>>(() => {
+  const cover = String(article.value?.cover || "").trim();
+  if (!cover) return {};
+
+  const coverUrl = String(toAbsoluteUrl(cover) || cover).replace(/"/g, '\\"');
+  return {
+    "--article-cover-url": `url("${coverUrl}")`,
+  };
+});
 
 function formatDate(dateInput: string) {
   const date = new Date(dateInput);
@@ -209,10 +221,86 @@ function handleCommentSubmit(payload: {
   console.log("[comment-mock-submit]", payload);
 }
 
+function setActionHint(kind: "like" | "share", message: string) {
+  if (kind === "like") {
+    likeHint.value = message;
+    shareHint.value = "";
+  } else {
+    shareHint.value = message;
+    likeHint.value = "";
+  }
+
+  if (!import.meta.client) return;
+  if (actionHintTimer !== null) {
+    window.clearTimeout(actionHintTimer);
+  }
+  actionHintTimer = window.setTimeout(() => {
+    likeHint.value = "";
+    shareHint.value = "";
+    actionHintTimer = null;
+  }, 2400);
+}
+
+async function copyText(text: string) {
+  if (!import.meta.client) return false;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Ignore and fallback below.
+  }
+
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
+async function shareCurrentArticle() {
+  if (!article.value || !import.meta.client) return;
+
+  const title = String(article.value.title || settings.value.siteTitle || "文章").trim();
+  const text = String(article.value.summary || settings.value.siteDesc || "").trim();
+  const url = canonicalUrl.value;
+
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title,
+        text: text || title,
+        url,
+      });
+      setActionHint("share", "已调起系统分享");
+      return;
+    }
+  } catch (error: any) {
+    if (String(error?.name || "") === "AbortError") return;
+  }
+
+  const copied = await copyText(url);
+  setActionHint("share", copied ? "链接已复制" : "分享失败，请手动复制链接");
+}
+
 async function likeCurrentArticle() {
   if (!article.value || isLiking.value || isLiked.value) return;
   isLiking.value = true;
   likeHint.value = "";
+  shareHint.value = "";
 
   try {
     const response = await $fetch<ArticleDetailApiResponse>(`/api/article/${article.value.id}/like`, {
@@ -222,19 +310,25 @@ async function likeCurrentArticle() {
     displayViews.value = mapped.views;
     displayLikes.value = mapped.likes;
     isLiked.value = true;
-    likeHint.value = "已点赞";
+    setActionHint("like", "已点赞");
   } catch (error: any) {
     const statusCode = Number(error?.statusCode || error?.response?.status || 0);
     if (statusCode === 409) {
       isLiked.value = true;
-      likeHint.value = "你已点赞过";
+      setActionHint("like", "你已点赞过");
       return;
     }
-    likeHint.value = "点赞失败，请稍后重试";
+    setActionHint("like", "点赞失败，请稍后重试");
   } finally {
     isLiking.value = false;
   }
 }
+
+onBeforeUnmount(() => {
+  if (!import.meta.client || actionHintTimer === null) return;
+  window.clearTimeout(actionHintTimer);
+  actionHintTimer = null;
+});
 </script>
 
 <template>
@@ -249,7 +343,11 @@ async function likeCurrentArticle() {
       </div>
 
       <template v-if="article">
-        <header class="article-info">
+        <header
+          class="article-info"
+          :class="{ 'has-cover': Boolean(article.cover) }"
+          :style="articleInfoStyle"
+        >
           <p class="article-kicker">BLOG ARTICLE</p>
           <h1>{{ article.title }}</h1>
 
@@ -271,23 +369,42 @@ async function likeCurrentArticle() {
             最后更新：{{ formatDate(article.updatedAt) }}
           </address>
 
-          <div class="article-actions">
-            <button
-              class="article-like-button"
-              type="button"
-              :disabled="isLiking || isLiked"
-              @click="likeCurrentArticle"
-            >
-              {{ isLiked ? "已点赞" : isLiking ? "点赞中..." : "点赞 +1" }}
-            </button>
-            <span v-if="likeHint" class="article-like-hint">{{ likeHint }}</span>
-          </div>
         </header>
 
-        <article class="article-card">
-          <img v-if="article.cover" :src="article.cover" :alt="article.title" class="article-cover" />
-          <div class="markdown-body" v-html="renderedMarkdown" />
-        </article>
+        <div class="article-card-wrap">
+          <article class="article-card">
+            <div class="markdown-body" v-html="renderedMarkdown" />
+          </article>
+          <div class="article-float-actions" role="group" aria-label="文章操作">
+            <button
+              class="article-icon-button"
+              type="button"
+              aria-label="分享文章"
+              @click="shareCurrentArticle"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M15 5.5L19.5 10L15 14.5" />
+                <path d="M7.5 10H19.2" />
+                <path d="M19 14.8V18.1C19 19.2 18.1 20.1 17 20.1H6.9C5.8 20.1 4.9 19.2 4.9 18.1V5.9C4.9 4.8 5.8 3.9 6.9 3.9H10.1" />
+              </svg>
+            </button>
+            <button
+              class="article-icon-button article-like-icon-button"
+              type="button"
+              :aria-label="isLiked ? '已点赞' : '点赞文章'"
+              :title="isLiked ? '已点赞' : isLiking ? '点赞中...' : '点赞'"
+              :disabled="isLiking || isLiked"
+              :class="{ 'is-liked': isLiked }"
+              @click="likeCurrentArticle"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 20.2C11.7 20.2 11.4 20.1 11.2 19.9L6.5 15.6C4.4 13.6 3 12.2 3 9.9C3 7.9 4.5 6.4 6.5 6.4C7.6 6.4 8.6 6.9 9.3 7.8L12 10.8L14.7 7.8C15.4 6.9 16.4 6.4 17.5 6.4C19.5 6.4 21 7.9 21 9.9C21 12.2 19.6 13.6 17.5 15.6L12.8 19.9C12.6 20.1 12.3 20.2 12 20.2Z" />
+              </svg>
+            </button>
+            <span class="article-like-count">{{ formatCount(displayLikes) }}</span>
+          </div>
+          <p v-if="likeHint || shareHint" class="article-action-hint">{{ likeHint || shareHint }}</p>
+        </div>
 
         <CommentSection
           :article-id="article.id"
@@ -305,13 +422,13 @@ async function likeCurrentArticle() {
 <style scoped>
 .article-page {
   min-height: 100vh;
-  padding: 6.4rem 1rem 2.2rem;
+  padding: 6.4rem 0.8rem 2.2rem;
   color: var(--theme-text);
   background: transparent;
 }
 
 .article-main {
-  width: var(--site-content-width);
+  width: calc(var(--site-max-width) - 20.6rem);
   margin: 0 auto;
 }
 
@@ -354,12 +471,41 @@ async function likeCurrentArticle() {
 }
 
 .article-info {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   margin-bottom: 1rem;
   padding: 1rem 1.1rem;
   border-radius: 1rem;
   border: 1px solid var(--theme-border);
   background: var(--theme-surface);
   backdrop-filter: blur(8px);
+}
+
+.article-info.has-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(
+      to right,
+      rgba(8, 15, 27, 0.98) 0%,
+      rgba(8, 15, 27, 0.9) 32%,
+      rgba(8, 15, 27, 0.58) 62%,
+      rgba(8, 15, 27, 0.16) 84%,
+      rgba(8, 15, 27, 0.04) 100%
+    ),
+    var(--article-cover-url);
+  background-repeat: no-repeat;
+  background-size: cover, cover;
+  background-position: center, right center;
+}
+
+.article-info > * {
+  position: relative;
+  z-index: 1;
 }
 
 .article-kicker {
@@ -417,41 +563,6 @@ address {
   color: rgba(171, 196, 216, 0.78);
 }
 
-.article-actions {
-  margin-top: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
-.article-like-button {
-  border: 1px solid rgba(123, 193, 222, 0.32);
-  border-radius: 999px;
-  background: rgba(8, 27, 42, 0.72);
-  color: rgba(225, 242, 255, 0.96);
-  font-size: 0.9rem;
-  line-height: 1;
-  padding: 0.46rem 0.8rem;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-}
-
-.article-like-button:hover:not(:disabled) {
-  border-color: rgba(160, 222, 249, 0.6);
-  background: rgba(11, 38, 59, 0.88);
-}
-
-.article-like-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.72;
-}
-
-.article-like-hint {
-  color: rgba(176, 206, 226, 0.9);
-  font-size: 0.84rem;
-}
-
 .article-card {
   padding: 1.2rem;
   border-radius: 1rem;
@@ -460,17 +571,92 @@ address {
   backdrop-filter: blur(8px);
 }
 
+.article-card-wrap {
+  position: relative;
+  margin-bottom: 0.35rem;
+}
+
+.article-float-actions {
+  position: absolute;
+  right: -3.6rem;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.article-icon-button {
+  width: 2.65rem;
+  height: 2.65rem;
+  border: 1px solid rgba(123, 193, 222, 0.34);
+  border-radius: 999px;
+  background: rgba(8, 27, 42, 0.82);
+  color: rgba(225, 242, 255, 0.96);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+  transition: border-color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+
+.article-icon-button svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.article-icon-button path {
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.article-icon-button:hover:not(:disabled) {
+  border-color: rgba(170, 227, 250, 0.66);
+  background: rgba(12, 41, 63, 0.9);
+  transform: translateY(-1px);
+}
+
+.article-icon-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.article-like-icon-button.is-liked {
+  color: #95f2ff;
+  border-color: rgba(149, 242, 255, 0.5);
+  background: rgba(24, 64, 82, 0.9);
+}
+
+.article-like-count {
+  min-width: 2.65rem;
+  padding: 0.22rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(118, 170, 194, 0.3);
+  background: rgba(7, 22, 35, 0.86);
+  color: rgba(191, 219, 238, 0.94);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.article-action-hint {
+  position: absolute;
+  right: -4.65rem;
+  bottom: -2rem;
+  width: 4.7rem;
+  margin: 0;
+  text-align: center;
+  font-size: 0.74rem;
+  color: rgba(186, 214, 234, 0.96);
+}
+
 .article-loading {
   display: grid;
   place-items: center;
   min-height: 12rem;
-}
-
-.article-cover {
-  width: 100%;
-  display: block;
-  border-radius: 0.8rem;
-  margin-bottom: 1.15rem;
 }
 
 .markdown-body :deep(*) {
@@ -573,19 +759,47 @@ address {
   border-radius: 0.68rem;
 }
 
+@media (max-width: 1080px) {
+  .article-main {
+    width: var(--site-max-width);
+  }
+}
+
 @media (max-width: 760px) {
   .article-page {
     margin-top:2em;
-    padding: 5.8rem 0.55rem 2rem;
+    padding: 5.9rem 0.55rem 2.4rem;
   }
 
   .article-main {
-    width: min(96%, 980px);
+    width: min(96%, 1560px);
   }
 
   .article-info,
   .article-card {
     padding: 1rem;
+  }
+
+  .article-float-actions {
+    right: 0.55rem;
+    bottom: 0.55rem;
+    gap: 0.45rem;
+  }
+
+  .article-icon-button {
+    width: 2.45rem;
+    height: 2.45rem;
+  }
+
+  .article-like-count {
+    min-width: 2.45rem;
+    font-size: 0.74rem;
+  }
+
+  .article-action-hint {
+    right: 0.35rem;
+    bottom: -1.45rem;
+    width: 4rem;
   }
 
   .markdown-body :deep(h1) {

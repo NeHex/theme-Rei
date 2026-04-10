@@ -34,6 +34,30 @@ type CommentCreateResponse = {
   data: CommentItem;
 };
 
+type MemeItem = {
+  code: string;
+  url: string;
+};
+
+type MemeGroup = {
+  key: string;
+  cover: string;
+  items: MemeItem[];
+};
+
+type CommentContentSegment =
+  | {
+      type: "text";
+      text: string;
+      key: string;
+    }
+  | {
+      type: "meme";
+      code: string;
+      url: string;
+      key: string;
+    };
+
 const props = withDefaults(
   defineProps<{
     articleId?: string;
@@ -64,7 +88,11 @@ const draftNickname = ref("");
 const draftEmail = ref("");
 const draftWebsite = ref("");
 const draftContent = ref("");
+const draftContentRef = ref<HTMLTextAreaElement | null>(null);
+const memePanelRef = ref<HTMLElement | null>(null);
 const replyTo = ref<CommentViewItem | null>(null);
+const memePanelOpen = ref(false);
+const activeMemeGroupKey = ref("");
 const isSending = ref(false);
 const sendError = ref("");
 const likeError = ref("");
@@ -99,6 +127,40 @@ const resolvedTargetId = computed(() => {
 });
 
 const canLoad = computed(() => Boolean(props.targetType) && resolvedTargetId.value > 0);
+const memeGroups = computed<MemeGroup[]>(() => {
+  const source = settings.value.commentMemes || {};
+  return Object.entries(source)
+    .map(([groupKey, groupRecord]) => {
+      const items = Object.entries(groupRecord || {})
+        .map(([code, url]) => ({
+          code: String(code || "").trim(),
+          url: String(url || "").trim(),
+        }))
+        .filter((item) => item.code && item.url);
+      if (!items.length) return null;
+
+      return {
+        key: String(groupKey || "").trim(),
+        cover: items[0]!.url,
+        items,
+      } satisfies MemeGroup;
+    })
+    .filter((item): item is MemeGroup => Boolean(item && item.key));
+});
+const hasMemeGroups = computed(() => memeGroups.value.length > 0);
+const activeMemeGroup = computed(() =>
+  memeGroups.value.find((group) => group.key === activeMemeGroupKey.value) || memeGroups.value[0] || null,
+);
+const activeMemeItems = computed(() => activeMemeGroup.value?.items || []);
+const memeLookup = computed(() => {
+  const entries: Array<[string, string]> = [];
+  for (const group of memeGroups.value) {
+    for (const item of group.items) {
+      entries.push([item.code, item.url]);
+    }
+  }
+  return new Map<string, string>(entries);
+});
 
 const totalCount = computed(() => {
   const walk = (items: CommentViewItem[]) =>
@@ -113,6 +175,96 @@ function getDefaultNickname() {
 function normalizeOptional(value: string) {
   const normalized = value.trim();
   return normalized || undefined;
+}
+
+function closeMemePanel() {
+  memePanelOpen.value = false;
+}
+
+function toggleMemePanel() {
+  if (!hasMemeGroups.value) return;
+  memePanelOpen.value = !memePanelOpen.value;
+}
+
+function selectMemeGroup(groupKey: string) {
+  activeMemeGroupKey.value = groupKey;
+}
+
+function insertMemeCode(code: string) {
+  const normalizedCode = String(code || "").trim();
+  if (!normalizedCode) return;
+
+  const token = `::${normalizedCode}`;
+  const textarea = draftContentRef.value;
+  if (!textarea || !import.meta.client) {
+    draftContent.value = `${draftContent.value}${token}`;
+    closeMemePanel();
+    return;
+  }
+
+  const currentValue = draftContent.value;
+  const start = textarea.selectionStart ?? currentValue.length;
+  const end = textarea.selectionEnd ?? start;
+  const prefix = start > 0 && /\S/.test(currentValue[start - 1] || "") ? " " : "";
+  const suffix = end < currentValue.length && /\S/.test(currentValue[end] || "") ? " " : "";
+  const insertText = `${prefix}${token}${suffix}`;
+
+  draftContent.value = `${currentValue.slice(0, start)}${insertText}${currentValue.slice(end)}`;
+  closeMemePanel();
+
+  nextTick(() => {
+    const nextCursor = start + insertText.length;
+    textarea.focus();
+    textarea.setSelectionRange(nextCursor, nextCursor);
+  });
+}
+
+function parseCommentContent(content: string): CommentContentSegment[] {
+  const text = String(content || "");
+  const segments: CommentContentSegment[] = [];
+  const regex = /::([A-Za-z0-9_]+)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null = null;
+
+  while ((match = regex.exec(text)) !== null) {
+    const code = String(match[1] || "").trim();
+    const url = memeLookup.value.get(code);
+    if (!url) continue;
+
+    if (match.index > lastIndex) {
+      segments.push({
+        type: "text",
+        text: text.slice(lastIndex, match.index),
+        key: `text-${lastIndex}`,
+      });
+    }
+
+    segments.push({
+      type: "meme",
+      code,
+      url,
+      key: `meme-${match.index}-${code}`,
+    });
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    segments.push({
+      type: "text",
+      text: text.slice(lastIndex),
+      key: `text-${lastIndex}`,
+    });
+  }
+
+  if (!segments.length) {
+    segments.push({
+      type: "text",
+      text,
+      key: "text-0",
+    });
+  }
+
+  return segments;
 }
 
 function getResolvedAdminMarker() {
@@ -417,6 +569,37 @@ function cancelReply() {
   replyTo.value = null;
 }
 
+function handleGlobalPointerDown(event: PointerEvent) {
+  if (!memePanelOpen.value) return;
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+  if (memePanelRef.value?.contains(target)) return;
+  if (target instanceof HTMLElement && target.closest(".comment-meme-toggle")) return;
+  closeMemePanel();
+}
+
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key !== "Escape") return;
+  closeMemePanel();
+}
+
+watch(
+  memeGroups,
+  (groups) => {
+    if (!groups.length) {
+      activeMemeGroupKey.value = "";
+      closeMemePanel();
+      return;
+    }
+
+    const hasMatched = groups.some((group) => group.key === activeMemeGroupKey.value);
+    if (!hasMatched) {
+      activeMemeGroupKey.value = groups[0]!.key;
+    }
+  },
+  { immediate: true },
+);
+
 watch([() => props.targetType, resolvedTargetId], () => {
   loadComments();
 }, { immediate: true });
@@ -426,11 +609,19 @@ onMounted(() => {
   syncLikedCommentsFromCookie();
   syncedAdminMarker.value = String(readAdminMarker() || adminMarkerCookie.value || "").trim();
   void syncAdminMarkerFromConsole();
+  if (import.meta.client) {
+    window.addEventListener("pointerdown", handleGlobalPointerDown);
+    window.addEventListener("keydown", handleGlobalKeydown);
+  }
 });
 
 onBeforeUnmount(() => {
   if (delayedRefreshTimer !== null && import.meta.client) {
     window.clearTimeout(delayedRefreshTimer);
+  }
+  if (import.meta.client) {
+    window.removeEventListener("pointerdown", handleGlobalPointerDown);
+    window.removeEventListener("keydown", handleGlobalKeydown);
   }
 });
 </script>
@@ -450,12 +641,64 @@ onBeforeUnmount(() => {
       </div>
       <p v-else class="comment-admin-hint">已识别站长身份，无需填写昵称、邮箱和网站。</p>
 
-      <textarea
-        v-model="draftContent"
-        class="comment-textarea"
-        :placeholder="replyTo ? `回复 ${replyTo.nickname}...` : '写点什么吧...'"
-        maxlength="1200"
-      />
+      <div class="comment-textarea-wrap">
+        <textarea
+          ref="draftContentRef"
+          v-model="draftContent"
+          class="comment-textarea"
+          :placeholder="replyTo ? `回复 ${replyTo.nickname}...` : '写点什么吧...'"
+          maxlength="1200"
+        />
+        <div class="comment-meme-entry">
+          <button
+            type="button"
+            class="comment-meme-toggle"
+            :disabled="!hasMemeGroups"
+            :aria-expanded="memePanelOpen"
+            @click="toggleMemePanel"
+          >
+            😀 表情
+          </button>
+
+          <Transition name="comment-meme-panel">
+            <div
+              v-if="memePanelOpen && hasMemeGroups"
+              ref="memePanelRef"
+              class="comment-meme-panel"
+              role="dialog"
+              aria-label="选择表情包"
+            >
+              <div class="comment-meme-panel-body">
+                <button
+                  v-for="item in activeMemeItems"
+                  :key="item.code"
+                  type="button"
+                  class="comment-meme-pick"
+                  :title="`::${item.code}`"
+                  @click="insertMemeCode(item.code)"
+                >
+                  <img :src="item.url" :alt="item.code" loading="lazy" />
+                </button>
+                <p v-if="!activeMemeItems.length" class="comment-meme-empty">此分组暂无表情包。</p>
+              </div>
+
+              <div class="comment-meme-group-tabs">
+                <button
+                  v-for="group in memeGroups"
+                  :key="group.key"
+                  type="button"
+                  class="comment-meme-group-btn"
+                  :class="{ 'is-active': activeMemeGroup?.key === group.key }"
+                  :title="group.key"
+                  @click="selectMemeGroup(group.key)"
+                >
+                  <img :src="group.cover" :alt="group.key" loading="lazy" />
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </div>
 
       <div v-if="replyTo" class="comment-replying">
         正在回复：{{ replyTo.nickname }}
@@ -495,7 +738,18 @@ onBeforeUnmount(() => {
             </div>
           </header>
 
-          <p class="comment-content">{{ comment.content }}</p>
+          <p class="comment-content comment-content-rich">
+            <template v-for="segment in parseCommentContent(comment.content)" :key="segment.key">
+              <span v-if="segment.type === 'text'" class="comment-content-text">{{ segment.text }}</span>
+              <img
+                v-else
+                class="comment-content-meme"
+                :src="segment.url"
+                :alt="segment.code"
+                loading="lazy"
+              >
+            </template>
+          </p>
 
           <footer class="comment-actions">
             <button
@@ -529,7 +783,18 @@ onBeforeUnmount(() => {
                   </div>
                 </header>
 
-                <p class="comment-content">{{ reply.content }}</p>
+                <p class="comment-content comment-content-rich">
+                  <template v-for="segment in parseCommentContent(reply.content)" :key="segment.key">
+                    <span v-if="segment.type === 'text'" class="comment-content-text">{{ segment.text }}</span>
+                    <img
+                      v-else
+                      class="comment-content-meme"
+                      :src="segment.url"
+                      :alt="segment.code"
+                      loading="lazy"
+                    >
+                  </template>
+                </p>
 
                 <footer class="comment-actions">
                   <button
@@ -583,11 +848,50 @@ onBeforeUnmount(() => {
 }
 
 .comment-editor {
+  position: relative;
+  overflow: visible;
+  isolation: isolate;
+  z-index: 6;
   margin-top: 0.85rem;
   padding: 0.78rem;
   border-radius: 0.8rem;
   border: 1px solid rgba(118, 170, 194, 0.22);
   background: rgba(4, 14, 27, 0.62);
+  transition: border-color 0.24s ease, box-shadow 0.24s ease;
+}
+
+.comment-editor::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(10%);
+  background:
+    linear-gradient(
+      120deg,
+      rgba(72, 194, 228, 0.05) 8%,
+      rgba(95, 234, 248, 0.2) 48%,
+      rgba(68, 167, 229, 0.08) 82%
+    );
+  transition: opacity 0.28s ease, transform 0.32s ease;
+}
+
+.comment-editor:focus-within {
+  border-color: rgba(93, 208, 238, 0.46);
+  box-shadow: 0 0 0 1px rgba(63, 186, 220, 0.24);
+}
+
+.comment-editor:focus-within::before {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.comment-editor > * {
+  position: relative;
+  z-index: 1;
 }
 
 .comment-editor-grid {
@@ -607,9 +911,23 @@ onBeforeUnmount(() => {
   width: 100%;
   border: 1px solid rgba(118, 170, 194, 0.24);
   border-radius: 0.55rem;
-  background: rgba(7, 17, 32, 0.75);
+  background:
+    linear-gradient(
+      112deg,
+      rgba(14, 39, 59, 0.35) 0%,
+      rgba(18, 61, 86, 0.56) 45%,
+      rgba(9, 25, 42, 0.36) 100%
+    ),
+    rgba(7, 17, 32, 0.75);
+  background-size: 220% 220%;
+  background-position: 100% 50%;
   color: rgba(225, 239, 252, 0.95);
   padding: 0.48rem 0.65rem;
+  transition:
+    border-color 0.24s ease,
+    box-shadow 0.24s ease,
+    background-position 0.36s ease,
+    background-color 0.24s ease;
 }
 
 .comment-input-full {
@@ -620,6 +938,7 @@ onBeforeUnmount(() => {
   outline: none;
   border-color: rgba(86, 203, 236, 0.5);
   box-shadow: 0 0 0 2px rgba(64, 182, 216, 0.18);
+  background-position: 0% 50%;
 }
 
 .comment-textarea {
@@ -628,16 +947,173 @@ onBeforeUnmount(() => {
   resize: vertical;
   border: 1px solid rgba(118, 170, 194, 0.24);
   border-radius: 0.64rem;
-  background: rgba(7, 17, 32, 0.75);
+  background:
+    linear-gradient(
+      112deg,
+      rgba(14, 39, 59, 0.35) 0%,
+      rgba(18, 61, 86, 0.56) 45%,
+      rgba(9, 25, 42, 0.36) 100%
+    ),
+    rgba(7, 17, 32, 0.75);
+  background-size: 220% 220%;
+  background-position: 100% 50%;
   color: rgba(225, 239, 252, 0.95);
-  padding: 0.72rem 0.8rem;
+  padding: 0.72rem 0.8rem 2.75rem;
   line-height: 1.72;
+  transition:
+    border-color 0.24s ease,
+    box-shadow 0.24s ease,
+    background-position 0.36s ease,
+    background-color 0.24s ease;
 }
 
 .comment-textarea:focus {
   outline: none;
   border-color: rgba(86, 203, 236, 0.5);
   box-shadow: 0 0 0 2px rgba(64, 182, 216, 0.18);
+  background-position: 0% 50%;
+}
+
+.comment-textarea-wrap {
+  position: relative;
+}
+
+.comment-meme-entry {
+  position: absolute;
+  left: 0.7rem;
+  bottom: 0.55rem;
+  z-index: 12;
+}
+
+.comment-meme-toggle {
+  border: 1px solid rgba(118, 170, 194, 0.28);
+  border-radius: 999px;
+  background: rgba(10, 30, 48, 0.78);
+  color: rgba(216, 234, 247, 0.92);
+  font-size: 0.76rem;
+  line-height: 1;
+  padding: 0.28rem 0.6rem;
+  cursor: pointer;
+  transition: border-color 0.24s ease, background-color 0.24s ease, transform 0.2s ease;
+}
+
+.comment-meme-toggle:hover:not(:disabled) {
+  border-color: rgba(136, 212, 242, 0.56);
+  background: rgba(16, 46, 72, 0.88);
+  transform: translateY(-1px);
+}
+
+.comment-meme-toggle:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.comment-meme-panel {
+  --meme-size: 4.2rem;
+  --meme-gap: 0.4rem;
+  --meme-panel-padding: 0.62rem;
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 0.5rem);
+  z-index: 20;
+  width: calc(var(--meme-size) * 5 + var(--meme-gap) * 4 + var(--meme-panel-padding) * 2);
+  border-radius: 0.78rem;
+  border: 1px solid rgba(113, 176, 205, 0.36);
+  background: rgba(5, 16, 31, 0.95);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+}
+
+.comment-meme-panel-body {
+  max-height: none;
+  padding: var(--meme-panel-padding);
+  overflow: visible;
+  display: grid;
+  grid-template-columns: repeat(5, var(--meme-size));
+  grid-auto-rows: var(--meme-size);
+  gap: var(--meme-gap);
+  justify-content: start;
+}
+
+.comment-meme-pick {
+  width: var(--meme-size);
+  height: var(--meme-size);
+  border: 1px solid rgba(113, 176, 205, 0.32);
+  border-radius: 0.55rem;
+  padding: 0;
+  overflow: hidden;
+  background: rgba(12, 28, 45, 0.88);
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.comment-meme-pick:hover {
+  border-color: rgba(136, 212, 242, 0.64);
+  transform: translateY(-1px);
+}
+
+.comment-meme-pick img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.comment-meme-empty {
+  margin: 0.35rem 0;
+  grid-column: 1 / -1;
+  color: rgba(171, 198, 219, 0.8);
+  font-size: 0.82rem;
+}
+
+.comment-meme-group-tabs {
+  border-top: 1px solid rgba(113, 176, 205, 0.24);
+  padding: 0.52rem;
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+}
+
+.comment-meme-group-btn {
+  width: 2.8rem;
+  height: 2.8rem;
+  border: 1px solid rgba(118, 170, 194, 0.34);
+  border-radius: 0.56rem;
+  background: rgba(10, 30, 48, 0.78);
+  flex: 0 0 auto;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.comment-meme-group-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.comment-meme-group-btn:hover {
+  border-color: rgba(136, 212, 242, 0.6);
+  transform: translateY(-1px);
+}
+
+.comment-meme-group-btn.is-active {
+  border-color: rgba(127, 228, 247, 0.76);
+  box-shadow: 0 0 0 1px rgba(102, 203, 228, 0.3) inset;
+}
+
+.comment-meme-panel-enter-active,
+.comment-meme-panel-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.comment-meme-panel-enter-from,
+.comment-meme-panel-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 .comment-replying {
@@ -775,6 +1251,27 @@ onBeforeUnmount(() => {
   white-space: pre-wrap;
 }
 
+.comment-content-rich {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.28rem 0.34rem;
+}
+
+.comment-content-text {
+  white-space: pre-wrap;
+}
+
+.comment-content-meme {
+  width: 4.2rem;
+  height: 4.2rem;
+  border-radius: 0.44rem;
+  object-fit: cover;
+  border: 1px solid rgba(126, 176, 204, 0.38);
+  background: rgba(8, 17, 30, 0.65);
+  vertical-align: bottom;
+}
+
 .comment-actions {
   margin-top: 0.55rem;
   display: flex;
@@ -831,6 +1328,27 @@ onBeforeUnmount(() => {
   .comment-editor-foot {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .comment-meme-panel {
+    --meme-size: 3.7rem;
+    --meme-gap: 0.3rem;
+    width: calc(var(--meme-size) * 5 + var(--meme-gap) * 4 + var(--meme-panel-padding) * 2);
+  }
+
+  .comment-meme-panel-body {
+    grid-template-columns: repeat(5, var(--meme-size));
+    grid-auto-rows: var(--meme-size);
+  }
+
+  .comment-meme-pick {
+    width: var(--meme-size);
+    height: var(--meme-size);
+  }
+
+  .comment-content-meme {
+    width: 3.7rem;
+    height: 3.7rem;
   }
 }
 </style>
