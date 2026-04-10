@@ -1344,6 +1344,7 @@ onBeforeUnmount(() => {
 .content-fade {
   position: relative;
   z-index: 6;
+  isolation: isolate;
   --section-width: min(92%, 1560px);
   --fade-lead: clamp(9rem, 20vh, 16rem);
   margin-top: 0;
@@ -1366,9 +1367,28 @@ onBeforeUnmount(() => {
     rgba(3, 7, 20, 0) 0%,
     rgba(3, 7, 20, 1) 100%
   );
+  z-index: 2;
+}
+
+.content-fade::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("/exported_image_sck.svg");
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: fixed;
+  opacity: 0.24;
+  filter: invert(1) contrast(1.08) brightness(1.18);
+  mix-blend-mode: screen;
+  z-index: 1;
 }
 
 .section-shell {
+  position: relative;
+  z-index: 3;
   width: var(--section-width);
   margin: 0 auto;
 }

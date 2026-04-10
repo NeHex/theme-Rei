@@ -401,7 +401,25 @@ function onArticleCardLeave(event: MouseEvent) {
   isolation: isolate;
 }
 
+.article-page::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("/exported_image_sck.svg");
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: fixed;
+  opacity: 0.24;
+  filter: invert(1) contrast(1.08) brightness(1.18);
+  mix-blend-mode: screen;
+}
+
 .article-shell {
+  position: relative;
+  z-index: 1;
   width: var(--site-max-width);
   margin: 0 auto;
   display: grid;
@@ -499,11 +517,6 @@ function onArticleCardLeave(event: MouseEvent) {
 .featured-card.is-leaving::after,
 .post-item.is-leaving::after {
   animation: article-card-layer-two-out 0.32s cubic-bezier(0.2, 0.86, 0.25, 1) forwards;
-}
-
-.featured-card.is-leaving::before,
-.post-item.is-leaving::before {
-  animation: article-card-layer-one-out 0.32s cubic-bezier(0.2, 0.86, 0.25, 1) 0.1s forwards;
 }
 
 .featured-card > :not(.card-cover-side),
@@ -686,18 +699,6 @@ function onArticleCardLeave(event: MouseEvent) {
 }
 
 @keyframes article-card-layer-two-out {
-  from {
-    transform-origin: left center;
-    transform: scaleX(1);
-  }
-
-  to {
-    transform-origin: left center;
-    transform: scaleX(0);
-  }
-}
-
-@keyframes article-card-layer-one-out {
   from {
     transform-origin: left center;
     transform: scaleX(1);

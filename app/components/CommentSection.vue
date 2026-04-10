@@ -83,6 +83,7 @@ const GRAVATAR_SIZE = 96;
 const comments = ref<CommentViewItem[]>([]);
 const loading = ref(false);
 const loadError = ref("");
+const commentSortBy = ref<"latest" | "oldest">("latest");
 
 const draftNickname = ref("");
 const draftEmail = ref("");
@@ -166,6 +167,25 @@ const totalCount = computed(() => {
   const walk = (items: CommentViewItem[]) =>
     items.reduce((sum, item) => sum + 1 + walk(item.replies ?? []), 0);
   return walk(comments.value);
+});
+
+function getCommentTimeValue(value: string) {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return 0;
+  return timestamp;
+}
+
+const sortedComments = computed(() => {
+  const items = [...comments.value];
+
+  items.sort((a, b) => {
+    const timeDiff = commentSortBy.value === "oldest"
+      ? getCommentTimeValue(a.create_time) - getCommentTimeValue(b.create_time)
+      : getCommentTimeValue(b.create_time) - getCommentTimeValue(a.create_time);
+    if (timeDiff !== 0) return timeDiff;
+    return commentSortBy.value === "oldest" ? a.id - b.id : b.id - a.id;
+  });
+  return items;
 });
 
 function getDefaultNickname() {
@@ -358,6 +378,21 @@ function formatDateTime(dateString: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function getCommentWebsiteHref(rawWebsite: string | null) {
+  const raw = String(rawWebsite || "").trim();
+  if (!raw) return "";
+
+  const normalized = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    return parsed.toString();
+  } catch {
+    return "";
+  }
 }
 
 function getGravatarUrl(email: string | null) {
@@ -639,14 +674,14 @@ onBeforeUnmount(() => {
         <input v-model="draftEmail" type="email" class="comment-input" placeholder="邮箱（选填）" maxlength="255" />
         <input v-model="draftWebsite" type="url" class="comment-input comment-input-full" placeholder="网站（选填）" maxlength="255" />
       </div>
-      <p v-else class="comment-admin-hint">已识别站长身份，无需填写昵称、邮箱和网站。</p>
+      <p v-else class="comment-admin-hint">欢迎回来，站长</p>
 
       <div class="comment-textarea-wrap">
         <textarea
           ref="draftContentRef"
           v-model="draftContent"
           class="comment-textarea"
-          :placeholder="replyTo ? `回复 ${replyTo.nickname}...` : '写点什么吧...'"
+          :placeholder="replyTo ? `回复 ${replyTo.nickname}...` : '留下你的足迹...'"
           maxlength="1200"
         />
         <div class="comment-meme-entry">
@@ -657,7 +692,7 @@ onBeforeUnmount(() => {
             :aria-expanded="memePanelOpen"
             @click="toggleMemePanel"
           >
-            😀 表情
+            😀
           </button>
 
           <Transition name="comment-meme-panel">
@@ -706,7 +741,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="comment-editor-foot">
-        <p class="comment-tip">评论会按时间排序显示，支持楼中楼回复。</p>
+        <p class="comment-tip"></p>
         <button class="comment-submit" type="submit" :disabled="!draftContent.trim() || isSending">
           {{ isSending ? "发送中..." : "发送评论" }}
         </button>
@@ -720,7 +755,26 @@ onBeforeUnmount(() => {
     <p v-else-if="loadError" class="comment-error">{{ loadError }}</p>
 
     <ol v-else class="comment-list">
-      <li v-for="comment in comments" :key="comment.id" class="comment-item">
+      <li class="comment-list-head">
+        <button
+          type="button"
+          class="comment-sort-btn"
+          :class="{ 'is-active': commentSortBy === 'latest' }"
+          @click="commentSortBy = 'latest'"
+        >
+          最新
+        </button>
+        <button
+          type="button"
+          class="comment-sort-btn"
+          :class="{ 'is-active': commentSortBy === 'oldest' }"
+          @click="commentSortBy = 'oldest'"
+        >
+          最旧
+        </button>
+      </li>
+
+      <li v-for="comment in sortedComments" :key="comment.id" class="comment-item">
         <article class="comment-card">
           <header class="comment-meta">
             <img
@@ -731,7 +785,16 @@ onBeforeUnmount(() => {
 
             <div class="comment-author-wrap">
               <h3>
-                <span>{{ comment.nickname }}</span>
+                <a
+                  v-if="getCommentWebsiteHref(comment.website)"
+                  class="comment-author-link"
+                  :href="getCommentWebsiteHref(comment.website)"
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                >
+                  {{ comment.nickname }}
+                </a>
+                <span v-else>{{ comment.nickname }}</span>
                 <span v-if="comment.is_admin" class="comment-admin-badge">站长</span>
               </h3>
               <time :datetime="comment.create_time">{{ formatDateTime(comment.create_time) }}</time>
@@ -776,7 +839,16 @@ onBeforeUnmount(() => {
 
                   <div class="comment-author-wrap">
                     <h4>
-                      <span>{{ reply.nickname }}</span>
+                      <a
+                        v-if="getCommentWebsiteHref(reply.website)"
+                        class="comment-author-link"
+                        :href="getCommentWebsiteHref(reply.website)"
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                      >
+                        {{ reply.nickname }}
+                      </a>
+                      <span v-else>{{ reply.nickname }}</span>
                       <span v-if="reply.is_admin" class="comment-admin-badge">站长</span>
                     </h4>
                     <time :datetime="reply.create_time">{{ formatDateTime(reply.create_time) }}</time>
@@ -814,7 +886,7 @@ onBeforeUnmount(() => {
         </article>
       </li>
 
-      <li v-if="!comments.length" class="comment-empty">暂无评论，来做第一个留言的人吧。</li>
+      <li v-if="!sortedComments.length" class="comment-empty">暂无评论，来做第一个留言的人吧。</li>
     </ol>
   </section>
 </template>
@@ -1178,6 +1250,33 @@ onBeforeUnmount(() => {
   gap: 0.72rem;
 }
 
+.comment-list-head {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+}
+
+.comment-sort-btn {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: rgba(171, 198, 219, 0.8);
+  font-size: 0.82rem;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.comment-sort-btn:hover,
+.comment-sort-btn:focus-visible {
+  color: rgba(205, 231, 250, 0.94);
+}
+
+.comment-sort-btn.is-active {
+  color: #7cdce8;
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+}
+
 .comment-card,
 .reply-card {
   padding: 0.8rem 0.85rem;
@@ -1226,6 +1325,23 @@ onBeforeUnmount(() => {
   font-size: 0.9rem;
 }
 
+.comment-author-link,
+.comment-author-link:visited {
+  color: inherit;
+  text-decoration: none;
+  background-image: none;
+  background-size: 0 0;
+}
+
+.comment-author-link:hover,
+.comment-author-link:focus-visible {
+  color: rgba(232, 247, 255, 0.98);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
+  text-decoration-color: rgba(157, 214, 241, 0.78);
+}
+
 .comment-author-wrap time {
   color: rgba(168, 196, 217, 0.72);
   font-size: 0.78rem;
@@ -1263,13 +1379,16 @@ onBeforeUnmount(() => {
 }
 
 .comment-content-meme {
-  width: 4.2rem;
+  width: auto;
   height: 4.2rem;
-  border-radius: 0.44rem;
-  object-fit: cover;
-  border: 1px solid rgba(126, 176, 204, 0.38);
-  background: rgba(8, 17, 30, 0.65);
+  max-width: 12rem;
+  border-radius: 0;
+  object-fit: contain;
+  border: 0;
+  background: transparent;
   vertical-align: bottom;
+  display: inline-block;
+  flex: 0 0 auto;
 }
 
 .comment-actions {
@@ -1347,8 +1466,9 @@ onBeforeUnmount(() => {
   }
 
   .comment-content-meme {
-    width: 3.7rem;
     height: 3.7rem;
+    max-width: 10rem;
   }
+
 }
 </style>
