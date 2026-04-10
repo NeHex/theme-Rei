@@ -86,6 +86,7 @@ const likedCommentIds = ref<Set<number>>(new Set());
 const mountedOnClient = ref(false);
 const syncedAdminMarker = ref("");
 let syncAdminMarkerTask: Promise<string> | null = null;
+let delayedRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 const isAdminCommenter = computed(() => {
   if (!mountedOnClient.value) return false;
   return Boolean(getResolvedAdminMarker());
@@ -244,6 +245,52 @@ function toCommentViewList(items: CommentItem[]) {
   return (items || []).map((item) => mapCommentView(item));
 }
 
+function hasCommentById(items: CommentViewItem[], commentId: number): boolean {
+  for (const item of items) {
+    if (item.id === commentId) return true;
+    if (item.replies?.length && hasCommentById(item.replies, commentId)) return true;
+  }
+  return false;
+}
+
+function findCommentById(items: CommentViewItem[], commentId: number): CommentViewItem | null {
+  for (const item of items) {
+    if (item.id === commentId) return item;
+    if (item.replies?.length) {
+      const found = findCommentById(item.replies, commentId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function insertCreatedComment(createdComment: CommentItem, parentId: number) {
+  const mapped = mapCommentView(createdComment);
+  if (hasCommentById(comments.value, mapped.id)) return;
+
+  if (parentId > 0) {
+    const parent = findCommentById(comments.value, parentId);
+    if (parent) {
+      parent.replies = [...(parent.replies || []), mapped];
+      return;
+    }
+  }
+
+  comments.value = [...comments.value, mapped];
+}
+
+function scheduleDelayedRefresh(delayMs = 35000) {
+  if (!import.meta.client) return;
+  if (delayedRefreshTimer !== null) {
+    window.clearTimeout(delayedRefreshTimer);
+  }
+
+  delayedRefreshTimer = window.setTimeout(() => {
+    delayedRefreshTimer = null;
+    void loadComments();
+  }, delayMs);
+}
+
 async function loadComments() {
   if (!canLoad.value) {
     comments.value = [];
@@ -291,7 +338,7 @@ async function handleSubmit() {
       ? String(settings.value.userName || "").trim() || "站长"
       : draftNickname.value.trim() || getDefaultNickname();
 
-    await $fetch<CommentCreateResponse>("/api/comment", {
+    const response = await $fetch<CommentCreateResponse>("/api/comment", {
       method: "POST",
       headers: adminMarker
         ? {
@@ -308,6 +355,10 @@ async function handleSubmit() {
         website: isAdminCommenter.value ? undefined : normalizeOptional(draftWebsite.value),
       },
     });
+    if (response?.data) {
+      insertCreatedComment(response.data, parentId);
+    }
+    scheduleDelayedRefresh();
 
     emit("submit", {
       content,
@@ -324,7 +375,6 @@ async function handleSubmit() {
     }
     replyTo.value = null;
 
-    await loadComments();
   } catch (error: any) {
     sendError.value = String(error?.statusMessage || "评论提交失败");
   } finally {
@@ -376,6 +426,12 @@ onMounted(() => {
   syncLikedCommentsFromCookie();
   syncedAdminMarker.value = String(readAdminMarker() || adminMarkerCookie.value || "").trim();
   void syncAdminMarkerFromConsole();
+});
+
+onBeforeUnmount(() => {
+  if (delayedRefreshTimer !== null && import.meta.client) {
+    window.clearTimeout(delayedRefreshTimer);
+  }
 });
 </script>
 
