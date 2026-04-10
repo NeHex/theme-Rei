@@ -99,6 +99,7 @@ const sendError = ref("");
 const likeError = ref("");
 const gravatarCache = new Map<string, string>();
 const { settings } = useSiteSettings();
+const { owner: siteOwner } = useSiteOwner();
 const runtimeConfig = useRuntimeConfig();
 const adminMarkerCookieName = String(runtimeConfig.public.adminMarkerCookieName || "nehex_admin_marker")
   .trim() || "nehex_admin_marker";
@@ -521,8 +522,11 @@ async function handleSubmit() {
       await syncAdminMarkerFromConsole();
     }
     const adminMarker = getResolvedAdminMarker();
+    const siteOwnerNickname = String(siteOwner.value.nickname || "").trim();
+    const siteOwnerEmail = normalizeOptional(siteOwner.value.email);
+    const siteOwnerHomepage = normalizeOptional(siteOwner.value.homepage);
     const submitNickname = isAdminCommenter.value
-      ? String(settings.value.userName || "").trim() || "站长"
+      ? siteOwnerNickname || String(settings.value.userName || "").trim() || "站长"
       : draftNickname.value.trim() || getDefaultNickname();
 
     const response = await $fetch<CommentCreateResponse>("/api/comment", {
@@ -538,8 +542,8 @@ async function handleSubmit() {
         target_id: resolvedTargetId.value,
         content,
         nickname: submitNickname,
-        email: isAdminCommenter.value ? undefined : normalizeOptional(draftEmail.value),
-        website: isAdminCommenter.value ? undefined : normalizeOptional(draftWebsite.value),
+        email: isAdminCommenter.value ? siteOwnerEmail : normalizeOptional(draftEmail.value),
+        website: isAdminCommenter.value ? siteOwnerHomepage : normalizeOptional(draftWebsite.value),
       },
     });
     if (response?.data) {
