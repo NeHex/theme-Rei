@@ -36,11 +36,48 @@ const STATUS_META: Record<FriendStatus, FriendGroupMeta> = {
 
 const { friends, pending, error } = useFriends();
 
+function shuffleFriends(items: FriendViewItem[]) {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
+const shuffledFriendsByStatus = ref<Record<FriendStatus, FriendViewItem[]>>({
+  ok: [],
+  missing: [],
+  blocked: [],
+});
+
+watch(
+  friends,
+  (items) => {
+    const next: Record<FriendStatus, FriendViewItem[]> = {
+      ok: [],
+      missing: [],
+      blocked: [],
+    };
+
+    for (const item of items) {
+      next[item.status].push(item);
+    }
+
+    for (const status of STATUS_ORDER) {
+      next[status] = shuffleFriends(next[status]);
+    }
+
+    shuffledFriendsByStatus.value = next;
+  },
+  { immediate: true },
+);
+
 const groupedFriends = computed(() =>
   STATUS_ORDER.map((status) => ({
     status,
     ...STATUS_META[status],
-    items: friends.value.filter((item) => item.status === status),
+    items: shuffledFriendsByStatus.value[status],
   })),
 );
 

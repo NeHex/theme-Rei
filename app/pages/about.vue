@@ -1509,7 +1509,6 @@ onBeforeUnmount(() => {
   overflow: auto;
   user-select: none;
   border-radius: 0.78rem;
-  background: linear-gradient(180deg, rgba(4, 14, 28, 0.2) 0%, rgba(2, 8, 17, 0.48) 100%);
 }
 
 .wives-drag-layer {
