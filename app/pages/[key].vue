@@ -2,6 +2,31 @@
 import MarkdownIt from "markdown-it";
 import { installMarkdownExternalLinkRule, resolveSiteHostname } from "~/utils/link";
 
+const RESERVED_STATIC_KEYS = new Set([
+  "about",
+  "album",
+  "archive",
+  "article",
+  "daily",
+  "friends",
+  "games",
+  "feed",
+  "sitemap.xml",
+]);
+
+definePageMeta({
+  validate: (route) => {
+    const rawKey = Array.isArray(route.params.key)
+      ? String(route.params.key[0] ?? "")
+      : String(route.params.key ?? "");
+    const normalizedKey = rawKey
+      .trim()
+      .replace(/^\/+|\/+$/g, "")
+      .toLowerCase();
+    return Boolean(normalizedKey) && !RESERVED_STATIC_KEYS.has(normalizedKey);
+  },
+});
+
 const route = useRoute();
 const { settings } = useSiteSettings();
 const { fetchPageDetail } = useSinglePages();
