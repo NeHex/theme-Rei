@@ -17,6 +17,7 @@ const isLiking = ref(false);
 const isLiked = ref(false);
 const likeHint = ref("");
 const shareHint = ref("");
+const markdownBodyRef = ref<HTMLElement | null>(null);
 let actionHintTimer: ReturnType<typeof setTimeout> | null = null;
 
 type ArticleDetailApiResponse = {
@@ -343,6 +344,50 @@ async function likeCurrentArticle() {
   }
 }
 
+function applyMarkdownImageShapeClass(image: HTMLImageElement) {
+  const naturalWidth = Number(image.naturalWidth || 0);
+  const naturalHeight = Number(image.naturalHeight || 0);
+  if (naturalWidth <= 0 || naturalHeight <= 0) return;
+
+  const isPortrait = naturalHeight > naturalWidth * 1.08;
+  image.classList.toggle("markdown-image-portrait", isPortrait);
+  image.classList.toggle("markdown-image-landscape", !isPortrait);
+}
+
+function updateMarkdownImageShape() {
+  if (!import.meta.client) return;
+  const root = markdownBodyRef.value;
+  if (!root) return;
+
+  const images = Array.from(root.querySelectorAll("img"));
+  for (const image of images) {
+    if (image.complete) {
+      applyMarkdownImageShapeClass(image);
+      continue;
+    }
+
+    image.addEventListener("load", () => {
+      applyMarkdownImageShapeClass(image);
+    }, { once: true });
+  }
+}
+
+if (import.meta.client) {
+  watch(
+    renderedMarkdown,
+    async () => {
+      await nextTick();
+      updateMarkdownImageShape();
+    },
+  );
+
+  onMounted(() => {
+    void nextTick(() => {
+      updateMarkdownImageShape();
+    });
+  });
+}
+
 onBeforeUnmount(() => {
   if (!import.meta.client || actionHintTimer === null) return;
   window.clearTimeout(actionHintTimer);
@@ -392,7 +437,7 @@ onBeforeUnmount(() => {
 
         <div class="article-card-wrap">
           <article class="article-card">
-            <div class="markdown-body" v-html="renderedMarkdown" />
+            <div ref="markdownBodyRef" class="markdown-body" v-html="renderedMarkdown" />
           </article>
           <div class="article-float-actions" role="group" aria-label="文章操作">
             <button
@@ -795,8 +840,16 @@ address {
 .markdown-body :deep(img) {
   display: block;
   margin: 1rem auto;
-  max-width: 100%;
+  width: auto;
+  max-width: min(100%, 52rem);
+  max-height: min(76vh, 54rem);
+  height: auto;
   border-radius: 0.68rem;
+}
+
+.markdown-body :deep(img.markdown-image-portrait) {
+  max-width: min(72vw, 25rem);
+  max-height: min(82vh, 48rem);
 }
 
 @media (max-width: 1080px) {
@@ -848,6 +901,10 @@ address {
 
   .markdown-body :deep(h2) {
     font-size: 1.45rem;
+  }
+
+  .markdown-body :deep(img.markdown-image-portrait) {
+    max-width: min(82vw, 19.5rem);
   }
 }
 </style>

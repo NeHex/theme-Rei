@@ -251,25 +251,32 @@ watch(
                 aria-hidden="true"
               />
 
-              <component
-                :is="item.external ? 'a' : 'NuxtLink'"
-                v-for="(item, index) in moreDropdownLinks"
-                :key="item.id"
-                class="dropdown-link"
-                :class="{
-                  'external-link': item.external,
-                  active: isMobileLinkActive(item.to, item.external),
-                }"
-                :href="item.external ? item.to : undefined"
-                :to="item.external ? undefined : item.to"
-                :target="item.external ? '_blank' : undefined"
-                :rel="item.external ? 'noopener noreferrer' : undefined"
-                @mouseenter="focusMoreItem(index)"
-                @focus="focusMoreItem(index)"
-                @click="handleDesktopMoreLinkClick"
-              >
-                {{ item.label }}
-              </component>
+              <template v-for="(item, index) in moreDropdownLinks" :key="item.id">
+                <a
+                  v-if="item.external"
+                  :href="item.to"
+                  class="dropdown-link external-link"
+                  :class="{ active: isMobileLinkActive(item.to, true) }"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  @mouseenter="focusMoreItem(index)"
+                  @focus="focusMoreItem(index)"
+                  @click="handleDesktopMoreLinkClick"
+                >
+                  {{ item.label }}
+                </a>
+                <NuxtLink prefetch="false"
+                  v-else
+                  :to="item.to"
+                  class="dropdown-link"
+                  :class="{ active: isMobileLinkActive(item.to, false) }"
+                  @mouseenter="focusMoreItem(index)"
+                  @focus="focusMoreItem(index)"
+                  @click="handleDesktopMoreLinkClick"
+                >
+                  {{ item.label }}
+                </NuxtLink>
+              </template>
             </div>
           </div>
         </div>
@@ -387,23 +394,28 @@ watch(
             </div>
             <Transition name="mobile-submenu">
               <div v-if="isMobileMoreSubmenuOpen && moreDropdownLinks.length" class="mobile-submenu">
-                <component
-                  :is="item.external ? 'a' : 'NuxtLink'"
-                  v-for="item in moreDropdownLinks"
-                  :key="item.id"
-                  class="mobile-submenu-link"
-                  :class="{
-                    'external-link': item.external,
-                    active: isMobileLinkActive(item.to, item.external),
-                  }"
-                  :href="item.external ? item.to : undefined"
-                  :to="item.external ? undefined : item.to"
-                  :target="item.external ? '_blank' : undefined"
-                  :rel="item.external ? 'noopener noreferrer' : undefined"
-                  @click="closeMobileMenu"
-                >
-                  {{ item.label }}
-                </component>
+                <template v-for="item in moreDropdownLinks" :key="item.id">
+                  <a
+                    v-if="item.external"
+                    :href="item.to"
+                    class="mobile-submenu-link external-link"
+                    :class="{ active: isMobileLinkActive(item.to, true) }"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    @click="closeMobileMenu"
+                  >
+                    {{ item.label }}
+                  </a>
+                  <NuxtLink prefetch="false"
+                    v-else
+                    :to="item.to"
+                    class="mobile-submenu-link"
+                    :class="{ active: isMobileLinkActive(item.to, false) }"
+                    @click="closeMobileMenu"
+                  >
+                    {{ item.label }}
+                  </NuxtLink>
+                </template>
               </div>
             </Transition>
           </div>

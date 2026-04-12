@@ -1068,6 +1068,23 @@ onBeforeUnmount(() => {
   will-change: opacity;
 }
 
+.page::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("/exported_image_sck.svg");
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0.24;
+  filter: invert(1) contrast(1.08) brightness(1.18);
+  mix-blend-mode: screen;
+  z-index: 1;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
 .hero {
   position: relative;
   min-height: 100svh;
@@ -1451,23 +1468,6 @@ onBeforeUnmount(() => {
     rgba(3, 7, 20, 1) 100%
   );
   z-index: 2;
-}
-
-.content-fade::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image: url("/exported_image_sck.svg");
-  background-position: center center;
-  background-repeat: no-repeat;
-  background-size: cover;
-  opacity: 0.24;
-  filter: invert(1) contrast(1.08) brightness(1.18);
-  mix-blend-mode: screen;
-  z-index: 1;
-  transform: translateZ(0);
-  will-change: transform;
 }
 
 .section-shell {
