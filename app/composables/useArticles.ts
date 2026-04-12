@@ -15,6 +15,8 @@ type ArticleApiResponse = {
   data: ArticleApiItem[];
 };
 
+const DEFAULT_ISO_DATE = "1970-01-01T00:00:00.000Z";
+
 export type ArticleViewItem = {
   id: string;
   title: string;
@@ -63,12 +65,20 @@ function truncate(text: string, maxLength: number) {
   return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
 }
 
+function normalizeDate(raw: string | null | undefined) {
+  const value = String(raw || "").trim();
+  if (!value) return DEFAULT_ISO_DATE;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return DEFAULT_ISO_DATE;
+  return parsed.toISOString();
+}
+
 export function mapArticleApiItem(item: ArticleApiItem): ArticleViewItem {
   const rawContent = (item.content || "").replace(/\r\n/g, "\n").trim();
   const plainContent = compactText(rawContent) || "暂无正文内容。";
   const summary = truncate(plainContent, 56);
   const excerpt = truncate(plainContent, 90);
-  const date = item.lastEditTime || new Date().toISOString();
+  const date = normalizeDate(item.lastEditTime);
 
   return {
     id: String(item.id),

@@ -8,6 +8,9 @@ type DailyWeatherKey = "sun" | "rain" | "wind" | "snow" | "cloud";
 const { settings } = useSiteSettings();
 const { dailies, pending, error } = useDailies();
 const requestUrl = useRequestURL();
+const DISPLAY_TIME_ZONE = "Asia/Shanghai";
+const isClientMounted = ref(false);
+const clientNowMs = ref(0);
 const siteHostname = computed(() =>
   resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
 );
@@ -33,10 +36,18 @@ function compactText(raw: string) {
     .trim();
 }
 
-function formatRelativeTime(value: string) {
+function formatDateOnly(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
+  }).format(toDate(value));
+}
+
+function formatRelativeTime(value: string, nowMs: number) {
   const target = toDate(value).getTime();
-  const now = Date.now();
-  const diff = Math.max(0, now - target);
+  const diff = Math.max(0, nowMs - target);
   const minute = 60 * 1000;
   const hour = 60 * minute;
   const day = 24 * hour;
@@ -50,6 +61,7 @@ function formatRelativeTime(value: string) {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(new Date(target));
 }
 
@@ -60,7 +72,15 @@ function formatAbsoluteTime(value: string) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(toDate(value));
+}
+
+function formatTimelineTime(value: string) {
+  if (!isClientMounted.value || !clientNowMs.value) {
+    return formatDateOnly(value);
+  }
+  return formatRelativeTime(value, clientNowMs.value);
 }
 
 function getDailyAnchorId(id: string) {
@@ -236,6 +256,11 @@ installMarkdownExternalLinkRule(markdown, () => siteHostname.value);
 function renderDailyMarkdown(content: DailyViewItem["content"]) {
   return markdown.render(content || "暂无内容");
 }
+
+onMounted(() => {
+  isClientMounted.value = true;
+  clientNowMs.value = Date.now();
+});
 </script>
 
 <template>
@@ -267,7 +292,7 @@ function renderDailyMarkdown(content: DailyViewItem["content"]) {
                 <div class="daily-author-meta">
                   <p class="daily-author-name">{{ authorName }}</p>
                   <time :datetime="daily.createdAt" :title="formatAbsoluteTime(daily.createdAt)">
-                    {{ formatRelativeTime(daily.createdAt) }}
+                    {{ formatTimelineTime(daily.createdAt) }}
                   </time>
                 </div>
               </header>

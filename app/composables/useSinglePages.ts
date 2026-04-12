@@ -18,6 +18,8 @@ type SinglePageDetailApiResponse = {
   data: SinglePageApiItem;
 };
 
+const DEFAULT_ISO_DATE = "1970-01-01T00:00:00.000Z";
+
 export type SinglePageViewItem = {
   id: string;
   key: string;
@@ -44,9 +46,9 @@ function normalizeText(value: string | null | undefined) {
 
 function normalizeDate(raw: string | null | undefined) {
   const value = (raw || "").trim();
-  if (!value) return new Date().toISOString();
+  if (!value) return DEFAULT_ISO_DATE;
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return new Date().toISOString();
+  if (Number.isNaN(parsed.getTime())) return DEFAULT_ISO_DATE;
   return parsed.toISOString();
 }
 

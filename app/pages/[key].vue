@@ -34,6 +34,7 @@ const route = useRoute();
 const { settings } = useSiteSettings();
 const { fetchPageDetail } = useSinglePages();
 const requestUrl = useRequestURL();
+const DISPLAY_TIME_ZONE = "Asia/Shanghai";
 
 const pageKey = computed(() => String(route.params.key ?? "").trim());
 
@@ -177,6 +178,18 @@ const markdown = new MarkdownIt({
 installMarkdownExternalLinkRule(markdown, () => siteHostname.value);
 
 const renderedContent = computed(() => markdown.render(pageData.value?.content || ""));
+
+function formatUpdatedAt(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
+  }).format(date);
+}
 </script>
 
 <template>
@@ -186,7 +199,7 @@ const renderedContent = computed(() => markdown.render(pageData.value?.content |
         <header class="single-header">
           <h1>{{ pageData.title }}</h1>
           <time :datetime="pageData.updatedAt">
-            更新于 {{ new Date(pageData.updatedAt).toLocaleDateString("zh-CN") }}
+            更新于 {{ formatUpdatedAt(pageData.updatedAt) }}
           </time>
         </header>
 

@@ -13,6 +13,8 @@ type AlbumApiResponse = {
   data: AlbumApiItem[];
 };
 
+const DEFAULT_ISO_DATE = "1970-01-01T00:00:00.000Z";
+
 export type AlbumViewItem = {
   id: string;
   title: string;
@@ -43,9 +45,9 @@ function parseImageUrls(raw: string | null | undefined) {
 
 function normalizeDate(raw: string | null | undefined) {
   const value = (raw || "").trim();
-  if (!value) return new Date().toISOString();
+  if (!value) return DEFAULT_ISO_DATE;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return new Date().toISOString();
+  if (Number.isNaN(date.getTime())) return DEFAULT_ISO_DATE;
   return date.toISOString();
 }
 

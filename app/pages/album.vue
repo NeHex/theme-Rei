@@ -18,6 +18,7 @@ const { settings } = useSiteSettings();
 const { albums, pending } = useAlbums();
 const route = useRoute();
 const requestUrl = useRequestURL();
+const DISPLAY_TIME_ZONE = "Asia/Shanghai";
 
 const siteBaseUrl = computed(() => {
   const configured = String(settings.value.siteUrl || "").trim();
@@ -162,6 +163,7 @@ function formatDate(dateInput: string) {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
   })
     .format(date)
     .replace(/\//g, "-");

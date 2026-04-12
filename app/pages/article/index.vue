@@ -92,10 +92,13 @@ const searchKeyword = ref("");
 const activeTag = ref<string | null>(null);
 const currentPage = ref(1);
 const pageSize = 10;
+const DISPLAY_TIME_ZONE = "Asia/Shanghai";
 const BLOG_TEXT = "BLOG";
 const BLOG_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 const blogAnimatedText = ref(BLOG_TEXT);
+const isClientMounted = ref(false);
+const clientNowMs = ref(0);
 let blogTextIntervalId: number | null = null;
 const blogTextTimeoutIds: number[] = [];
 let searchDebounceTimer: number | null = null;
@@ -194,17 +197,36 @@ function formatDate(dateInput: string) {
     month: "long",
     day: "numeric",
     weekday: "long",
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(date);
 }
 
-function fromNow(dateInput: string) {
-  const now = Date.now();
+function formatMonthDay(dateInput: string) {
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return dateInput;
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
+  })
+    .format(date)
+    .replace(/\//g, "-");
+}
+
+function fromNow(dateInput: string, nowMs: number) {
   const target = new Date(dateInput).getTime();
-  const diffDays = Math.max(1, Math.floor((now - target) / 86400000));
+  const diffDays = Math.max(1, Math.floor((nowMs - target) / 86400000));
   if (diffDays < 30) return `${diffDays}天前`;
   const months = Math.floor(diffDays / 30);
   if (months < 12) return `${months}个月前`;
   return `${Math.floor(months / 12)}年前`;
+}
+
+function formatPublishedTime(dateInput: string) {
+  if (!isClientMounted.value || !clientNowMs.value) {
+    return formatMonthDay(dateInput);
+  }
+  return fromNow(dateInput, clientNowMs.value);
 }
 
 function formatCount(value: number) {
@@ -266,6 +288,8 @@ function playBlogTextAnimation() {
 }
 
 onMounted(() => {
+  isClientMounted.value = true;
+  clientNowMs.value = Date.now();
   playBlogTextAnimation();
 });
 
@@ -391,7 +415,7 @@ function onArticleCardLeave(event: MouseEvent) {
 
               <div class="post-bottom">
                 <p class="post-meta">
-                  <span>{{ fromNow(article.publishedAt) }}</span>
+                  <span>{{ formatPublishedTime(article.publishedAt) }}</span>
                   <strong>{{ article.category }}</strong>
                   <span>/</span>
                   <span>{{ article.tags[0] }}</span>

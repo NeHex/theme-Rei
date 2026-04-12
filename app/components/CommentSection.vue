@@ -79,6 +79,7 @@ const emit = defineEmits<{
 
 const DEFAULT_AVATAR = "/images/head.jpg";
 const GRAVATAR_SIZE = 96;
+const DISPLAY_TIME_ZONE = "Asia/Shanghai";
 
 const comments = ref<CommentViewItem[]>([]);
 const loading = ref(false);
@@ -378,6 +379,7 @@ function formatDateTime(dateString: string) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(date);
 }
 

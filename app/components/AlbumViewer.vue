@@ -41,6 +41,7 @@ const imageNaturalHeight = ref(0);
 const MIN_ZOOM_FACTOR = 1;
 const MAX_ZOOM_FACTOR = 4;
 const SCALE_EPSILON = 0.0001;
+const DISPLAY_TIME_ZONE = "Asia/Shanghai";
 const { lockScroll, unlockScroll } = useScrollLock();
 const isViewerLocked = ref(false);
 let stageResizeObserver: ResizeObserver | null = null;
@@ -335,6 +336,7 @@ function formatDateTime(input: string) {
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(date);
 }
 

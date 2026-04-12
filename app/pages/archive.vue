@@ -2,6 +2,7 @@
 const { settings } = useSiteSettings();
 const { articles } = useArticles();
 const requestUrl = useRequestURL();
+const DISPLAY_TIME_ZONE = "Asia/Shanghai";
 
 const siteBaseUrl = computed(() => {
   const configured = String(settings.value.siteUrl || "").trim();
@@ -81,12 +82,44 @@ const categoryMap: Record<string, string> = {
 
 function parseDate(value: string) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? new Date() : date;
+  return Number.isNaN(date.getTime()) ? new Date(0) : date;
+}
+
+function getDatePartsInDisplayZone(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: DISPLAY_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  return {
+    year: Number(parts.find((part) => part.type === "year")?.value || "1970"),
+    month: Number(parts.find((part) => part.type === "month")?.value || "1"),
+    day: Number(parts.find((part) => part.type === "day")?.value || "1"),
+  };
+}
+
+function getSecondsOfDayInDisplayZone(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: DISPLAY_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const hour = Number(parts.find((part) => part.type === "hour")?.value || "0");
+  const minute = Number(parts.find((part) => part.type === "minute")?.value || "0");
+  const second = Number(parts.find((part) => part.type === "second")?.value || "0");
+  return hour * 3600 + minute * 60 + second;
 }
 
 function getDayOfYear(date: Date) {
-  const yearStart = new Date(date.getFullYear(), 0, 1);
-  const diff = date.getTime() - yearStart.getTime();
+  const { year, month, day } = getDatePartsInDisplayZone(date);
+  const yearStart = Date.UTC(year, 0, 1);
+  const current = Date.UTC(year, month - 1, day);
+  const diff = current - yearStart;
   return Math.floor(diff / 86400000) + 1;
 }
 
@@ -99,6 +132,7 @@ function formatMonthDay(date: Date) {
   return new Intl.DateTimeFormat("zh-CN", {
     month: "2-digit",
     day: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(date);
 }
 
@@ -126,7 +160,7 @@ const mappedArticles = computed(() => {
       return {
         ...article,
         date,
-        year: date.getFullYear(),
+        year: getDatePartsInDisplayZone(date).year,
         monthDay: formatMonthDay(date),
       };
     })
@@ -169,17 +203,18 @@ const groupedByYear = computed(() => {
     }));
 });
 
-const now = computed(() => new Date());
+const renderNowIso = useState("archive-render-now", () => new Date().toISOString());
+const now = computed(() => parseDate(renderNowIso.value));
 
 const totalCount = computed(() => filteredArticles.value.length);
 const dayOfYear = computed(() => getDayOfYear(now.value));
 const yearProgress = computed(() => {
-  const days = getDaysInYear(now.value.getFullYear());
+  const currentYear = getDatePartsInDisplayZone(now.value).year;
+  const days = getDaysInYear(currentYear);
   return Math.round((dayOfYear.value / days) * 100);
 });
 const todayProgress = computed(() => {
-  const seconds =
-    now.value.getHours() * 3600 + now.value.getMinutes() * 60 + now.value.getSeconds();
+  const seconds = getSecondsOfDayInDisplayZone(now.value);
   return Math.round((seconds / 86400) * 100);
 });
 

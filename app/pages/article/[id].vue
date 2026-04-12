@@ -7,6 +7,7 @@ import { installMarkdownExternalLinkRule, resolveSiteHostname } from "~/utils/li
 const route = useRoute();
 const { settings } = useSiteSettings();
 const requestUrl = useRequestURL();
+const DISPLAY_TIME_ZONE = "Asia/Shanghai";
 
 const articleId = computed(() => String(route.params.id ?? "").trim());
 const { article, pending, error } = useArticleDetail(articleId);
@@ -222,6 +223,7 @@ function formatDate(dateInput: string) {
     month: "long",
     day: "numeric",
     weekday: "long",
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(date);
 }
 

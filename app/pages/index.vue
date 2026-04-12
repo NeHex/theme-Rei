@@ -63,6 +63,7 @@ const { articles: fetchedArticles } = useArticles();
 const { albums: fetchedAlbums } = useAlbums();
 const { dailies: fetchedDailies } = useDailies();
 const { projects: fetchedProjects } = useProjects();
+const DISPLAY_TIME_ZONE = "Asia/Shanghai";
 const siteHostname = computed(() =>
   resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
 );
@@ -191,14 +192,22 @@ const fallbackDailyRecords: readonly DailyRecord[] = [
 function formatDailyYear(dateInput: string) {
   const date = new Date(dateInput);
   if (Number.isNaN(date.getTime())) return "----";
-  return String(date.getFullYear());
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    timeZone: DISPLAY_TIME_ZONE,
+  }).format(date);
 }
 
 function formatDailyDate(dateInput: string) {
   const date = new Date(dateInput);
   if (Number.isNaN(date.getTime())) return "--.--";
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
+  }).formatToParts(date);
+  const month = parts.find((part) => part.type === "month")?.value || "--";
+  const day = parts.find((part) => part.type === "day")?.value || "--";
   return `${month}.${day}`;
 }
 
@@ -425,6 +434,7 @@ function formatProjectDate(value: string) {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(date);
 }
 
