@@ -94,6 +94,7 @@ const STATUS_META: Record<FriendStatus, FriendGroupMeta> = {
 };
 
 const { friends, pending, error } = useFriends();
+const isClientMounted = ref(false);
 
 function shuffleFriends(items: FriendViewItem[]) {
   const shuffled = [...items];
@@ -124,7 +125,9 @@ watch(
     }
 
     for (const status of STATUS_ORDER) {
-      next[status] = shuffleFriends(next[status]);
+      next[status] = isClientMounted.value
+        ? shuffleFriends(next[status])
+        : [...next[status]];
     }
 
     shuffledFriendsByStatus.value = next;
@@ -301,6 +304,13 @@ watch(applyModalVisible, (visible) => {
 });
 
 onMounted(() => {
+  isClientMounted.value = true;
+  const reshuffled: Record<FriendStatus, FriendViewItem[]> = {
+    ok: shuffleFriends(shuffledFriendsByStatus.value.ok),
+    missing: shuffleFriends(shuffledFriendsByStatus.value.missing),
+    blocked: shuffleFriends(shuffledFriendsByStatus.value.blocked),
+  };
+  shuffledFriendsByStatus.value = reshuffled;
   window.addEventListener("keydown", onApplyDialogKeydown);
 });
 
