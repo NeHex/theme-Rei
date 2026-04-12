@@ -20,6 +20,9 @@ const feedHref = computed(() => {
   if (candidate.trim().replace(/\/+$/, "") === "/feed.xml") return "/feed";
   return candidate;
 });
+const siteHostname = computed(() =>
+  resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
+);
 
 type MenuLink = {
   id: string;
@@ -28,45 +31,49 @@ type MenuLink = {
   external: boolean;
 };
 
-function normalizeMenuLink(input: { label?: string; to?: string }): MenuLink | null {
-  const label = String(input.label || "").trim();
-  const to = String(input.to || "").trim();
-  if (!label || !to) return null;
-
-  const normalizedTo = to.startsWith("/") || /^https?:\/\//i.test(to)
-    ? to
-    : `/${to.replace(/^\/+/, "")}`;
-
-  return {
-    id: `${label}::${normalizedTo}`,
-    label,
-    to: normalizedTo,
-    external: isExternalSiteLink(normalizedTo, siteHostname.value),
-  };
+function normalizeRouteKey(url: string) {
+  return url.trim().toLowerCase().replace(/\/+$/, "") || "/";
 }
 
-function dedupeMenuLinks(items: MenuLink[]) {
-  const seen = new Set<string>();
-  const result: MenuLink[] = [];
+function normalizeLinkIdentity(label: string, to: string) {
+  return `${label.trim().toLowerCase()}::${normalizeRouteKey(to)}`;
+}
 
-  for (const item of items) {
-    const routeKey = item.to.toLowerCase().replace(/\/+$/, "") || "/";
-    if (seen.has(routeKey)) continue;
-    seen.add(routeKey);
-    result.push(item);
-  }
+function normalizeMenuTo(to: string) {
+  const value = String(to || "").trim();
+  if (!value) return "";
+  if (value.startsWith("/") || /^https?:\/\//i.test(value)) return value;
+  return `/${value.replace(/^\/+/, "")}`;
+}
+
+function buildThemeNavLinks(source: unknown[]): MenuLink[] {
+  const result: MenuLink[] = [];
+  const seenIdentity = new Set<string>();
+
+  source.forEach((rawItem, index) => {
+    const item = (rawItem || {}) as { label?: unknown; to?: unknown };
+    const label = String(item.label || "").trim();
+    const normalizedTo = normalizeMenuTo(String(item.to || ""));
+    if (!label || !normalizedTo) return;
+
+    const identity = normalizeLinkIdentity(label, normalizedTo);
+    if (seenIdentity.has(identity)) return;
+    seenIdentity.add(identity);
+
+    result.push({
+      id: `theme-nav-${index}-${label}-${normalizedTo}`,
+      label,
+      to: normalizedTo,
+      external: isExternalSiteLink(normalizedTo, siteHostname.value),
+    });
+  });
 
   return result;
 }
 
-const dropdownLinks = computed<MenuLink[]>(() => {
-  const source = Array.isArray(settings.value.themeNav) ? settings.value.themeNav : [];
-  const normalized = source
-    .map((item) => normalizeMenuLink({ label: item.label, to: item.to }))
-    .filter((item): item is MenuLink => Boolean(item));
-
-  return dedupeMenuLinks(normalized);
-});
+const dropdownLinks = computed<MenuLink[]>(() =>
+  buildThemeNavLinks(Array.isArray(settings.value.themeNav) ? settings.value.themeNav : []),
+);
 const adminMarkerCookie = useCookie<string>(adminMarkerCookieName, {
   sameSite: "lax",
   default: () => "",
@@ -83,19 +90,26 @@ const moreDropdownLinks = computed<MenuLink[]>(() => {
   const baseLinks = [...dropdownLinks.value];
   if (!hasAdminMarker.value) return baseLinks;
 
-  const consoleLink = normalizeMenuLink({
-    label: "站长控制台",
-    to: adminConsoleUrl.value,
-  });
-  if (!consoleLink) return baseLinks;
+  const consoleTo = normalizeMenuTo(adminConsoleUrl.value);
+  if (!consoleTo) return baseLinks;
+  const identity = normalizeLinkIdentity("站长控制台", consoleTo);
+  if (baseLinks.some((item) => normalizeLinkIdentity(item.label, item.to) === identity)) {
+    return baseLinks;
+  }
 
-  return dedupeMenuLinks([consoleLink, ...baseLinks]);
+  return [
+    {
+      id: `admin-console-${consoleTo}`,
+      label: "站长控制台",
+      to: consoleTo,
+      external: isExternalSiteLink(consoleTo, siteHostname.value),
+    },
+    ...baseLinks,
+  ];
 });
-const siteHostname = computed(() =>
-  resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
-);
 
-const hoveredMoreIndex = ref(-1);
+const hoveredMoreIndex = ref<number | null>(null);
+const isDesktopMoreOpen = ref(false);
 const isMobileMenuOpen = ref(false);
 const isMobileMoreSubmenuOpen = ref(false);
 
@@ -103,17 +117,23 @@ function isExternalLink(url: string) {
   return isExternalSiteLink(url, siteHostname.value);
 }
 
-function normalizeRouteKey(url: string) {
-  return url.trim().toLowerCase().replace(/\/+$/, "") || "/";
-}
+const activeMoreLinkIndex = computed(() =>
+  moreDropdownLinks.value.findIndex((item) => isMobileLinkActive(item.to, item.external)),
+);
+const desktopMorePillIndex = computed(() => {
+  if (hoveredMoreIndex.value !== null) return hoveredMoreIndex.value;
+  if (isDesktopMoreOpen.value && activeMoreLinkIndex.value >= 0) return activeMoreLinkIndex.value;
+  return null;
+});
 
 function openMoreMenu() {
   if (!moreDropdownLinks.value.length) return;
-  hoveredMoreIndex.value = 0;
+  isDesktopMoreOpen.value = true;
 }
 
 function closeMoreMenu() {
-  hoveredMoreIndex.value = -1;
+  isDesktopMoreOpen.value = false;
+  hoveredMoreIndex.value = null;
 }
 
 function focusMoreItem(index: number) {
@@ -226,35 +246,30 @@ watch(
             <div class="dropdown-menu">
               <span
                 class="dropdown-active-pill"
-                :class="{ 'is-visible': hoveredMoreIndex >= 0 }"
-                :style="{ '--pill-index': hoveredMoreIndex }"
+                :class="{ 'is-visible': desktopMorePillIndex !== null }"
+                :style="{ '--pill-index': String(desktopMorePillIndex ?? 0) }"
                 aria-hidden="true"
               />
 
-              <template v-for="(item, index) in moreDropdownLinks" :key="item.id">
-                <a
-                  v-if="item.external"
-                  :href="item.to"
-                  class="dropdown-link external-link"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  @mouseenter="focusMoreItem(index)"
-                  @focus="focusMoreItem(index)"
-                  @click="handleDesktopMoreLinkClick"
-                >
-                  {{ item.label }}
-                </a>
-                <NuxtLink prefetch="false"
-                  v-else
-                  :to="item.to"
-                  class="dropdown-link"
-                  @mouseenter="focusMoreItem(index)"
-                  @focus="focusMoreItem(index)"
-                  @click="handleDesktopMoreLinkClick"
-                >
-                  {{ item.label }}
-                </NuxtLink>
-              </template>
+              <component
+                :is="item.external ? 'a' : 'NuxtLink'"
+                v-for="(item, index) in moreDropdownLinks"
+                :key="item.id"
+                class="dropdown-link"
+                :class="{
+                  'external-link': item.external,
+                  active: isMobileLinkActive(item.to, item.external),
+                }"
+                :href="item.external ? item.to : undefined"
+                :to="item.external ? undefined : item.to"
+                :target="item.external ? '_blank' : undefined"
+                :rel="item.external ? 'noopener noreferrer' : undefined"
+                @mouseenter="focusMoreItem(index)"
+                @focus="focusMoreItem(index)"
+                @click="handleDesktopMoreLinkClick"
+              >
+                {{ item.label }}
+              </component>
             </div>
           </div>
         </div>
@@ -372,27 +387,23 @@ watch(
             </div>
             <Transition name="mobile-submenu">
               <div v-if="isMobileMoreSubmenuOpen && moreDropdownLinks.length" class="mobile-submenu">
-                <template v-for="item in moreDropdownLinks" :key="item.id">
-                  <a
-                    v-if="item.external"
-                    :href="item.to"
-                    class="mobile-submenu-link external-link"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    @click="closeMobileMenu"
-                  >
-                    {{ item.label }}
-                  </a>
-                  <NuxtLink prefetch="false"
-                    v-else
-                    :to="item.to"
-                    class="mobile-submenu-link"
-                    :class="{ active: isMobileLinkActive(item.to, false) }"
-                    @click="closeMobileMenu"
-                  >
-                    {{ item.label }}
-                  </NuxtLink>
-                </template>
+                <component
+                  :is="item.external ? 'a' : 'NuxtLink'"
+                  v-for="item in moreDropdownLinks"
+                  :key="item.id"
+                  class="mobile-submenu-link"
+                  :class="{
+                    'external-link': item.external,
+                    active: isMobileLinkActive(item.to, item.external),
+                  }"
+                  :href="item.external ? item.to : undefined"
+                  :to="item.external ? undefined : item.to"
+                  :target="item.external ? '_blank' : undefined"
+                  :rel="item.external ? 'noopener noreferrer' : undefined"
+                  @click="closeMobileMenu"
+                >
+                  {{ item.label }}
+                </component>
               </div>
             </Transition>
           </div>
@@ -639,6 +650,10 @@ watch(
   color: #ffffff;
 }
 
+.dropdown-link.active {
+  color: #ffffff;
+}
+
 .nav-dropdown:hover .dropdown-menu,
 .nav-dropdown:focus-within .dropdown-menu {
   opacity: 1;
@@ -860,9 +875,9 @@ watch(
     min-height: 0;
     gap: 0;
     padding: 0.54rem 0.62rem;
-    border-radius: 6rem;
+    border-radius: 1rem;
     border: 1px solid rgba(166, 215, 255, 0.24);
-    transition: border-radius 0.24s ease, box-shadow 0.22s ease, background 0.22s ease;
+    transition: box-shadow 0.22s ease, background 0.22s ease;
   }
 
   .floating-nav.is-expanded {
@@ -931,51 +946,22 @@ watch(
   .mobile-nav-expand-enter-active,
   .mobile-nav-expand-leave-active {
     overflow: hidden;
-    will-change: max-height, opacity, transform;
-    transform-origin: top center;
+    will-change: max-height, opacity;
     transition:
-      max-height 0.3s cubic-bezier(0.2, 0.86, 0.24, 1),
-      opacity 0.22s ease,
-      transform 0.26s cubic-bezier(0.2, 0.86, 0.24, 1),
-      margin-top 0.24s ease,
-      padding-top 0.24s ease,
-      border-top-color 0.24s ease;
+      max-height 0.34s cubic-bezier(0.2, 0.86, 0.24, 1),
+      opacity 0.24s ease;
   }
 
   .mobile-nav-expand-enter-from,
   .mobile-nav-expand-leave-to {
     max-height: 0;
     opacity: 0;
-    transform: translateY(-0.35rem) scaleY(0.92);
-    margin-top: 0;
-    padding-top: 0;
-    border-top-color: transparent;
   }
 
   .mobile-nav-expand-enter-to,
   .mobile-nav-expand-leave-from {
-    max-height: 28rem;
+    max-height: 32rem;
     opacity: 1;
-    transform: translateY(0) scaleY(1);
-  }
-
-  .mobile-nav-expand-enter-active .mobile-menu-link,
-  .mobile-nav-expand-enter-active .mobile-submenu-toggle,
-  .mobile-nav-expand-enter-active .mobile-submenu-link,
-  .mobile-nav-expand-leave-active .mobile-menu-link,
-  .mobile-nav-expand-leave-active .mobile-submenu-toggle,
-  .mobile-nav-expand-leave-active .mobile-submenu-link {
-    transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.2, 0.86, 0.24, 1);
-  }
-
-  .mobile-nav-expand-enter-from .mobile-menu-link,
-  .mobile-nav-expand-enter-from .mobile-submenu-toggle,
-  .mobile-nav-expand-enter-from .mobile-submenu-link,
-  .mobile-nav-expand-leave-to .mobile-menu-link,
-  .mobile-nav-expand-leave-to .mobile-submenu-toggle,
-  .mobile-nav-expand-leave-to .mobile-submenu-link {
-    opacity: 0;
-    transform: translateY(-0.22rem);
   }
 
   .mobile-submenu-enter-active,

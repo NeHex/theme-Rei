@@ -1455,18 +1455,19 @@ onBeforeUnmount(() => {
 
 .content-fade::after {
   content: "";
-  position: absolute;
+  position: fixed;
   inset: 0;
   pointer-events: none;
   background-image: url("/exported_image_sck.svg");
   background-position: center center;
   background-repeat: no-repeat;
   background-size: cover;
-  background-attachment: fixed;
   opacity: 0.24;
   filter: invert(1) contrast(1.08) brightness(1.18);
   mix-blend-mode: screen;
   z-index: 1;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .section-shell {

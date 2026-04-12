@@ -450,7 +450,7 @@ onBeforeUnmount(() => {
 
 .article-page::after {
   content: "";
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
@@ -458,10 +458,11 @@ onBeforeUnmount(() => {
   background-position: center center;
   background-repeat: no-repeat;
   background-size: cover;
-  background-attachment: fixed;
   opacity: 0.24;
   filter: invert(1) contrast(1.08) brightness(1.18);
   mix-blend-mode: screen;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .article-main {
