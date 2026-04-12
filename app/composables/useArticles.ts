@@ -99,7 +99,7 @@ export function useArticles() {
     {
       default: () => [],
       server: true,
-      lazy: false,
+      lazy: true,
     },
   );
 

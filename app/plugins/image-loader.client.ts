@@ -73,34 +73,73 @@ function scanImages(root: ParentNode) {
   });
 }
 
+function scanRootNode(node: Node | ParentNode) {
+  if (node instanceof HTMLImageElement) {
+    prepareImage(node);
+    return;
+  }
+
+  if (
+    node instanceof Document
+    || node instanceof DocumentFragment
+    || node instanceof HTMLElement
+  ) {
+    scanImages(node);
+  }
+}
+
 export default defineNuxtPlugin((nuxtApp) => {
   if (!import.meta.client) return;
 
   let observer: MutationObserver | null = null;
+  let rafId = 0;
+  const pendingScanNodes = new Set<Node | ParentNode>();
   const resolveObserveRoot = () => document.getElementById("__nuxt") ?? document.body;
 
   const stopObserver = () => {
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
+    pendingScanNodes.clear();
+
     if (!observer) return;
     observer.disconnect();
     observer = null;
   };
 
+  const flushScanQueue = () => {
+    rafId = 0;
+    if (!pendingScanNodes.size) return;
+
+    const nodes = [...pendingScanNodes];
+    pendingScanNodes.clear();
+
+    for (const node of nodes) {
+      scanRootNode(node);
+    }
+  };
+
+  const scheduleScan = (node: Node | ParentNode = document) => {
+    pendingScanNodes.add(node);
+    if (rafId) return;
+
+    rafId = requestAnimationFrame(flushScanQueue);
+  };
+
   const start = () => {
     document.documentElement.classList.add(READY_CLASS);
-    scanImages(document);
-
     stopObserver();
+    scheduleScan(document);
     observer = new MutationObserver((records) => {
       for (const record of records) {
-        for (const node of record.addedNodes) {
-          if (node instanceof HTMLImageElement) {
-            prepareImage(node);
-            continue;
-          }
+        if (record.type === "attributes" && record.target instanceof HTMLImageElement) {
+          scheduleScan(record.target);
+          continue;
+        }
 
-          if (node instanceof HTMLElement) {
-            scanImages(node);
-          }
+        for (const node of record.addedNodes) {
+          scheduleScan(node);
         }
       }
     });
@@ -108,17 +147,19 @@ export default defineNuxtPlugin((nuxtApp) => {
     observer.observe(resolveObserveRoot(), {
       subtree: true,
       childList: true,
+      attributes: true,
+      attributeFilter: ["src", "srcset"],
     });
   };
 
   nuxtApp.hook("app:mounted", start);
 
   nuxtApp.hook("page:finish", () => {
-    requestAnimationFrame(() => scanImages(document));
+    scheduleScan(document);
   });
 
   nuxtApp.hook("app:error", () => {
-    requestAnimationFrame(() => scanImages(document));
+    scheduleScan(document);
   });
 
   nuxtApp.hook("app:beforeMount", stopObserver);

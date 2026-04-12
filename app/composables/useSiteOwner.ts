@@ -40,7 +40,7 @@ export function useSiteOwner() {
     {
       default: () => ({ ...DEFAULT_SITE_OWNER }),
       server: true,
-      lazy: false,
+      lazy: true,
     },
   );
 

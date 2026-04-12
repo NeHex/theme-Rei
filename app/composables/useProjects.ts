@@ -92,7 +92,7 @@ export function useProjects() {
     {
       default: () => [],
       server: true,
-      lazy: false,
+      lazy: true,
     },
   );
 

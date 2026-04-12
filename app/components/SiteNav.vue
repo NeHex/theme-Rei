@@ -128,11 +128,11 @@ watch(
     <nav class="floating-nav" :class="{ 'is-expanded': isMobileMenuOpen }">
       <div class="nav-head">
         <div class="nav-main">
-          <NuxtLink to="/" class="nav-avatar-link" aria-label="返回首页">
+          <NuxtLink prefetch="false" to="/" class="nav-avatar-link" aria-label="返回首页">
             <img class="nav-avatar" :src="avatarSrc" :alt="avatarAlt" />
           </NuxtLink>
 
-          <NuxtLink to="/" class="nav-link" :class="{ active: isHome }">
+          <NuxtLink prefetch="false" to="/" class="nav-link" :class="{ active: isHome }">
             <svg class="nav-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M3.5 10.5L12 3.5L20.5 10.5V20.5H3.5V10.5Z" />
               <path d="M9.5 20.5V14.5H14.5V20.5" />
@@ -140,7 +140,7 @@ watch(
             首页
           </NuxtLink>
 
-          <NuxtLink to="/article" class="nav-link" :class="{ active: isArticle }">
+          <NuxtLink prefetch="false" to="/article" class="nav-link" :class="{ active: isArticle }">
             <svg class="nav-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <rect x="4" y="4" width="16" height="16" rx="2.5" />
               <path d="M8 9H16" />
@@ -149,7 +149,7 @@ watch(
             </svg>
             文章
           </NuxtLink>
-          <NuxtLink to="/album" class="nav-link" :class="{ active: isAlbum }">
+          <NuxtLink prefetch="false" to="/album" class="nav-link" :class="{ active: isAlbum }">
             <svg class="nav-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
               <circle cx="9" cy="10" r="1.8" />
@@ -157,7 +157,7 @@ watch(
             </svg>
             相册
           </NuxtLink>
-          <NuxtLink to="/archive" class="nav-link" :class="{ active: isArchive }">
+          <NuxtLink prefetch="false" to="/archive" class="nav-link" :class="{ active: isArchive }">
             <svg class="nav-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <rect x="4" y="5" width="16" height="5" rx="1.5" />
               <rect x="5.5" y="10" width="13" height="9" rx="1.5" />
@@ -203,7 +203,7 @@ watch(
                 >
                   {{ item.label }}
                 </a>
-                <NuxtLink
+                <NuxtLink prefetch="false"
                   v-else
                   :to="item.to"
                   class="dropdown-link"
@@ -250,7 +250,7 @@ watch(
         <div v-if="isMobileMenuOpen" class="mobile-nav-body" role="menu">
           <div class="mobile-menu-group">
             <div class="mobile-menu-group-head">
-              <NuxtLink
+              <NuxtLink prefetch="false"
                 to="/"
                 class="mobile-menu-link"
                 :class="{ active: isMobileLinkActive('/', false) }"
@@ -265,7 +265,7 @@ watch(
             </div>
           </div>
 
-          <NuxtLink
+          <NuxtLink prefetch="false"
             to="/article"
             class="mobile-menu-link"
             :class="{ active: isMobileLinkActive('/article', false) }"
@@ -279,7 +279,7 @@ watch(
             </svg>
             文章
           </NuxtLink>
-          <NuxtLink
+          <NuxtLink prefetch="false"
             to="/album"
             class="mobile-menu-link"
             :class="{ active: isMobileLinkActive('/album', false) }"
@@ -292,7 +292,7 @@ watch(
             </svg>
             相册
           </NuxtLink>
-          <NuxtLink
+          <NuxtLink prefetch="false"
             to="/archive"
             class="mobile-menu-link"
             :class="{ active: isMobileLinkActive('/archive', false) }"
@@ -342,7 +342,7 @@ watch(
                   >
                     {{ item.label }}
                   </a>
-                  <NuxtLink
+                  <NuxtLink prefetch="false"
                     v-else
                     :to="item.to"
                     class="mobile-submenu-link"

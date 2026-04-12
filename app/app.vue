@@ -43,8 +43,10 @@ const websiteSchema = computed(() => {
 
 const ENTER_MS = 420;
 const EXIT_MS = 360;
+const LOADING_WATCHDOG_MS = 8000;
 
 let phaseTimer: ReturnType<typeof setTimeout> | null = null;
+let loadingWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
 let enterGate: Promise<void> | null = null;
 let resolveEnterGate: (() => void) | null = null;
 let pendingStop = false;
@@ -153,6 +155,19 @@ function clearPhaseTimer() {
   phaseTimer = null;
 }
 
+function clearLoadingWatchdog() {
+  if (!loadingWatchdogTimer) return;
+  clearTimeout(loadingWatchdogTimer);
+  loadingWatchdogTimer = null;
+}
+
+function restartLoadingWatchdog() {
+  clearLoadingWatchdog();
+  loadingWatchdogTimer = setTimeout(() => {
+    stopLoading();
+  }, LOADING_WATCHDOG_MS);
+}
+
 function releaseEnterGate() {
   if (resolveEnterGate) {
     resolveEnterGate();
@@ -164,10 +179,12 @@ function releaseEnterGate() {
 function startLoading() {
   if (!isRouteLoading.value) {
     clearPhaseTimer();
+    clearLoadingWatchdog();
     releaseEnterGate();
     isRouteLoading.value = true;
     loaderPhase.value = "enter";
     pendingStop = false;
+    restartLoadingWatchdog();
     enterGate = new Promise<void>((resolve) => {
       resolveEnterGate = resolve;
     });
@@ -193,9 +210,14 @@ function startLoading() {
 
   if (loaderPhase.value === "exit") {
     clearPhaseTimer();
+    restartLoadingWatchdog();
     loaderPhase.value = "loading";
     pendingStop = false;
     releaseEnterGate();
+  }
+
+  if (loaderPhase.value === "loading" || loaderPhase.value === "enter") {
+    restartLoadingWatchdog();
   }
 
   return enterGate ?? Promise.resolve();
@@ -210,6 +232,7 @@ function stopLoading() {
   }
 
   releaseEnterGate();
+  clearLoadingWatchdog();
   clearPhaseTimer();
   loaderPhase.value = "exit";
 
@@ -218,6 +241,7 @@ function stopLoading() {
     isRouteLoading.value = false;
     loaderPhase.value = "enter";
     pendingStop = false;
+    clearLoadingWatchdog();
     releaseEnterGate();
   }, EXIT_MS);
 }
@@ -260,11 +284,19 @@ if (import.meta.client) {
     logThemeBanner();
   });
 
-  router.beforeEach(async (to, from) => {
+  router.beforeEach((to, from) => {
     if (to.fullPath !== from.fullPath) {
-      await startLoading();
+      void startLoading();
     }
     return true;
+  });
+
+  router.afterEach(() => {
+    stopLoading();
+  });
+
+  router.onError(() => {
+    stopLoading();
   });
 
   nuxtApp.hook("page:finish", () => {
@@ -277,6 +309,7 @@ if (import.meta.client) {
 
   onBeforeUnmount(() => {
     clearPhaseTimer();
+    clearLoadingWatchdog();
     pendingStop = false;
     releaseEnterGate();
   });
@@ -331,7 +364,7 @@ if (import.meta.client) {
   position: fixed;
   inset: 0;
   z-index: 140;
-  pointer-events: auto;
+  pointer-events: none;
   overflow: hidden;
 }
 

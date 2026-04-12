@@ -283,10 +283,10 @@ if (import.meta.client) {
 
         <nav class="footer-col" aria-label="快捷导航">
           <h4>快捷导航</h4>
-          <NuxtLink to="/">首页</NuxtLink>
-          <NuxtLink to="/article">文章</NuxtLink>
-          <NuxtLink to="/album">相册</NuxtLink>
-          <NuxtLink to="/archive">归档</NuxtLink>
+          <NuxtLink prefetch="false" to="/">首页</NuxtLink>
+          <NuxtLink prefetch="false" to="/article">文章</NuxtLink>
+          <NuxtLink prefetch="false" to="/album">相册</NuxtLink>
+          <NuxtLink prefetch="false" to="/archive">归档</NuxtLink>
         </nav>
 
         <nav class="footer-col" aria-label="更多链接">
@@ -301,7 +301,7 @@ if (import.meta.client) {
             >
               {{ item.label }}
             </a>
-            <NuxtLink v-else :to="item.to">
+            <NuxtLink prefetch="false" v-else :to="item.to">
               {{ item.label }}
             </NuxtLink>
           </template>

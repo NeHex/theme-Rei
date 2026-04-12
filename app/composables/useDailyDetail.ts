@@ -23,7 +23,7 @@ export function useDailyDetail(dailyId: MaybeRefOrGetter<string | number>) {
     {
       default: () => null,
       server: true,
-      lazy: false,
+      lazy: true,
       watch: [id],
     },
   );

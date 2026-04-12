@@ -74,7 +74,7 @@ export function useFriends() {
     {
       default: () => [],
       server: true,
-      lazy: false,
+      lazy: true,
     },
   );
 

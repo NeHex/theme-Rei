@@ -74,7 +74,7 @@ export function useSinglePages() {
     {
       default: () => [],
       server: true,
-      lazy: false,
+      lazy: true,
     },
   );
 

@@ -47,7 +47,7 @@ const {
   {
     watch: [pageKey],
     server: true,
-    lazy: false,
+    lazy: true,
   },
 );
 

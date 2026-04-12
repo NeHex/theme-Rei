@@ -21,7 +21,7 @@ export function useArticleDetail(articleId: MaybeRefOrGetter<string | number>) {
     {
       default: () => null,
       server: true,
-      lazy: false,
+      lazy: true,
       watch: [id],
     },
   );

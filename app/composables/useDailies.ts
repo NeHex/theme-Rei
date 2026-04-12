@@ -66,7 +66,7 @@ export function useDailies() {
     {
       default: () => [],
       server: true,
-      lazy: false,
+      lazy: true,
     },
   );
 

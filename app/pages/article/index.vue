@@ -137,7 +137,7 @@ const {
   {
     watch: [articleQuery],
     server: true,
-    lazy: false,
+    lazy: true,
     default: () => ({
       items: [] as ArticleViewItem[],
       pagination: {
@@ -321,7 +321,7 @@ function onArticleCardLeave(event: MouseEvent) {
           <h1>文章</h1>
         </header>
 
-        <NuxtLink
+        <NuxtLink prefetch="false"
           v-if="featuredArticle"
           :to="`/article/${featuredArticle.id}`"
           class="featured-card article-card-reveal"
@@ -373,7 +373,7 @@ function onArticleCardLeave(event: MouseEvent) {
           <p v-if="articleError" class="post-state">文章加载失败，请稍后重试。</p>
           <p v-else-if="articlePending" class="post-state">文章加载中...</p>
           <template v-else>
-            <NuxtLink
+            <NuxtLink prefetch="false"
               v-for="(article, index) in pagedArticles"
               :key="article.id"
               :to="`/article/${article.id}`"

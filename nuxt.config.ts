@@ -11,10 +11,34 @@ const prerenderFetchBackend = String(
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
+  experimental: {
+    defaults: {
+      nuxtLink: {
+        // Disable automatic link prefetch to avoid loading heavy route chunks on first paint.
+        prefetch: false,
+      },
+    },
+  },
   css: ["~/assets/css/base.css"],
   nitro: {
     prerender: {
       routes: ["/", "/about", "/archive", "/friends", "/games"],
+    },
+  },
+  vite: {
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (id.includes("node_modules/maplibre-gl")) {
+              return "vendor-maplibre";
+            }
+            if (id.includes("node_modules/markdown-it")) {
+              return "vendor-markdown-it";
+            }
+          },
+        },
+      },
     },
   },
   routeRules: {
@@ -30,14 +54,6 @@ export default defineNuxtConfig({
     "/feed": { swr: 600 },
     "/robots.txt": { swr: 600 },
     "/sitemap.xml": { swr: 300 },
-    "/about/": { redirect: { to: "/about", statusCode: 301 } },
-    "/archive/": { redirect: { to: "/archive", statusCode: 301 } },
-    "/friends/": { redirect: { to: "/friends", statusCode: 301 } },
-    "/games/": { redirect: { to: "/games", statusCode: 301 } },
-    "/article/": { redirect: { to: "/article", statusCode: 301 } },
-    "/album/": { redirect: { to: "/album", statusCode: 301 } },
-    "/daily/": { redirect: { to: "/daily", statusCode: 301 } },
-    "/feed/": { redirect: { to: "/feed", statusCode: 301 } },
   },
   runtimeConfig: {
     prerenderFetchBackend,

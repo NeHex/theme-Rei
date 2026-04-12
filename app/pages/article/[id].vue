@@ -352,7 +352,7 @@ onBeforeUnmount(() => {
   <div class="article-page">
     <main class="article-main">
       <div class="article-nav">
-        <NuxtLink to="/article" class="article-back" aria-label="返回文章列表">
+        <NuxtLink prefetch="false" to="/article" class="article-back" aria-label="返回文章列表">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M14.5 5.5L8 12l6.5 6.5" />
           </svg>

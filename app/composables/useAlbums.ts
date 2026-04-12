@@ -78,7 +78,7 @@ export function useAlbums() {
     {
       default: () => [],
       server: true,
-      lazy: false,
+      lazy: true,
     },
   );
 

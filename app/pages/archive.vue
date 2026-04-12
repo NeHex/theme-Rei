@@ -398,7 +398,7 @@ onBeforeUnmount(() => {
           </header>
 
           <div class="year-entries">
-            <NuxtLink
+            <NuxtLink prefetch="false"
               v-for="(item, entryIndex) in group.entries"
               :key="item.id"
               :to="`/article/${item.id}`"

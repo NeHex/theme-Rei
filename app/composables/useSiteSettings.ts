@@ -541,7 +541,7 @@ export function useSiteSettings() {
     {
       default: () => ({ ...DEFAULT_SITE_SETTINGS }),
       server: true,
-      lazy: false,
+      lazy: true,
     },
   );
 

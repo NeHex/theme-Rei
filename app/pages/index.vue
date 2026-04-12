@@ -797,7 +797,7 @@ onBeforeUnmount(() => {
               </button>
             </div>
 
-            <NuxtLink :to="currentImage.to" class="scene-link" aria-label="查看当前相册">
+            <NuxtLink prefetch="false" :to="currentImage.to" class="scene-link" aria-label="查看当前相册">
               <img class="scene-image" :src="currentImage.src" :alt="currentImage.alt" />
             </NuxtLink>
             <p class="image-caption">
@@ -823,7 +823,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="post-grid" :class="{ 'is-revealed': blogCardsVisible }">
-          <NuxtLink
+          <NuxtLink prefetch="false"
             v-for="(post, index) in homePosts"
             :key="post.id"
             :to="post.to"
@@ -838,7 +838,7 @@ onBeforeUnmount(() => {
             </div>
           </NuxtLink>
 
-          <NuxtLink
+          <NuxtLink prefetch="false"
             to="/article"
             class="post-card post-card-more post-card-reveal"
             :style="{ '--card-order': homePosts.length }"
@@ -866,7 +866,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="journal-grid" :class="{ 'is-revealed': journalCardsVisible }">
-          <NuxtLink
+          <NuxtLink prefetch="false"
             v-for="(record, index) in dailyRecords"
             :key="`${record.year}-${record.date}-${record.title}`"
             :to="record.to"
@@ -897,7 +897,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="photo-grid" :class="{ 'is-revealed': photoCardsVisible }">
-          <NuxtLink
+          <NuxtLink prefetch="false"
             v-for="(photo, index) in photos"
             :key="`${photo.title}-${photo.date}-${photo.alt}`"
             :to="photo.to"
