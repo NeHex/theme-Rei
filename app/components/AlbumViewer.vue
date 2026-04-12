@@ -407,7 +407,7 @@ function unlockBodyScroll() {
               <div class="panel-chip">← / → 切图</div>
             </div>
 
-            <p class="panel-note">© 版权所有，未授权不可转载或商用。</p>
+            <p class="panel-note">转载请注释出处</p>
           </aside>
         </div>
 

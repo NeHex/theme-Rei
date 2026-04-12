@@ -2,7 +2,7 @@ type FriendApplyPayload = {
   site_title: string;
   site_url: string;
   site_description: string;
-  site_icon: string;
+  site_icon?: string | null;
   contact?: string | null;
 };
 
@@ -17,8 +17,7 @@ export default defineEventHandler(async (event) => {
     !body ||
     !String(body.site_title || "").trim() ||
     !String(body.site_url || "").trim() ||
-    !String(body.site_description || "").trim() ||
-    !String(body.site_icon || "").trim()
+    !String(body.site_description || "").trim()
   ) {
     throw createError({
       statusCode: 400,
@@ -44,7 +43,7 @@ export default defineEventHandler(async (event) => {
     site_title: String(body.site_title).trim(),
     site_url: String(body.site_url).trim(),
     site_description: String(body.site_description).trim(),
-    site_icon: String(body.site_icon).trim(),
+    site_icon: String(body.site_icon || "").trim() || null,
     contact: String(body.contact || "").trim() || null,
   };
 

@@ -200,7 +200,9 @@ if (import.meta.client) {
   <div class="app-root">
     <NuxtRouteAnnouncer />
     <SiteNav />
-    <NuxtPage />
+    <main class="app-main">
+      <NuxtPage />
+    </main>
     <SiteFooter />
 
     <div
@@ -226,8 +228,16 @@ if (import.meta.client) {
 <style scoped>
 .app-root {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: clip;
+}
+
+.app-main {
+  flex: 1 0 auto;
+  min-height: 0;
 }
 
 .route-loader-overlay {

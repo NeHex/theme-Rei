@@ -151,11 +151,12 @@ const canApplyNext = computed(() => applyRequirementChecked.value);
 const canApplySubmit = computed(() => {
   const title = applyForm.siteTitle.trim();
   const description = applyForm.siteDescription.trim();
+  const icon = applyForm.siteIcon.trim();
   return (
     Boolean(title)
     && Boolean(description)
     && isValidHttpUrl(applyForm.siteUrl)
-    && isValidHttpUrl(applyForm.siteIcon)
+    && (!icon || isValidHttpUrl(icon))
   );
 });
 
@@ -206,7 +207,7 @@ async function submitFriendApply() {
         site_title: applyForm.siteTitle.trim(),
         site_url: applyForm.siteUrl.trim(),
         site_description: applyForm.siteDescription.trim(),
-        site_icon: applyForm.siteIcon.trim(),
+        site_icon: applyForm.siteIcon.trim() || null,
         contact: "",
       },
     });
@@ -427,13 +428,12 @@ onBeforeUnmount(() => {
               </label>
 
               <label class="friend-apply-field">
-                <span>站点图标</span>
+                <span>站点图标（可选）</span>
                 <input
                   v-model="applyForm.siteIcon"
                   type="url"
                   maxlength="255"
                   placeholder="https://example.com/favicon.ico"
-                  required
                 >
               </label>
 

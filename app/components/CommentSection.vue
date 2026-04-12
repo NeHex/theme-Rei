@@ -243,7 +243,7 @@ function insertMemeCode(code: string) {
 function parseCommentContent(content: string): CommentContentSegment[] {
   const text = String(content || "");
   const segments: CommentContentSegment[] = [];
-  const regex = /::([A-Za-z0-9_]+)/g;
+  const regex = /::([^\s:]+)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null = null;
 

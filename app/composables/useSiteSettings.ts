@@ -161,26 +161,39 @@ function parseJsonObject(value: unknown) {
 }
 
 function parseThemeCurrentProfile(themeData: SettingThemeApiData | null | undefined) {
-  if (!themeData || typeof themeData !== "object") return {} as Record<string, unknown>;
+  function resolveThemeProfile(raw: unknown, depth = 0): Record<string, unknown> {
+    if (depth > 3) return {};
+    const payload = parseJsonObject(raw);
+    if (!Object.keys(payload).length) return {};
 
-  const current = parseJsonObject(themeData.current);
-  if (Object.keys(current).length) return current;
+    const current = parseJsonObject(payload.current);
+    if (Object.keys(current).length) return current;
 
-  const profiles = parseJsonObject(themeData.profiles);
-  const activeProfile = asString(themeData.active_profile).trim();
-  if (activeProfile) {
-    const matched = parseJsonObject(profiles[activeProfile]);
-    if (Object.keys(matched).length) return matched;
-  }
-
-  for (const value of Object.values(profiles)) {
-    const profile = parseJsonObject(value);
-    if (Object.keys(profile).length) {
-      return profile;
+    const profiles = parseJsonObject(payload.profiles);
+    const activeProfile = asString(payload.active_profile).trim();
+    if (activeProfile) {
+      const matched = parseJsonObject(profiles[activeProfile]);
+      if (Object.keys(matched).length) return matched;
     }
+
+    for (const value of Object.values(profiles)) {
+      const profile = parseJsonObject(value);
+      if (Object.keys(profile).length) return profile;
+    }
+
+    const nested = resolveThemeProfile(payload.data, depth + 1);
+    if (Object.keys(nested).length) return nested;
+
+    const hasEnvelope =
+      Object.prototype.hasOwnProperty.call(payload, "current") ||
+      Object.prototype.hasOwnProperty.call(payload, "profiles") ||
+      Object.prototype.hasOwnProperty.call(payload, "active_profile") ||
+      Object.prototype.hasOwnProperty.call(payload, "data");
+
+    return hasEnvelope ? {} : payload;
   }
 
-  return {} as Record<string, unknown>;
+  return resolveThemeProfile(themeData);
 }
 
 function pickWifeRecord(value: unknown): WifeProfile | null {

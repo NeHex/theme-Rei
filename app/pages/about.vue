@@ -11,6 +11,7 @@ useHead(() => ({
 const mapCard = ref<HTMLElement | null>(null);
 const mapContainer = ref<HTMLElement | null>(null);
 const isMapLoaded = ref(false);
+const mapLoadError = ref("");
 
 let map: import("maplibre-gl").Map | null = null;
 let maplibreglModule: typeof import("maplibre-gl") | null = null;
@@ -130,6 +131,10 @@ function splitEducationTimeRange(value: string) {
 }
 
 const footprintPoints = computed(() => settings.value.themeAboutMapPoints);
+const mapStatusText = computed(() => {
+  if (mapLoadError.value) return mapLoadError.value;
+  return isMapLoaded.value ? "鼠标移入卡片后可拖拽地图和滚轮缩放" : "地图加载中...";
+});
 const aboutWelcome = computed(() => {
   const aboutPages = settings.value.themeAboutPages;
   const aboutRecord =
@@ -349,9 +354,10 @@ const wifeRows = computed(() => {
   return rows;
 });
 const activeWifeCard = ref<WifeCard | null>(null);
-const sloganWordDisplay = ref("");
 const sloganWords = computed(() => aboutSlogan.value.more);
+const sloganWordDisplay = ref(sloganWords.value[0] || "");
 const skillBlinkStates = ref<Record<string, boolean>>({});
+const isClientMounted = ref(false);
 
 let sloganCurrentIndex = 0;
 let sloganHoldTimer: ReturnType<typeof setTimeout> | null = null;
@@ -538,6 +544,15 @@ function clearMapMarkers() {
   mapMarkers = [];
 }
 
+function supportsWebGL() {
+  try {
+    const canvas = document.createElement("canvas");
+    return Boolean(canvas.getContext("webgl2") || canvas.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+
 function renderFootprintPoints(points: { label: string; coords: [number, number] }[]) {
   if (!map || !maplibreglModule || !points.length) return;
   clearMapMarkers();
@@ -565,44 +580,63 @@ function renderFootprintPoints(points: { label: string; coords: [number, number]
 }
 
 onMounted(async () => {
+  isClientMounted.value = true;
   startSloganLoop();
   startSkillsBlinkLoop();
   window.addEventListener("keydown", onWindowKeydown);
 
   if (!mapContainer.value) return;
 
-  maplibreglModule = await import("maplibre-gl");
+  if (!supportsWebGL()) {
+    mapLoadError.value = "当前环境禁用了 WebGL，已自动关闭地图展示";
+    return;
+  }
 
-  map = new maplibreglModule.Map({
-    container: mapContainer.value,
-    style: {
-      version: 8,
-      sources: {
-        osm: {
-          type: "raster",
-          tiles: [
-            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          ],
-          tileSize: 256,
-          attribution: "© OpenStreetMap contributors",
+  try {
+    maplibreglModule = await import("maplibre-gl");
+  } catch (error) {
+    console.warn("[about] failed to import maplibre-gl", error);
+    mapLoadError.value = "地图模块加载失败，已自动关闭地图展示";
+    return;
+  }
+
+  try {
+    map = new maplibreglModule.Map({
+      container: mapContainer.value,
+      style: {
+        version: 8,
+        sources: {
+          osm: {
+            type: "raster",
+            tiles: [
+              "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+              "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+              "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            ],
+            tileSize: 256,
+            attribution: "© OpenStreetMap contributors",
+          },
         },
+        layers: [
+          {
+            id: "osm-base",
+            type: "raster",
+            source: "osm",
+          },
+        ],
       },
-      layers: [
-        {
-          id: "osm-base",
-          type: "raster",
-          source: "osm",
-        },
-      ],
-    },
-    center: [105.0, 34.0],
-    zoom: 3.1,
-    attributionControl: false,
-    dragRotate: false,
-    pitchWithRotate: false,
-  });
+      center: [105.0, 34.0],
+      zoom: 3.1,
+      attributionControl: false,
+      dragRotate: false,
+      pitchWithRotate: false,
+    });
+  } catch (error) {
+    console.warn("[about] failed to initialize maplibre map", error);
+    mapLoadError.value = "当前环境无法创建 WebGL 上下文，已自动关闭地图展示";
+    map = null;
+    return;
+  }
 
   setMapInteractive(false);
 
@@ -610,6 +644,7 @@ onMounted(async () => {
     renderFootprintPoints(footprintPoints.value);
     map?.resize();
     isMapLoaded.value = true;
+    mapLoadError.value = "";
   });
 
   map.on("mouseenter", () => {
@@ -640,12 +675,21 @@ watch(
   },
   { deep: true },
 );
-watch(sloganWords, () => {
-  startSloganLoop();
-});
+watch(
+  sloganWords,
+  (words) => {
+    if (!isClientMounted.value) {
+      sloganWordDisplay.value = words[0] || "";
+      return;
+    }
+    startSloganLoop();
+  },
+  { immediate: true },
+);
 watch(
   () => aboutSkills.value.items.map((item) => item.id).join("|"),
   () => {
+    if (!isClientMounted.value) return;
     startSkillsBlinkLoop();
   },
 );
@@ -709,9 +753,13 @@ onBeforeUnmount(() => {
 
         <article ref="mapCard" class="module-card footprint-card">
           <h2 class="footprint-title">足迹</h2>
-          <div ref="mapContainer" class="footprint-map" />
+          <div ref="mapContainer" class="footprint-map">
+            <div v-if="mapLoadError" class="footprint-fallback">
+              {{ mapLoadError }}
+            </div>
+          </div>
           <p class="footprint-hint">
-            {{ isMapLoaded ? "鼠标移入卡片后可拖拽地图和滚轮缩放" : "地图加载中..." }}
+            {{ mapStatusText }}
           </p>
         </article>
 
@@ -845,12 +893,33 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .about-page {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
   padding: 6.3rem 1rem 2.8rem;
   color: var(--theme-text);
+  overflow-x: clip;
+}
+
+.about-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("/exported_image_sck.svg");
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: fixed;
+  opacity: 0.24;
+  filter: invert(1) contrast(1.08) brightness(1.18);
+  mix-blend-mode: screen;
 }
 
 .about-main {
+  position: relative;
+  z-index: 1;
   width: var(--site-max-width);
   margin: 0 auto;
 }
@@ -1111,6 +1180,22 @@ onBeforeUnmount(() => {
   width: 100%;
   min-height: 23.8rem;
   height: 100%;
+}
+
+.footprint-fallback {
+  width: 100%;
+  height: 100%;
+  min-height: 23.8rem;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.94rem;
+  color: rgba(210, 229, 245, 0.92);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(60, 123, 171, 0.22), transparent 55%),
+    radial-gradient(circle at 80% 75%, rgba(42, 212, 225, 0.14), transparent 52%),
+    linear-gradient(180deg, rgba(5, 14, 24, 0.72) 0%, rgba(3, 9, 17, 0.82) 100%);
 }
 
 .footprint-hint {

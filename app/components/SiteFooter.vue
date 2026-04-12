@@ -37,7 +37,7 @@ const onlineCountEnabled = computed(() => {
   return String(configured || "").trim().toLowerCase() === "true";
 });
 const onlineStatusText = computed(() => {
-  if (onlineSocketState.value === "open") return `当前${onlineCount.value}人在线中`;
+  if (onlineSocketState.value === "open") return `${onlineCount.value}人跟你一起浏览`;
   if (onlineSocketState.value === "error") return "websocket链接失败";
   return "websocket建立中";
 });
