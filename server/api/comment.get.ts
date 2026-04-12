@@ -20,9 +20,7 @@ type CommentListApiResponse = {
   data: CommentApiItem[];
 };
 
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/, "");
-}
+import { backendFetch, logBackendFallback } from "../utils/backendFetch";
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
@@ -37,31 +35,17 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase =
-    runtimeConfig.settingsApiBase ||
-    runtimeConfig.public.settingsApiBase ||
-    "http://127.0.0.1:7878";
-
   try {
-    const response = await $fetch<CommentListApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/comment`,
-      {
-        method: "GET",
-        query: {
-          target_type: targetType,
-          target_id: targetId,
-          status,
-        },
-        timeout: 12000,
-        retry: 1,
-        retryDelay: 250,
+    return await backendFetch<CommentListApiResponse>("/comment", {
+      method: "GET",
+      query: {
+        target_type: targetType,
+        target_id: targetId,
+        status,
       },
-    );
-
-    return response;
+    });
   } catch (error) {
-    console.error("[comment-api] failed to fetch comments", error);
+    logBackendFallback("comment-api", error);
     return { data: [] as CommentApiItem[] };
   }
 });

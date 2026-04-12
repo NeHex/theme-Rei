@@ -66,6 +66,18 @@ const { projects: fetchedProjects } = useProjects();
 const siteHostname = computed(() =>
   resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
 );
+const siteBaseUrl = computed(() => {
+  const configured = String(settings.value.siteUrl || "").trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  return `${requestUrl.protocol}//${requestUrl.host}`;
+});
+
+function toAbsoluteUrl(pathOrUrl: string) {
+  const input = String(pathOrUrl || "").trim();
+  if (!input) return "";
+  if (/^https?:\/\//i.test(input)) return input;
+  return `${siteBaseUrl.value}${input.startsWith("/") ? input : `/${input}`}`;
+}
 
 const fallbackOwnerSpotlight: OwnerSpotlightItem = {
   id: "fallback",
@@ -102,6 +114,67 @@ const homePosts = computed<BlogPost[]>(() =>
     to: `/article/${article.id}`,
   })),
 );
+
+const canonicalUrl = computed(() => siteBaseUrl.value);
+const seoDescription = computed(() => {
+  const featuredPost = homePosts.value[0];
+  if (featuredPost?.summary) return featuredPost.summary.slice(0, 160);
+  return settings.value.siteDesc;
+});
+const ogImage = computed(() => {
+  const fallback = String(settings.value.userHeadpic || "/images/head.jpg").trim();
+  return toAbsoluteUrl(fallback);
+});
+const homeSchema = computed(() => ({
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  name: settings.value.siteTitle,
+  description: seoDescription.value,
+  url: canonicalUrl.value,
+}));
+
+useHead(() => ({
+  title: settings.value.siteTitle,
+  link: [
+    {
+      rel: "canonical",
+      href: canonicalUrl.value,
+    },
+  ],
+  meta: [
+    {
+      name: "description",
+      content: seoDescription.value,
+    },
+    {
+      property: "og:type",
+      content: "website",
+    },
+    {
+      property: "og:title",
+      content: settings.value.siteTitle,
+    },
+    {
+      property: "og:description",
+      content: seoDescription.value,
+    },
+    {
+      property: "og:url",
+      content: canonicalUrl.value,
+    },
+    {
+      property: "og:image",
+      content: ogImage.value,
+    },
+  ],
+  script: [
+    {
+      type: "application/ld+json",
+      key: "home-schema",
+      children: JSON.stringify(homeSchema.value),
+    },
+  ],
+}));
 
 const fallbackDailyRecords: readonly DailyRecord[] = [
   {

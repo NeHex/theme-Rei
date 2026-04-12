@@ -1,9 +1,70 @@
 <script setup lang="ts">
 const { settings } = useSiteSettings();
 const { articles } = useArticles();
+const requestUrl = useRequestURL();
+
+const siteBaseUrl = computed(() => {
+  const configured = String(settings.value.siteUrl || "").trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  return `${requestUrl.protocol}//${requestUrl.host}`;
+});
+const canonicalUrl = computed(() => `${siteBaseUrl.value}/archive`);
+const seoDescription = computed(() => `文章归档与时间线 - ${settings.value.siteDesc}`);
+const ogImage = computed(() => {
+  const input = String(settings.value.userHeadpic || "/images/head.jpg").trim();
+  if (!input) return "";
+  if (/^https?:\/\//i.test(input)) return input;
+  return `${siteBaseUrl.value}${input.startsWith("/") ? input : `/${input}`}`;
+});
+const archiveSchema = computed(() => ({
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  name: `归档 - ${settings.value.siteTitle}`,
+  description: seoDescription.value,
+  url: canonicalUrl.value,
+}));
 
 useHead(() => ({
   title: `归档 - ${settings.value.siteTitle}`,
+  link: [
+    {
+      rel: "canonical",
+      href: canonicalUrl.value,
+    },
+  ],
+  meta: [
+    {
+      name: "description",
+      content: seoDescription.value,
+    },
+    {
+      property: "og:type",
+      content: "website",
+    },
+    {
+      property: "og:title",
+      content: `归档 - ${settings.value.siteTitle}`,
+    },
+    {
+      property: "og:description",
+      content: seoDescription.value,
+    },
+    {
+      property: "og:url",
+      content: canonicalUrl.value,
+    },
+    {
+      property: "og:image",
+      content: ogImage.value,
+    },
+  ],
+  script: [
+    {
+      type: "application/ld+json",
+      key: "archive-schema",
+      children: JSON.stringify(archiveSchema.value),
+    },
+  ],
 }));
 
 const keyword = ref("");

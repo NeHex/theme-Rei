@@ -14,13 +14,13 @@ type PageApiResponse = {
   data: PageApiItem[];
 };
 
-import { backendFetch } from "../utils/backendFetch";
+import { backendFetch, logBackendFallback } from "../utils/backendFetch";
 
 export default defineEventHandler(async () => {
   try {
     return await backendFetch<PageApiResponse>("/page", { method: "GET" });
   } catch (error) {
-    console.error("[page-api] failed to fetch pages", error);
+    logBackendFallback("page-api", error);
     return { data: [] as PageApiItem[] };
   }
 });

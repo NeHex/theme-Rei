@@ -10,32 +10,13 @@ type DailyApiResponse = {
   data: DailyApiItem[];
 };
 
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/, "");
-}
+import { backendFetch, logBackendFallback } from "../utils/backendFetch";
 
 export default defineEventHandler(async () => {
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase =
-    runtimeConfig.settingsApiBase ||
-    runtimeConfig.public.settingsApiBase ||
-    "http://127.0.0.1:7878";
-
   try {
-    const response = await $fetch<DailyApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/daily`,
-      {
-        method: "GET",
-        timeout: 12000,
-        retry: 1,
-        retryDelay: 250,
-      },
-    );
-
-    return response;
+    return await backendFetch<DailyApiResponse>("/daily", { method: "GET" });
   } catch (error) {
-    console.error("[daily-api] failed to fetch dailies", error);
+    logBackendFallback("daily-api", error);
     return { data: [] as DailyApiItem[] };
   }
 });
-

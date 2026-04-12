@@ -15,9 +15,7 @@ type ArticleDetailApiResponse = {
   data: ArticleApiItem;
 };
 
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/, "");
-}
+import { backendFetch, logBackendFallback } from "../../utils/backendFetch";
 
 export default defineEventHandler(async (event) => {
   const articleId = getRouterParam(event, "id");
@@ -28,24 +26,10 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase =
-    runtimeConfig.settingsApiBase ||
-    runtimeConfig.public.settingsApiBase ||
-    "http://127.0.0.1:7878";
-
   try {
-    const response = await $fetch<ArticleDetailApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/article/${articleId}`,
-      {
-        method: "GET",
-        timeout: 12000,
-        retry: 1,
-        retryDelay: 250,
-      },
-    );
-
-    return response;
+    return await backendFetch<ArticleDetailApiResponse>(`/article/${articleId}`, {
+      method: "GET",
+    });
   } catch (error: any) {
     const statusCode = Number(error?.response?.status || error?.statusCode || 500);
     if (statusCode === 404) {
@@ -55,7 +39,7 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    console.error("[article-detail-api] failed to fetch article", error);
+    logBackendFallback("article-detail-api", error);
     throw createError({
       statusCode: 502,
       statusMessage: "Failed to load article",

@@ -127,12 +127,17 @@ const timelineEntries = computed(() =>
 );
 
 const authorName = computed(() => settings.value.userName || settings.value.siteTitle || "站长");
-const authorAvatar = computed(() => settings.value.userHeadpic || "/images/head.jpg");
 
 const siteBaseUrl = computed(() => {
   const configured = String(settings.value.siteUrl || "").trim();
   if (configured) return configured.replace(/\/+$/, "");
   return `${requestUrl.protocol}//${requestUrl.host}`;
+});
+const authorAvatar = computed(() => {
+  const input = String(settings.value.userHeadpic || "/images/head.jpg").trim();
+  if (!input) return "";
+  if (/^https?:\/\//i.test(input)) return input;
+  return `${siteBaseUrl.value}${input.startsWith("/") ? input : `/${input}`}`;
 });
 
 const canonicalUrl = computed(() => `${siteBaseUrl.value}/daily`);
@@ -194,10 +199,27 @@ useHead(() => ({
       property: "og:image",
       content: authorAvatar.value,
     },
+    {
+      name: "twitter:card",
+      content: "summary_large_image",
+    },
+    {
+      name: "twitter:title",
+      content: `日常 - ${settings.value.siteTitle}`,
+    },
+    {
+      name: "twitter:description",
+      content: seoDescription.value,
+    },
+    {
+      name: "twitter:image",
+      content: authorAvatar.value,
+    },
   ],
   script: [
     {
       type: "application/ld+json",
+      key: "daily-schema",
       children: JSON.stringify(dailySchema.value),
     },
   ],

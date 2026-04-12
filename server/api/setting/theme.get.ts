@@ -1,4 +1,4 @@
-import { backendFetch } from "../../utils/backendFetch";
+import { backendFetch, logBackendFallback } from "../../utils/backendFetch";
 
 type ThemeProfile = Record<string, unknown>;
 
@@ -18,7 +18,7 @@ export default defineEventHandler(async () => {
       method: "GET",
     });
   } catch (error) {
-    console.error("[setting-theme-api] failed to fetch theme settings", error);
+    logBackendFallback("setting-theme-api", error);
     return { data: null } satisfies SettingThemeApiResponse;
   }
 });

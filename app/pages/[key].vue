@@ -11,6 +11,9 @@ const RESERVED_STATIC_KEYS = new Set([
   "friends",
   "games",
   "feed",
+  "robots.txt",
+  "favicon.ico",
+  "site.webmanifest",
   "sitemap.xml",
 ]);
 
@@ -137,11 +140,28 @@ useHead(() => ({
       property: "og:image",
       content: ogImage.value,
     },
+    {
+      name: "twitter:card",
+      content: "summary_large_image",
+    },
+    {
+      name: "twitter:title",
+      content: `${pageData.value?.title || "独立页"} - ${settings.value.siteTitle}`,
+    },
+    {
+      name: "twitter:description",
+      content: seoDescription.value,
+    },
+    {
+      name: "twitter:image",
+      content: ogImage.value,
+    },
   ],
   script: pageSchema.value
     ? [
         {
           type: "application/ld+json",
+          key: "single-page-schema",
           children: JSON.stringify(pageSchema.value),
         },
       ]

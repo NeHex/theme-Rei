@@ -6,6 +6,40 @@ type LoaderPhase = "enter" | "loading" | "exit";
 const isRouteLoading = ref(false);
 const loaderPhase = ref<LoaderPhase>("enter");
 const { settings } = useSiteSettings();
+const requestUrl = useRequestURL();
+
+const siteBaseUrl = computed(() => {
+  const configured = String(settings.value.siteUrl || "").trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  return `${requestUrl.protocol}//${requestUrl.host}`;
+});
+
+const defaultOgImage = computed(() => {
+  const raw = String(settings.value.userHeadpic || "/images/head.jpg").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `${siteBaseUrl.value}${raw.startsWith("/") ? raw : `/${raw}`}`;
+});
+
+const websiteSchema = computed(() => {
+  const socialLinks = Object.values(settings.value.userSocialLink || {})
+    .map((item) => String(item || "").trim())
+    .filter((item) => /^https?:\/\//i.test(item));
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: settings.value.siteTitle,
+    url: siteBaseUrl.value,
+    description: settings.value.siteDesc,
+    publisher: {
+      "@type": "Person",
+      name: settings.value.userName || settings.value.siteTitle,
+      image: defaultOgImage.value || undefined,
+      sameAs: socialLinks.length ? socialLinks : undefined,
+    },
+  };
+});
 
 const ENTER_MS = 420;
 const EXIT_MS = 360;
@@ -21,6 +55,46 @@ useHead(() => ({
     {
       name: "description",
       content: settings.value.siteDesc,
+    },
+    {
+      property: "og:site_name",
+      content: settings.value.siteTitle,
+    },
+    {
+      property: "og:type",
+      content: "website",
+    },
+    {
+      property: "og:title",
+      content: settings.value.siteTitle,
+    },
+    {
+      property: "og:description",
+      content: settings.value.siteDesc,
+    },
+    {
+      property: "og:url",
+      content: siteBaseUrl.value,
+    },
+    {
+      property: "og:image",
+      content: defaultOgImage.value,
+    },
+    {
+      name: "twitter:card",
+      content: "summary_large_image",
+    },
+    {
+      name: "twitter:title",
+      content: settings.value.siteTitle,
+    },
+    {
+      name: "twitter:description",
+      content: settings.value.siteDesc,
+    },
+    {
+      name: "twitter:image",
+      content: defaultOgImage.value,
     },
     {
       name: "theme-color",
@@ -56,6 +130,19 @@ useHead(() => ({
     {
       rel: "manifest",
       href: "/site.webmanifest",
+    },
+    {
+      rel: "alternate",
+      type: "application/rss+xml",
+      title: `${settings.value.siteTitle} RSS`,
+      href: `${siteBaseUrl.value}/feed`,
+    },
+  ],
+  script: [
+    {
+      type: "application/ld+json",
+      key: "website-schema",
+      children: JSON.stringify(websiteSchema.value),
     },
   ],
 }));

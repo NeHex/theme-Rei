@@ -11,13 +11,13 @@ type SettingApiResponse = {
   data: SettingApiItem[];
 };
 
-import { backendFetch } from "../utils/backendFetch";
+import { backendFetch, logBackendFallback } from "../utils/backendFetch";
 
 export default defineEventHandler(async () => {
   try {
     return await backendFetch<SettingApiResponse>("/setting", { method: "GET" });
   } catch (error) {
-    console.error("[setting-api] failed to fetch settings", error);
+    logBackendFallback("setting-api", error);
     return { data: [] as SettingApiItem[] };
   }
 });

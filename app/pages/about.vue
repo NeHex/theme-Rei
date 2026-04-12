@@ -3,9 +3,71 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 const { settings } = useSiteSettings();
+const requestUrl = useRequestURL();
+
+const siteBaseUrl = computed(() => {
+  const configured = String(settings.value.siteUrl || "").trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  return `${requestUrl.protocol}//${requestUrl.host}`;
+});
+
+const canonicalUrl = computed(() => `${siteBaseUrl.value}/about`);
+const seoDescription = computed(() => settings.value.userDesc || settings.value.siteDesc);
+const ogImage = computed(() => {
+  const input = String(settings.value.userHeadpic || "/images/head.jpg").trim();
+  if (!input) return "";
+  if (/^https?:\/\//i.test(input)) return input;
+  return `${siteBaseUrl.value}${input.startsWith("/") ? input : `/${input}`}`;
+});
+const aboutSchema = computed(() => ({
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  name: `关于本站 - ${settings.value.siteTitle}`,
+  description: seoDescription.value,
+  url: canonicalUrl.value,
+}));
 
 useHead(() => ({
   title: `关于本站 - ${settings.value.siteTitle}`,
+  link: [
+    {
+      rel: "canonical",
+      href: canonicalUrl.value,
+    },
+  ],
+  meta: [
+    {
+      name: "description",
+      content: seoDescription.value,
+    },
+    {
+      property: "og:type",
+      content: "website",
+    },
+    {
+      property: "og:title",
+      content: `关于本站 - ${settings.value.siteTitle}`,
+    },
+    {
+      property: "og:description",
+      content: seoDescription.value,
+    },
+    {
+      property: "og:url",
+      content: canonicalUrl.value,
+    },
+    {
+      property: "og:image",
+      content: ogImage.value,
+    },
+  ],
+  script: [
+    {
+      type: "application/ld+json",
+      key: "about-schema",
+      children: JSON.stringify(aboutSchema.value),
+    },
+  ],
 }));
 
 const mapCard = ref<HTMLElement | null>(null);

@@ -168,11 +168,28 @@ useHead(() => ({
       property: "og:image",
       content: ogImage.value,
     },
+    {
+      name: "twitter:card",
+      content: "summary_large_image",
+    },
+    {
+      name: "twitter:title",
+      content: `${article.value?.title ?? "文章"} - ${settings.value.siteTitle}`,
+    },
+    {
+      name: "twitter:description",
+      content: seoDescription.value,
+    },
+    {
+      name: "twitter:image",
+      content: ogImage.value,
+    },
   ],
   script: articleSchema.value
     ? [
         {
           type: "application/ld+json",
+          key: "article-schema",
           children: JSON.stringify(articleSchema.value),
         },
       ]

@@ -1,4 +1,4 @@
-import { backendFetch } from "../utils/backendFetch";
+import { backendFetch, logBackendFallback } from "../utils/backendFetch";
 
 type ArticleApiItem = {
   id: number;
@@ -245,7 +245,7 @@ export default defineEventHandler(async (event) => {
       tag_stats: buildTagStats(filtered),
     };
   } catch (error) {
-    console.error("[article-api] failed to fetch articles", error);
+    logBackendFallback("article-api", error);
     return {
       data: [] as ArticleApiItem[],
       pagination: {

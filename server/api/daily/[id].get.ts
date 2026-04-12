@@ -1,4 +1,4 @@
-import { backendFetch } from "../../utils/backendFetch";
+import { backendFetch, logBackendFallback } from "../../utils/backendFetch";
 
 type DailyApiItem = {
   id: number;
@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    console.error("[daily-detail-api] failed to fetch daily", error);
+    logBackendFallback("daily-detail-api", error);
     throw createError({
       statusCode: 502,
       statusMessage: "Failed to load daily",

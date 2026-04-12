@@ -2,12 +2,45 @@
 const websocketFutionEnabled = String(process.env.WEBSOCKET_FUTION || "TRUE")
   .trim()
   .toLowerCase() === "true";
+const prerenderFetchBackend = String(
+  process.env.NUXT_PRERENDER_FETCH_BACKEND || process.env.PRERENDER_FETCH_BACKEND || "false",
+)
+  .trim()
+  .toLowerCase() === "true";
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
   css: ["~/assets/css/base.css"],
+  nitro: {
+    prerender: {
+      routes: ["/", "/about", "/archive", "/friends", "/games"],
+    },
+  },
+  routeRules: {
+    "/": { prerender: true },
+    "/about": { prerender: true },
+    "/archive": { prerender: true },
+    "/friends": { prerender: true },
+    "/games": { prerender: true },
+    "/article": { swr: 300 },
+    "/article/**": { swr: 300 },
+    "/album": { swr: 300 },
+    "/daily": { swr: 300 },
+    "/feed": { swr: 600 },
+    "/robots.txt": { swr: 600 },
+    "/sitemap.xml": { swr: 300 },
+    "/about/": { redirect: { to: "/about", statusCode: 301 } },
+    "/archive/": { redirect: { to: "/archive", statusCode: 301 } },
+    "/friends/": { redirect: { to: "/friends", statusCode: 301 } },
+    "/games/": { redirect: { to: "/games", statusCode: 301 } },
+    "/article/": { redirect: { to: "/article", statusCode: 301 } },
+    "/album/": { redirect: { to: "/album", statusCode: 301 } },
+    "/daily/": { redirect: { to: "/daily", statusCode: 301 } },
+    "/feed/": { redirect: { to: "/feed", statusCode: 301 } },
+  },
   runtimeConfig: {
+    prerenderFetchBackend,
     adminMarkerCookieName:
       process.env.NUXT_ADMIN_MARKER_COOKIE_NAME ||
       process.env.ADMIN_MARKER_COOKIE_NAME ||

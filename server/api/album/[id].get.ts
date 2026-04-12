@@ -13,9 +13,7 @@ type AlbumDetailApiResponse = {
   data: AlbumApiItem;
 };
 
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/, "");
-}
+import { backendFetch, logBackendFallback } from "../../utils/backendFetch";
 
 export default defineEventHandler(async (event) => {
   const albumId = getRouterParam(event, "id");
@@ -26,24 +24,10 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase =
-    runtimeConfig.settingsApiBase ||
-    runtimeConfig.public.settingsApiBase ||
-    "http://127.0.0.1:7878";
-
   try {
-    const response = await $fetch<AlbumDetailApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/album/${albumId}`,
-      {
-        method: "GET",
-        timeout: 12000,
-        retry: 1,
-        retryDelay: 250,
-      },
-    );
-
-    return response;
+    return await backendFetch<AlbumDetailApiResponse>(`/album/${albumId}`, {
+      method: "GET",
+    });
   } catch (error: any) {
     const statusCode = Number(error?.response?.status || error?.statusCode || 500);
     if (statusCode === 404) {
@@ -53,11 +37,10 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    console.error("[album-detail-api] failed to fetch album", error);
+    logBackendFallback("album-detail-api", error);
     throw createError({
       statusCode: 502,
       statusMessage: "Failed to load album",
     });
   }
 });
-

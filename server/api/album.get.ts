@@ -13,13 +13,13 @@ type AlbumApiResponse = {
   data: AlbumApiItem[];
 };
 
-import { backendFetch } from "../utils/backendFetch";
+import { backendFetch, logBackendFallback } from "../utils/backendFetch";
 
 export default defineEventHandler(async () => {
   try {
     return await backendFetch<AlbumApiResponse>("/album", { method: "GET" });
   } catch (error) {
-    console.error("[album-api] failed to fetch albums", error);
+    logBackendFallback("album-api", error);
     return { data: [] as AlbumApiItem[] };
   }
 });

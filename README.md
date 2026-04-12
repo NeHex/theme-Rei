@@ -6,13 +6,20 @@ pm2启动
 
 说明：`pm2` 启动时会自动执行构建，再启动服务（默认端口 `7887`）。
 
+国内网络加速：
+- 项目根目录已内置 `.npmrc`，默认使用 `https://registry.npmmirror.com/`
+- 如需临时切回官方源：`npm config set registry https://registry.npmjs.org/`
+
 环境变量配置（`.env`）
 1. 复制 `.env.example` 为 `.env`
 2. 按需修改 `API_BASE_URL`
+3. 如需在构建阶段预渲染真实后端内容，设置 `NUXT_PRERENDER_FETCH_BACKEND=true`
 
 示例：
 ```env
 API_BASE_URL=http://127.0.0.1:7878
+# 可选：构建时请求后端（默认 false，后端未启动也可稳定构建）
+# NUXT_PRERENDER_FETCH_BACKEND=false
 ```
 
 参考&模仿项目：

@@ -18,31 +18,13 @@ type ProjectApiResponse = {
   data: ProjectApiItem[];
 };
 
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/, "");
-}
+import { backendFetch, logBackendFallback } from "../utils/backendFetch";
 
 export default defineEventHandler(async () => {
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase =
-    runtimeConfig.settingsApiBase ||
-    runtimeConfig.public.settingsApiBase ||
-    "http://127.0.0.1:7878";
-
   try {
-    const response = await $fetch<ProjectApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/project`,
-      {
-        method: "GET",
-        timeout: 12000,
-        retry: 1,
-        retryDelay: 250,
-      },
-    );
-
-    return response;
+    return await backendFetch<ProjectApiResponse>("/project", { method: "GET" });
   } catch (error) {
-    console.error("[project-api] failed to fetch projects", error);
+    logBackendFallback("project-api", error);
     return { data: [] as ProjectApiItem[] };
   }
 });

@@ -1,3 +1,5 @@
+import { logBackendFallback } from "../utils/backendFetch";
+
 type ArticleApiItem = {
   id: number;
   title: string;
@@ -109,7 +111,7 @@ export default defineEventHandler(async (event) => {
       $fetch<SettingApiResponse>("/api/setting"),
     ]);
   } catch (error) {
-    console.error("[feed-route] failed to fetch upstream data", error);
+    logBackendFallback("feed-route", error);
   }
 
   const settingsMap = buildSettingMap(settingResponse.data ?? []);

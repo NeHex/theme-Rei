@@ -1,3 +1,5 @@
+import { logBackendFallback } from "../utils/backendFetch";
+
 type ArticleApiItem = {
   id: number;
   lastEditTime: string;
@@ -131,7 +133,7 @@ export default defineEventHandler(async (event) => {
       $fetch<PageApiResponse>("/api/page"),
     ]);
   } catch (error) {
-    console.error("[sitemap-route] failed to fetch upstream data", error);
+    logBackendFallback("sitemap-route", error);
   }
 
   const settingsMap = buildSettingMap(settingResponse.data ?? []);
@@ -140,7 +142,7 @@ export default defineEventHandler(async (event) => {
   const siteUrl = configuredSiteUrl || fallbackSiteUrl;
 
   const entries = new Map<string, SitemapEntry>();
-  const staticRoutes = ["/", "/about", "/article", "/archive", "/album", "/friends", "/games"];
+  const staticRoutes = ["/", "/about", "/article", "/archive", "/album", "/daily", "/friends", "/games", "/feed"];
 
   for (const path of staticRoutes) {
     mergeEntry(entries, path);
