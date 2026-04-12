@@ -5,7 +5,6 @@ const route = useRoute();
 const runtimeConfig = useRuntimeConfig();
 const requestUrl = useRequestURL();
 const { settings } = useSiteSettings();
-const { pages: singlePages } = useSinglePages();
 const adminMarkerCookieName = String(runtimeConfig.public.adminMarkerCookieName || "nehex_admin_marker")
   .trim() || "nehex_admin_marker";
 
@@ -22,10 +21,52 @@ const feedHref = computed(() => {
   return candidate;
 });
 
-const dropdownLinks = computed(() => settings.value.themeNav);
-const singlePageLinks = computed(() =>
-  singlePages.value.map((page) => ({ label: page.title, to: page.to })),
-);
+type MenuLink = {
+  id: string;
+  label: string;
+  to: string;
+  external: boolean;
+};
+
+function normalizeMenuLink(input: { label?: string; to?: string }): MenuLink | null {
+  const label = String(input.label || "").trim();
+  const to = String(input.to || "").trim();
+  if (!label || !to) return null;
+
+  const normalizedTo = to.startsWith("/") || /^https?:\/\//i.test(to)
+    ? to
+    : `/${to.replace(/^\/+/, "")}`;
+
+  return {
+    id: `${label}::${normalizedTo}`,
+    label,
+    to: normalizedTo,
+    external: isExternalSiteLink(normalizedTo, siteHostname.value),
+  };
+}
+
+function dedupeMenuLinks(items: MenuLink[]) {
+  const seen = new Set<string>();
+  const result: MenuLink[] = [];
+
+  for (const item of items) {
+    const routeKey = item.to.toLowerCase().replace(/\/+$/, "") || "/";
+    if (seen.has(routeKey)) continue;
+    seen.add(routeKey);
+    result.push(item);
+  }
+
+  return result;
+}
+
+const dropdownLinks = computed<MenuLink[]>(() => {
+  const source = Array.isArray(settings.value.themeNav) ? settings.value.themeNav : [];
+  const normalized = source
+    .map((item) => normalizeMenuLink({ label: item.label, to: item.to }))
+    .filter((item): item is MenuLink => Boolean(item));
+
+  return dedupeMenuLinks(normalized);
+});
 const adminMarkerCookie = useCookie<string>(adminMarkerCookieName, {
   sameSite: "lax",
   default: () => "",
@@ -38,17 +79,17 @@ const adminConsoleUrl = computed(() => {
   return `/${configuredUrl.replace(/^\/+/, "")}`;
 });
 const hasAdminMarker = computed(() => Boolean(String(adminMarkerCookie.value || "").trim()));
-const moreDropdownLinks = computed(() => {
-  const baseLinks = [...singlePageLinks.value, ...dropdownLinks.value];
+const moreDropdownLinks = computed<MenuLink[]>(() => {
+  const baseLinks = [...dropdownLinks.value];
   if (!hasAdminMarker.value) return baseLinks;
 
-  const consoleLink = {
+  const consoleLink = normalizeMenuLink({
     label: "站长控制台",
     to: adminConsoleUrl.value,
-  };
-  const duplicated = baseLinks.some((item) => item.label === consoleLink.label || item.to === consoleLink.to);
-  if (duplicated) return baseLinks;
-  return [consoleLink, ...baseLinks];
+  });
+  if (!consoleLink) return baseLinks;
+
+  return dedupeMenuLinks([consoleLink, ...baseLinks]);
 });
 const siteHostname = computed(() =>
   resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
@@ -190,9 +231,9 @@ watch(
                 aria-hidden="true"
               />
 
-              <template v-for="(item, index) in moreDropdownLinks" :key="`${item.label}-${item.to}-${index}`">
+              <template v-for="(item, index) in moreDropdownLinks" :key="item.id">
                 <a
-                  v-if="isExternalLink(item.to)"
+                  v-if="item.external"
                   :href="item.to"
                   class="dropdown-link external-link"
                   target="_blank"
@@ -331,9 +372,9 @@ watch(
             </div>
             <Transition name="mobile-submenu">
               <div v-if="isMobileMoreSubmenuOpen && moreDropdownLinks.length" class="mobile-submenu">
-                <template v-for="(item, index) in moreDropdownLinks" :key="`${item.label}-${item.to}-${index}`">
+                <template v-for="item in moreDropdownLinks" :key="item.id">
                   <a
-                    v-if="isExternalLink(item.to)"
+                    v-if="item.external"
                     :href="item.to"
                     class="mobile-submenu-link external-link"
                     target="_blank"
