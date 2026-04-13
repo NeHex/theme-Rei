@@ -2,6 +2,8 @@
 type DragState = {
   pieceId: number;
   pointerId: number;
+  source: "bank" | "slot";
+  sourceSlotIndex: number | null;
   x: number;
   y: number;
 };
@@ -30,6 +32,8 @@ const allPieceIds = Array.from({ length: TOTAL_PIECES }, (_, index) => index + 1
 const missingSlotIndexes = ref<number[]>([]);
 const slotPieces = ref<Array<number | null>>([]);
 const cardOrder = ref<number[]>([]);
+const initialSlotPieces = ref<Array<number | null>>([]);
+const initialCardOrder = ref<number[]>([]);
 const dragState = ref<DragState | null>(null);
 const solved = ref(false);
 const feedbackType = ref<"" | "success" | "error">("");
@@ -95,8 +99,12 @@ function setupChallenge() {
 
   const missing = pickMissingSlots();
   missingSlotIndexes.value = missing;
-  slotPieces.value = allPieceIds.map((pieceId, slotIndex) => (missing.includes(slotIndex) ? null : pieceId));
-  cardOrder.value = shuffle(missing.map((slotIndex) => slotIndex + 1));
+  const nextSlotPieces = allPieceIds.map((pieceId, slotIndex) => (missing.includes(slotIndex) ? null : pieceId));
+  const nextCardOrder = shuffle(missing.map((slotIndex) => slotIndex + 1));
+  slotPieces.value = nextSlotPieces;
+  cardOrder.value = nextCardOrder;
+  initialSlotPieces.value = [...nextSlotPieces];
+  initialCardOrder.value = [...nextCardOrder];
 }
 
 function closeModal() {
@@ -161,7 +169,21 @@ function placePiece(slotIndex: number, pieceId: number) {
   evaluateSolved();
 }
 
-function removePiece(slotIndex: number) {
+function movePiece(fromSlotIndex: number, toSlotIndex: number) {
+  if (solved.value) return;
+  if (!isMissingSlot(fromSlotIndex) || !isMissingSlot(toSlotIndex)) return;
+  if (fromSlotIndex === toSlotIndex) return;
+  if (getSlotPiece(fromSlotIndex) === null || getSlotPiece(toSlotIndex) !== null) return;
+
+  const next = [...slotPieces.value];
+  next[toSlotIndex] = next[fromSlotIndex];
+  next[fromSlotIndex] = null;
+  slotPieces.value = next;
+  clearFeedback();
+  evaluateSolved();
+}
+
+function removePieceToBank(slotIndex: number) {
   if (solved.value) return;
   if (!isMissingSlot(slotIndex)) return;
   if (getSlotPiece(slotIndex) === null) return;
@@ -169,10 +191,6 @@ function removePiece(slotIndex: number) {
   next[slotIndex] = null;
   slotPieces.value = next;
   clearFeedback();
-}
-
-function handleSlotClick(slotIndex: number) {
-  removePiece(slotIndex);
 }
 
 function resolveDropSlotIndex(clientX: number, clientY: number) {
@@ -187,7 +205,14 @@ function resolveDropSlotIndex(clientX: number, clientY: number) {
   return parsed;
 }
 
-function beginDrag(pieceId: number, event: PointerEvent) {
+function resolveDropBank(clientX: number, clientY: number) {
+  if (!import.meta.client) return false;
+  const target = document.elementFromPoint(clientX, clientY);
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest<HTMLElement>("[data-drop-bank='1']"));
+}
+
+function beginDragFromBank(pieceId: number, event: PointerEvent) {
   if (solved.value) return;
   if (!import.meta.client) return;
   if (isPiecePlaced(pieceId)) return;
@@ -206,6 +231,40 @@ function beginDrag(pieceId: number, event: PointerEvent) {
   dragState.value = {
     pieceId,
     pointerId: event.pointerId,
+    source: "bank",
+    sourceSlotIndex: null,
+    x: event.clientX,
+    y: event.clientY,
+  };
+
+  window.addEventListener("pointermove", handlePointerMove, { passive: true });
+  window.addEventListener("pointerup", handlePointerUp, { passive: true });
+  window.addEventListener("pointercancel", handlePointerCancel, { passive: true });
+}
+
+function beginDragFromSlot(slotIndex: number, event: PointerEvent) {
+  if (solved.value) return;
+  if (!import.meta.client) return;
+  if (!isMissingSlot(slotIndex)) return;
+  const pieceId = getSlotPiece(slotIndex);
+  if (!pieceId) return;
+  if (dragState.value) return;
+
+  const target = event.currentTarget;
+  if (target instanceof HTMLElement) {
+    dragCaptureEl = target;
+    try {
+      target.setPointerCapture(event.pointerId);
+    } catch {
+      // no-op
+    }
+  }
+
+  dragState.value = {
+    pieceId,
+    pointerId: event.pointerId,
+    source: "slot",
+    sourceSlotIndex: slotIndex,
     x: event.clientX,
     y: event.clientY,
   };
@@ -229,8 +288,12 @@ function handlePointerUp(event: PointerEvent) {
   const state = dragState.value;
   if (!state || state.pointerId !== event.pointerId) return;
   const slotIndex = resolveDropSlotIndex(event.clientX, event.clientY);
-  if (slotIndex >= 0) {
+  if (slotIndex >= 0 && state.source === "bank") {
     placePiece(slotIndex, state.pieceId);
+  } else if (slotIndex >= 0 && state.source === "slot" && state.sourceSlotIndex !== null) {
+    movePiece(state.sourceSlotIndex, slotIndex);
+  } else if (state.source === "slot" && state.sourceSlotIndex !== null && resolveDropBank(event.clientX, event.clientY)) {
+    removePieceToBank(state.sourceSlotIndex);
   }
   cleanupDrag();
 }
@@ -248,6 +311,15 @@ function handleEscape(event: KeyboardEvent) {
 
 function refreshChallenge() {
   setupChallenge();
+}
+
+function resetChallenge() {
+  clearSolvedTimer();
+  cleanupDrag();
+  solved.value = false;
+  clearFeedback();
+  slotPieces.value = [...initialSlotPieces.value];
+  cardOrder.value = [...initialCardOrder.value];
 }
 
 watch(
@@ -308,8 +380,12 @@ onBeforeUnmount(() => {
                   }"
                   :data-drop-slot="isMissingSlot(slotIndex - 1) ? '1' : undefined"
                   :data-slot-index="isMissingSlot(slotIndex - 1) ? String(slotIndex - 1) : undefined"
-                  :title="isMissingSlot(slotIndex - 1) ? '点击可撤回该图块' : undefined"
-                  @click="handleSlotClick(slotIndex - 1)"
+                  :disabled="!isMissingSlot(slotIndex - 1)"
+                  @pointerdown.prevent="
+                    isMissingSlot(slotIndex - 1) && getSlotPiece(slotIndex - 1)
+                      ? beginDragFromSlot(slotIndex - 1, $event)
+                      : undefined
+                  "
                 >
                   <img
                     v-if="getSlotPiece(slotIndex - 1)"
@@ -325,7 +401,7 @@ onBeforeUnmount(() => {
 
             <article class="captcha-panel">
               <h4>拖动图块</h4>
-              <div class="captcha-card-list">
+              <div class="captcha-card-grid" data-drop-bank="1">
                 <button
                   v-for="pieceId in cardOrder"
                   :key="`card-${pieceId}`"
@@ -333,7 +409,7 @@ onBeforeUnmount(() => {
                   class="captcha-card"
                   :class="{ 'is-used': isPiecePlaced(pieceId) }"
                   :disabled="isPiecePlaced(pieceId) || solved"
-                  @pointerdown.prevent="beginDrag(pieceId, $event)"
+                  @pointerdown.prevent="beginDragFromBank(pieceId, $event)"
                   @dragstart.prevent
                 >
                   <img
@@ -342,17 +418,17 @@ onBeforeUnmount(() => {
                     draggable="false"
                     @dragstart.prevent
                   >
-                  <span>{{ isPiecePlaced(pieceId) ? "已放置" : "拖动到中间" }}</span>
                 </button>
               </div>
             </article>
           </div>
 
-          <p class="captcha-feedback" :class="feedbackType ? `is-${feedbackType}` : ''">
-            {{ feedbackText || "将右侧图块拖入中间缺失位置，全部正确后自动验证。" }}
+          <p v-if="feedbackText" class="captcha-feedback" :class="feedbackType ? `is-${feedbackType}` : ''">
+            {{ feedbackText }}
           </p>
 
           <footer class="captcha-foot">
+            <button type="button" class="captcha-reset" :disabled="solved" @click="resetChallenge">重置</button>
             <button type="button" class="captcha-refresh" :disabled="solved" @click="refreshChallenge">换一组</button>
           </footer>
 
@@ -457,6 +533,7 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   padding: 0;
+  touch-action: none;
 }
 
 .captcha-slot.is-missing {
@@ -469,9 +546,14 @@ onBeforeUnmount(() => {
 .captcha-slot.is-missing.is-filled {
   border-style: solid;
   border-color: rgba(124, 224, 248, 0.74);
+  cursor: grab;
 }
 
 .captcha-slot.is-fixed {
+  cursor: default;
+}
+
+.captcha-slot:disabled {
   cursor: default;
 }
 
@@ -489,28 +571,30 @@ onBeforeUnmount(() => {
   font-size: 0.74rem;
 }
 
-.captcha-card-list {
+.captcha-card-grid {
   margin-top: 0.52rem;
   display: grid;
-  gap: 0.36rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.16rem;
+  border: 1px dashed rgba(134, 202, 236, 0.28);
+  border-radius: 0.46rem;
+  padding: 0.16rem;
 }
 
 .captcha-card {
   width: 100%;
-  display: grid;
-  grid-template-columns: 3.2rem minmax(0, 1fr);
-  align-items: center;
-  gap: 0.58rem;
+  aspect-ratio: 1 / 1;
+  display: block;
   border: 1px solid rgba(135, 197, 228, 0.34);
-  border-radius: 0.56rem;
+  border-radius: 0.44rem;
   background: rgba(12, 31, 50, 0.82);
-  color: rgba(226, 241, 252, 0.94);
-  min-height: 3.4rem;
-  padding: 0.34rem 0.44rem;
+  min-height: 0;
+  padding: 0;
   cursor: grab;
   touch-action: none;
   user-select: none;
   -webkit-touch-callout: none;
+  overflow: hidden;
 }
 
 .captcha-card:disabled {
@@ -530,12 +614,6 @@ onBeforeUnmount(() => {
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
-}
-
-.captcha-card span {
-  text-align: left;
-  font-size: 0.8rem;
-  line-height: 1.45;
 }
 
 .captcha-feedback {
@@ -565,6 +643,22 @@ onBeforeUnmount(() => {
   margin-top: 0.7rem;
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.captcha-reset {
+  border: 1px solid rgba(150, 203, 229, 0.36);
+  border-radius: 0.58rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(228, 242, 252, 0.95);
+  min-height: 1.9rem;
+  padding: 0 0.72rem;
+  cursor: pointer;
+}
+
+.captcha-reset:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .captcha-refresh {
@@ -636,9 +730,9 @@ onBeforeUnmount(() => {
     padding: 0.78rem;
   }
 
-  .captcha-card {
-    grid-template-columns: 3rem minmax(0, 1fr);
-    min-height: 3.2rem;
+  .captcha-card-grid {
+    gap: 0.14rem;
+    padding: 0.14rem;
   }
 }
 </style>
