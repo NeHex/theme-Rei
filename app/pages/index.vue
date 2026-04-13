@@ -1468,6 +1468,7 @@ onBeforeUnmount(() => {
   background-position: center top;
   background-repeat: repeat-y;
   background-size: 100% auto;
+  background-attachment: fixed;
   opacity: var(--content-grid-opacity);
   filter: invert(1) brightness(1.2) contrast(1.08);
 }
