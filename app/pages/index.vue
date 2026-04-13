@@ -803,7 +803,7 @@ onBeforeUnmount(() => {
                   <path d="M6.4 10a6.2 6.2 0 0 1 10.25-2.18L20 10" />
                   <path d="M17.6 14a6.2 6.2 0 0 1-10.25 2.18L4 14" />
                 </svg>
-                <span>换一批</span>
+                <span>换一换</span>
               </button>
             </div>
 
@@ -829,7 +829,7 @@ onBeforeUnmount(() => {
             <span>博客文章</span>
           </h2>
           <p class="blog-subtitle">
-            Just For Interesting
+            Blog Article.
           </p>
         </div>
 
@@ -872,7 +872,7 @@ onBeforeUnmount(() => {
             <span>日常记录</span>
           </h2>
           <p class="journal-subtitle">
-            我们所度过的每个平凡的日常，也许就是连续发生的奇迹
+            Daily Record.
           </p>
         </div>
 
@@ -903,7 +903,7 @@ onBeforeUnmount(() => {
             <span>美图相册</span>
           </h2>
           <p class="photo-subtitle">
-            把所有的美丽分享给你
+            Beautifual Album.
           </p>
         </div>
 
@@ -935,7 +935,7 @@ onBeforeUnmount(() => {
             <span>我的项目</span>
           </h2>
           <p class="project-subtitle">
-            近期实践与正在迭代的工具
+            My Project.
           </p>
         </div>
 

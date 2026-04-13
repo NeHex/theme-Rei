@@ -395,7 +395,7 @@ onBeforeUnmount(() => {
           <p class="archive-caption">时间线</p>
           <h1>
             <span>{{ isClientReady ? animatedMetrics.total : totalCount }}</span>
-            <small>篇，再接再厉</small>
+            <small>篇</small>
           </h1>
 
           <div class="archive-stats">
@@ -405,7 +405,7 @@ onBeforeUnmount(() => {
             </article>
             <article>
               <strong>{{ isClientReady ? `${animatedMetrics.yearProgress}%` : `${yearProgress}%` }}</strong>
-              <span>年度进度</span>
+              <span>今年进度</span>
             </article>
             <article>
               <strong>{{ isClientReady ? `${animatedMetrics.todayProgress}%` : `${todayProgress}%` }}</strong>
@@ -413,7 +413,7 @@ onBeforeUnmount(() => {
             </article>
           </div>
 
-          <p class="archive-quote">活在当下，珍惜眼下</p>
+          <p class="archive-quote">Before was was,was was is</p>
         </div>
 
         <label class="archive-search" aria-label="搜索文章">
@@ -429,7 +429,7 @@ onBeforeUnmount(() => {
         <article v-for="(group, groupIndex) in groupedByYear" :key="group.year" class="year-group">
           <header class="year-head">
             <h2>{{ isClientReady ? (animatedYearMap[group.year] || String(group.year)) : group.year }}</h2>
-            <span>{{ group.entries.length }} entries</span>
+            <span>{{ group.entries.length }} 篇文章</span>
           </header>
 
           <div class="year-entries">

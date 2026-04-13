@@ -693,7 +693,7 @@ onBeforeUnmount(() => {
         <input v-model="draftEmail" type="email" class="comment-input" placeholder="邮箱（选填）" maxlength="255" />
         <input v-model="draftWebsite" type="url" class="comment-input comment-input-full" placeholder="网站（选填）" maxlength="255" />
       </div>
-      <p v-else class="comment-admin-hint">欢迎回来，站长</p>
+      <p v-else class="comment-admin-hint">欢迎回来，主人</p>
 
       <div class="comment-textarea-wrap">
         <textarea

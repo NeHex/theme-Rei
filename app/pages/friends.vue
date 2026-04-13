@@ -89,7 +89,7 @@ const STATUS_META: Record<FriendStatus, FriendGroupMeta> = {
   },
   blocked: {
     label: "屏蔽友链",
-    description: "已屏蔽，不在导航推荐",
+    description: "不符规则的站点。",
   },
 };
 
@@ -347,7 +347,7 @@ onBeforeUnmount(() => {
       <section class="friends-hero">
         <h1 class="friends-title">友链</h1>
         <p class="friends-subtitle">
-          记录一路同行的朋友们，愿每次点击都能遇见新的灵感。
+          莫愁前路无知己，天下谁人不识君。
         </p>
       </section>
 
@@ -418,14 +418,14 @@ onBeforeUnmount(() => {
               :alt="`${localSiteInfo.title} 图标`"
             >
             <div class="local-site-meta">
-              <h3>{{ localSiteInfo.title }}</h3>
+              <h3>站点标题: {{ localSiteInfo.title }}</h3>
               <a
                 :href="localSiteInfo.url"
                 :class="{ 'external-link': isExternalLink(localSiteInfo.url) }"
                 :target="isExternalLink(localSiteInfo.url) ? '_blank' : undefined"
                 :rel="isExternalLink(localSiteInfo.url) ? 'noopener noreferrer' : undefined"
-              >{{ localSiteInfo.url }}</a>
-              <p>{{ localSiteInfo.description }}</p>
+              >站点链接: {{ localSiteInfo.url }}</a>
+              <p>站点描述: {{ localSiteInfo.description }}</p>
             </div>
           </div>
         </article>
@@ -442,7 +442,7 @@ onBeforeUnmount(() => {
       <section class="friends-comment-shell">
         <header class="friends-comment-head">
           <h2>留言评论</h2>
-          <p>欢迎留下你的看法与建议。</p>
+          <p>可以在本页留下需要修改的站点或者意见哦</p>
         </header>
         <CommentSection
           :target-type="FRIENDS_COMMENT_TARGET_TYPE"
