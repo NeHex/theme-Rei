@@ -2,8 +2,6 @@
 type DragState = {
   pieceId: number;
   pointerId: number;
-  pointerOffsetX: number;
-  pointerOffsetY: number;
   x: number;
   y: number;
 };
@@ -184,17 +182,11 @@ function beginDrag(pieceId: number, event: PointerEvent) {
   if (isPiecePlaced(pieceId)) return;
   if (dragState.value) return;
 
-  const target = event.currentTarget;
-  if (!(target instanceof HTMLElement)) return;
-  const rect = target.getBoundingClientRect();
-
   dragState.value = {
     pieceId,
     pointerId: event.pointerId,
-    pointerOffsetX: event.clientX - rect.left,
-    pointerOffsetY: event.clientY - rect.top,
-    x: event.clientX - (event.clientX - rect.left),
-    y: event.clientY - (event.clientY - rect.top),
+    x: event.clientX,
+    y: event.clientY,
   };
 
   window.addEventListener("pointermove", handlePointerMove, { passive: true });
@@ -207,8 +199,8 @@ function handlePointerMove(event: PointerEvent) {
   if (!state || state.pointerId !== event.pointerId) return;
   dragState.value = {
     ...state,
-    x: event.clientX - state.pointerOffsetX,
-    y: event.clientY - state.pointerOffsetY,
+    x: event.clientX,
+    y: event.clientY,
   };
 }
 
@@ -279,15 +271,6 @@ onBeforeUnmount(() => {
         </header>
 
         <div class="captcha-layout">
-          <article class="captcha-panel">
-            <h4>完整图</h4>
-            <div class="captcha-grid is-preview">
-              <div v-for="pieceId in allPieceIds" :key="`preview-${pieceId}`" class="captcha-slot is-fixed">
-                <img :src="pieceSrc(pieceId)" :alt="`验证码图块 ${pieceId}`" draggable="false">
-              </div>
-            </div>
-          </article>
-
           <article class="captcha-panel">
             <h4>拼图区</h4>
             <div class="captcha-grid">
@@ -407,15 +390,15 @@ onBeforeUnmount(() => {
 .captcha-layout {
   margin-top: 0.92rem;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.72rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.62rem;
 }
 
 .captcha-panel {
   border-radius: 0.82rem;
   border: 1px solid rgba(120, 182, 213, 0.22);
   background: rgba(7, 17, 31, 0.78);
-  padding: 0.7rem;
+  padding: 0.62rem;
 }
 
 .captcha-panel h4 {
@@ -425,10 +408,10 @@ onBeforeUnmount(() => {
 }
 
 .captcha-grid {
-  margin-top: 0.58rem;
+  margin-top: 0.52rem;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.38rem;
+  gap: 0.16rem;
 }
 
 .captcha-slot {
@@ -475,9 +458,9 @@ onBeforeUnmount(() => {
 }
 
 .captcha-card-list {
-  margin-top: 0.58rem;
+  margin-top: 0.52rem;
   display: grid;
-  gap: 0.45rem;
+  gap: 0.36rem;
 }
 
 .captcha-card {
@@ -494,6 +477,8 @@ onBeforeUnmount(() => {
   padding: 0.34rem 0.44rem;
   cursor: grab;
   touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .captcha-card:disabled {
@@ -567,14 +552,14 @@ onBeforeUnmount(() => {
 .captcha-drag-ghost {
   position: fixed;
   z-index: 6;
-  width: 4rem;
-  height: 4rem;
+  width: 3.6rem;
+  height: 3.6rem;
   border-radius: 0.46rem;
   border: 1px solid rgba(131, 214, 239, 0.74);
   box-shadow: 0 14px 24px rgba(0, 0, 0, 0.36);
   pointer-events: none;
   overflow: hidden;
-  transform: translate(0, 0);
+  transform: translate(-50%, -50%);
 }
 
 .captcha-drag-ghost img {
