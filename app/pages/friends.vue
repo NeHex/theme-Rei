@@ -180,6 +180,7 @@ const applyModalVisible = ref(false);
 const applyStep = ref<FriendApplyStep>(1);
 const applyRequirementChecked = ref(false);
 const applySubmitting = ref(false);
+const applyCaptchaVisible = ref(false);
 const applyFeedback = ref("");
 const applyFeedbackType = ref<"success" | "error" | "">("");
 
@@ -226,6 +227,7 @@ function resetApplyDialog() {
   applyStep.value = 1;
   applyRequirementChecked.value = false;
   applySubmitting.value = false;
+  applyCaptchaVisible.value = false;
   applyFeedback.value = "";
   applyFeedbackType.value = "";
   applyForm.siteTitle = "";
@@ -241,6 +243,7 @@ function openApplyDialog() {
 
 function closeApplyDialog() {
   applyModalVisible.value = false;
+  applyCaptchaVisible.value = false;
 }
 
 function goApplyStepTwo() {
@@ -256,7 +259,14 @@ function goApplyStepOne() {
   applyFeedbackType.value = "";
 }
 
-async function submitFriendApply() {
+function submitFriendApply() {
+  if (!canApplySubmit.value || applySubmitting.value || applyCaptchaVisible.value) return;
+  applyFeedback.value = "";
+  applyFeedbackType.value = "";
+  applyCaptchaVisible.value = true;
+}
+
+async function submitFriendApplyNow() {
   if (!canApplySubmit.value || applySubmitting.value) return;
   applySubmitting.value = true;
   applyFeedback.value = "";
@@ -284,6 +294,11 @@ async function submitFriendApply() {
   }
 }
 
+function handleFriendApplyCaptchaVerified() {
+  applyCaptchaVisible.value = false;
+  void submitFriendApplyNow();
+}
+
 function onApplyDialogKeydown(event: KeyboardEvent) {
   if (event.key === "Escape" && applyModalVisible.value) {
     closeApplyDialog();
@@ -300,6 +315,9 @@ watch(applyModalVisible, (visible) => {
   if (!visible && isApplyModalLocked.value) {
     unlockScroll();
     isApplyModalLocked.value = false;
+  }
+  if (!visible) {
+    applyCaptchaVisible.value = false;
   }
 });
 
@@ -537,15 +555,22 @@ onBeforeUnmount(() => {
               v-else
               type="button"
               class="friend-apply-btn friend-apply-btn-primary"
-              :disabled="!canApplySubmit || applySubmitting"
+              :disabled="!canApplySubmit || applySubmitting || applyCaptchaVisible"
               @click="submitFriendApply"
             >
-              {{ applySubmitting ? "提交中..." : "提交申请" }}
+              {{ applySubmitting ? "提交中..." : applyCaptchaVisible ? "验证中..." : "提交申请" }}
             </button>
           </footer>
         </article>
       </div>
     </Transition>
+
+    <DragPuzzleCaptcha
+      v-model="applyCaptchaVisible"
+      title="友链提交验证"
+      description="请将右侧缺失图块拖入中间九宫格，顺序正确后自动提交友链申请。"
+      @verified="handleFriendApplyCaptchaVerified"
+    />
   </div>
 </template>
 
@@ -1091,21 +1116,90 @@ onBeforeUnmount(() => {
 
 @media (max-width: 760px) {
   .friends-page {
-    margin-top:2em;
+    margin-top: 0;
     padding: 5.9rem 0.68rem 2.8rem;
   }
 
+  .friend-apply-entry {
+    gap: 0.72rem;
+  }
+
+  .local-site-card {
+    padding: 0.84rem;
+  }
+
+  .local-site-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.36rem;
+  }
+
+  .local-site-head span {
+    height: auto;
+    padding: 0.18rem 0.46rem;
+  }
+
   .local-site-main {
-    align-items: stretch;
+    align-items: start;
+    grid-template-columns: 3.4rem minmax(0, 1fr);
+    gap: 0.68rem;
+  }
+
+  .local-site-icon {
+    width: 3.4rem;
+    height: 3.4rem;
+    border-radius: 0.62rem;
+  }
+
+  .local-site-meta h3 {
+    font-size: 0.94rem;
+  }
+
+  .local-site-meta a {
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+
+  .local-site-meta p {
+    margin-top: 0.34rem;
+    font-size: 0.82rem;
+    line-height: 1.52;
   }
 
   .friend-apply-open-btn {
     width: 100%;
+    min-height: 2.7rem;
+    font-size: 0.9rem;
+  }
+
+  .friend-apply-modal-mask {
+    padding: 0.62rem;
+    align-items: flex-end;
   }
 
   .friend-apply-modal {
-    width: min(96vw, 34rem);
-    padding: 0.9rem 0.85rem;
+    width: 100%;
+    max-height: calc(100svh - 1.24rem);
+    overflow-y: auto;
+    padding: 0.9rem 0.82rem;
+  }
+
+  .friend-apply-modal-head {
+    align-items: flex-start;
+  }
+
+  .friend-apply-modal-actions {
+    position: sticky;
+    bottom: -0.1rem;
+    margin-top: 0.76rem;
+    padding-top: 0.46rem;
+    background: linear-gradient(180deg, rgba(8, 19, 34, 0), rgba(8, 19, 34, 0.96) 32%);
+    backdrop-filter: blur(8px);
+  }
+
+  .friend-apply-btn {
+    flex: 1 1 calc(50% - 0.3rem);
+    min-height: 2.2rem;
   }
 
   .friends-grid {

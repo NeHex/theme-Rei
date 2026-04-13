@@ -822,6 +822,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="content-fade">
+      <div class="content-grid-bg" aria-hidden="true" />
       <div ref="blogShellRef" id="blog" class="blog-shell section-shell">
         <div class="blog-heading">
           <h2 class="blog-title">
@@ -1431,6 +1432,7 @@ onBeforeUnmount(() => {
   --section-width: min(92%, 1560px);
   --fade-lead: clamp(9rem, 20vh, 16rem);
   --blog-shell-top-space: 5.6rem;
+  --content-grid-opacity: 0.34;
   margin-top: 0;
   padding-top: 0;
   min-height: 130vh;
@@ -1454,20 +1456,20 @@ onBeforeUnmount(() => {
   z-index: 2;
 }
 
-.content-fade::after {
-  content: "";
+.content-grid-bg {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   top: var(--blog-shell-top-space);
+  z-index: 1;
   pointer-events: none;
   background-image: url("/exported_image_sck.svg");
-  background-position: center center;
-  background-repeat: no-repeat;
-  background-size: cover;
-  opacity: 0.18;
-  z-index: 1;
+  background-position: center top;
+  background-repeat: repeat-y;
+  background-size: 100% auto;
+  opacity: var(--content-grid-opacity);
+  filter: invert(1) brightness(1.2) contrast(1.08);
 }
 
 .section-shell {
@@ -2474,6 +2476,7 @@ onBeforeUnmount(() => {
 
   .content-fade {
     --blog-shell-top-space: 4.2rem;
+    --content-grid-opacity: 0.26;
   }
 
   .blog-shell {

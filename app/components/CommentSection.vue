@@ -98,6 +98,7 @@ const activeMemeGroupKey = ref("");
 const isSending = ref(false);
 const sendError = ref("");
 const likeError = ref("");
+const commentCaptchaVisible = ref(false);
 const gravatarCache = new Map<string, string>();
 const { settings } = useSiteSettings();
 const { owner: siteOwner } = useSiteOwner();
@@ -508,7 +509,15 @@ async function loadComments() {
   }
 }
 
-async function handleSubmit() {
+function handleSubmit() {
+  if (isSending.value || !canLoad.value || commentCaptchaVisible.value) return;
+  if (!draftContent.value.trim()) return;
+  sendError.value = "";
+  closeMemePanel();
+  commentCaptchaVisible.value = true;
+}
+
+async function submitCommentNow() {
   if (isSending.value || !canLoad.value) return;
 
   const content = draftContent.value.trim();
@@ -567,12 +576,16 @@ async function handleSubmit() {
       draftWebsite.value = "";
     }
     replyTo.value = null;
-
   } catch (error: any) {
     sendError.value = String(error?.statusMessage || "评论提交失败");
   } finally {
     isSending.value = false;
   }
+}
+
+function handleCommentCaptchaVerified() {
+  commentCaptchaVisible.value = false;
+  void submitCommentNow();
 }
 
 async function handleLike(comment: CommentViewItem) {
@@ -748,14 +761,21 @@ onBeforeUnmount(() => {
 
       <div class="comment-editor-foot">
         <p class="comment-tip"></p>
-        <button class="comment-submit" type="submit" :disabled="!draftContent.trim() || isSending">
-          {{ isSending ? "发送中..." : "发送评论" }}
+        <button class="comment-submit" type="submit" :disabled="!draftContent.trim() || isSending || commentCaptchaVisible">
+          {{ isSending ? "发送中..." : commentCaptchaVisible ? "验证中..." : "发送评论" }}
         </button>
       </div>
 
       <p v-if="sendError" class="comment-error">{{ sendError }}</p>
       <p v-if="likeError" class="comment-error">{{ likeError }}</p>
     </form>
+
+    <DragPuzzleCaptcha
+      v-model="commentCaptchaVisible"
+      title="评论验证"
+      description="请拖动右侧缺失图块到中间九宫格，顺序正确后自动提交评论。"
+      @verified="handleCommentCaptchaVerified"
+    />
 
     <p v-if="loading" class="comment-state">评论加载中...</p>
     <p v-else-if="loadError" class="comment-error">{{ loadError }}</p>
