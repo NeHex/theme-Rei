@@ -123,14 +123,14 @@ const DEFAULT_SKILL_LANGUAGES = [
 ];
 
 const SKILL_META: Record<string, { icon: string; bg: string }> = {
-  python: { icon: "python", bg: "linear-gradient(140deg, #3b77be 0%, #ffd43b 100%)" },
-  vue: { icon: "vue", bg: "linear-gradient(140deg, #42b883 0%, #2c3e50 100%)" },
-  nuxt: { icon: "nuxt", bg: "linear-gradient(140deg, #00dc82 0%, #1b6f4e 100%)" },
-  docker: { icon: "docker", bg: "linear-gradient(140deg, #2496ed 0%, #0a4d8c 100%)" },
-  ubuntu: { icon: "ubuntu", bg: "linear-gradient(140deg, #e95420 0%, #7f1d0b 100%)" },
-  "linux mint": { icon: "linux-mint", bg: "linear-gradient(140deg, #86be43 0%, #2f5e2e 100%)" },
-  mysql: { icon: "mysql", bg: "linear-gradient(140deg, #4479a1 0%, #1f3952 100%)" },
-  redis: { icon: "redis", bg: "linear-gradient(140deg, #dc382d 0%, #7d1e17 100%)" },
+  python: { icon: "python-svgrepo-com", bg: "linear-gradient(140deg, #3b77be 0%, #ffd43b 100%)" },
+  vue: { icon: "vue-svgrepo-com", bg: "linear-gradient(140deg, #42b883 0%, #2c3e50 100%)" },
+  nuxt: { icon: "nuxt-svgrepo-com", bg: "linear-gradient(140deg, #00dc82 0%, #1b6f4e 100%)" },
+  docker: { icon: "docker-svgrepo-com", bg: "linear-gradient(140deg, #2496ed 0%, #0a4d8c 100%)" },
+  ubuntu: { icon: "lin-ubuntu-svgrepo-com", bg: "linear-gradient(140deg, #e95420 0%, #7f1d0b 100%)" },
+  "linux mint": { icon: "linux-mint-svgrepo-com", bg: "linear-gradient(140deg, #86be43 0%, #2f5e2e 100%)" },
+  mysql: { icon: "mysql-svgrepo-com", bg: "linear-gradient(140deg, #4479a1 0%, #1f3952 100%)" },
+  redis: { icon: "redis-svgrepo-com", bg: "linear-gradient(140deg, #dc382d 0%, #7d1e17 100%)" },
 };
 
 const SKILL_ALIAS: Record<string, string> = {
@@ -285,7 +285,7 @@ const aboutSkills = computed(() => {
     return {
       id: `${canonicalKey}-${index}`,
       label,
-      icon: `/images/skills/${meta?.icon || "code"}.svg`,
+      icon: `/images/skills/${meta?.icon || "code-svgrepo-com"}.svg`,
       bg: meta?.bg || "linear-gradient(140deg, #4b5f7f 0%, #1f2635 100%)",
     } satisfies SkillCardItem;
   });
