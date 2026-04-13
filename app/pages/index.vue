@@ -1430,6 +1430,7 @@ onBeforeUnmount(() => {
   isolation: isolate;
   --section-width: min(92%, 1560px);
   --fade-lead: clamp(9rem, 20vh, 16rem);
+  --blog-shell-top-space: 5.6rem;
   margin-top: 0;
   padding-top: 0;
   min-height: 130vh;
@@ -1456,7 +1457,10 @@ onBeforeUnmount(() => {
 .content-fade::after {
   content: "";
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: var(--blog-shell-top-space);
   pointer-events: none;
   background-image: url("/exported_image_sck.svg");
   background-position: center center;
@@ -1474,7 +1478,7 @@ onBeforeUnmount(() => {
 }
 
 .blog-shell {
-  padding: 5.6rem 1.2rem 7rem;
+  padding: var(--blog-shell-top-space) 1.2rem 7rem;
 }
 
 .blog-heading {
@@ -2468,8 +2472,12 @@ onBeforeUnmount(() => {
     font-size: 1.65rem;
   }
 
+  .content-fade {
+    --blog-shell-top-space: 4.2rem;
+  }
+
   .blog-shell {
-    padding: 4.2rem 0.65rem 5rem;
+    padding: var(--blog-shell-top-space) 0.65rem 5rem;
   }
 
   .blog-heading {

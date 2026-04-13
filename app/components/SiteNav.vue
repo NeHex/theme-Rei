@@ -98,13 +98,13 @@ const moreDropdownLinks = computed<MenuLink[]>(() => {
   }
 
   return [
+    ...baseLinks,
     {
       id: `admin-console-${consoleTo}`,
       label: "站长控制台",
       to: consoleTo,
       external: isExternalSiteLink(consoleTo, siteHostname.value),
     },
-    ...baseLinks,
   ];
 });
 
