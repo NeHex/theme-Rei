@@ -35,6 +35,7 @@ const solved = ref(false);
 const feedbackType = ref<"" | "success" | "error">("");
 const feedbackText = ref("");
 let solvedCloseTimer: ReturnType<typeof setTimeout> | null = null;
+let dragCaptureEl: HTMLElement | null = null;
 
 const missingSlotSet = computed(() => new Set(missingSlotIndexes.value));
 const dragGhostStyle = computed(() => {
@@ -103,6 +104,16 @@ function closeModal() {
 }
 
 function cleanupDrag() {
+  if (dragCaptureEl && dragState.value) {
+    try {
+      if (dragCaptureEl.hasPointerCapture?.(dragState.value.pointerId)) {
+        dragCaptureEl.releasePointerCapture(dragState.value.pointerId);
+      }
+    } catch {
+      // no-op
+    }
+  }
+  dragCaptureEl = null;
   dragState.value = null;
   if (!import.meta.client) return;
   window.removeEventListener("pointermove", handlePointerMove);
@@ -182,6 +193,16 @@ function beginDrag(pieceId: number, event: PointerEvent) {
   if (isPiecePlaced(pieceId)) return;
   if (dragState.value) return;
 
+  const target = event.currentTarget;
+  if (target instanceof HTMLElement) {
+    dragCaptureEl = target;
+    try {
+      target.setPointerCapture(event.pointerId);
+    } catch {
+      // no-op
+    }
+  }
+
   dragState.value = {
     pieceId,
     pointerId: event.pointerId,
@@ -259,92 +280,103 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <Transition name="captcha-modal">
-    <div v-if="modelValue" class="captcha-mask" role="dialog" aria-modal="true" :aria-label="title" @click.self="closeModal">
-      <section class="captcha-modal">
-        <header class="captcha-head">
-          <div>
-            <h3>{{ title }}</h3>
-            <p>{{ description }}</p>
-          </div>
-          <button type="button" class="captcha-close" @click="closeModal">关闭</button>
-        </header>
+  <Teleport to="body">
+    <Transition name="captcha-modal">
+      <div v-if="modelValue" class="captcha-mask" role="dialog" aria-modal="true" :aria-label="title" @click.self="closeModal">
+        <section class="captcha-modal">
+          <header class="captcha-head">
+            <div>
+              <h3>{{ title }}</h3>
+              <p>{{ description }}</p>
+            </div>
+            <button type="button" class="captcha-close" @click="closeModal">关闭</button>
+          </header>
 
-        <div class="captcha-layout">
-          <article class="captcha-panel">
-            <h4>拼图区</h4>
-            <div class="captcha-grid">
-              <button
-                v-for="slotIndex in TOTAL_PIECES"
-                :key="`slot-${slotIndex}`"
-                type="button"
-                class="captcha-slot"
-                :class="{
-                  'is-missing': isMissingSlot(slotIndex - 1),
-                  'is-filled': Boolean(getSlotPiece(slotIndex - 1)),
-                  'is-fixed': !isMissingSlot(slotIndex - 1),
-                }"
-                :data-drop-slot="isMissingSlot(slotIndex - 1) ? '1' : undefined"
-                :data-slot-index="isMissingSlot(slotIndex - 1) ? String(slotIndex - 1) : undefined"
-                :title="isMissingSlot(slotIndex - 1) ? '点击可撤回该图块' : undefined"
-                @click="handleSlotClick(slotIndex - 1)"
-              >
-                <img
-                  v-if="getSlotPiece(slotIndex - 1)"
-                  :src="pieceSrc(getSlotPiece(slotIndex - 1)!)"
-                  :alt="`验证码图块 ${getSlotPiece(slotIndex - 1)}`"
-                  draggable="false"
+          <div class="captcha-layout">
+            <article class="captcha-panel">
+              <h4>拼图区</h4>
+              <div class="captcha-grid">
+                <button
+                  v-for="slotIndex in TOTAL_PIECES"
+                  :key="`slot-${slotIndex}`"
+                  type="button"
+                  class="captcha-slot"
+                  :class="{
+                    'is-missing': isMissingSlot(slotIndex - 1),
+                    'is-filled': Boolean(getSlotPiece(slotIndex - 1)),
+                    'is-fixed': !isMissingSlot(slotIndex - 1),
+                  }"
+                  :data-drop-slot="isMissingSlot(slotIndex - 1) ? '1' : undefined"
+                  :data-slot-index="isMissingSlot(slotIndex - 1) ? String(slotIndex - 1) : undefined"
+                  :title="isMissingSlot(slotIndex - 1) ? '点击可撤回该图块' : undefined"
+                  @click="handleSlotClick(slotIndex - 1)"
                 >
-                <span v-else class="captcha-slot-placeholder">缺失</span>
-              </button>
-            </div>
-          </article>
+                  <img
+                    v-if="getSlotPiece(slotIndex - 1)"
+                    :src="pieceSrc(getSlotPiece(slotIndex - 1)!)"
+                    :alt="`验证码图块 ${getSlotPiece(slotIndex - 1)}`"
+                    draggable="false"
+                    @dragstart.prevent
+                  >
+                  <span v-else class="captcha-slot-placeholder">缺失</span>
+                </button>
+              </div>
+            </article>
 
-          <article class="captcha-panel">
-            <h4>拖动图块</h4>
-            <div class="captcha-card-list">
-              <button
-                v-for="pieceId in cardOrder"
-                :key="`card-${pieceId}`"
-                type="button"
-                class="captcha-card"
-                :class="{ 'is-used': isPiecePlaced(pieceId) }"
-                :disabled="isPiecePlaced(pieceId) || solved"
-                @pointerdown.prevent="beginDrag(pieceId, $event)"
-              >
-                <img :src="pieceSrc(pieceId)" :alt="`可拖动图块 ${pieceId}`" draggable="false">
-                <span>{{ isPiecePlaced(pieceId) ? "已放置" : "拖动到中间" }}</span>
-              </button>
-            </div>
-          </article>
-        </div>
+            <article class="captcha-panel">
+              <h4>拖动图块</h4>
+              <div class="captcha-card-list">
+                <button
+                  v-for="pieceId in cardOrder"
+                  :key="`card-${pieceId}`"
+                  type="button"
+                  class="captcha-card"
+                  :class="{ 'is-used': isPiecePlaced(pieceId) }"
+                  :disabled="isPiecePlaced(pieceId) || solved"
+                  @pointerdown.prevent="beginDrag(pieceId, $event)"
+                  @dragstart.prevent
+                >
+                  <img
+                    :src="pieceSrc(pieceId)"
+                    :alt="`可拖动图块 ${pieceId}`"
+                    draggable="false"
+                    @dragstart.prevent
+                  >
+                  <span>{{ isPiecePlaced(pieceId) ? "已放置" : "拖动到中间" }}</span>
+                </button>
+              </div>
+            </article>
+          </div>
 
-        <p class="captcha-feedback" :class="feedbackType ? `is-${feedbackType}` : ''">
-          {{ feedbackText || "将右侧图块拖入中间缺失位置，全部正确后自动验证。" }}
-        </p>
+          <p class="captcha-feedback" :class="feedbackType ? `is-${feedbackType}` : ''">
+            {{ feedbackText || "将右侧图块拖入中间缺失位置，全部正确后自动验证。" }}
+          </p>
 
-        <footer class="captcha-foot">
-          <button type="button" class="captcha-refresh" :disabled="solved" @click="refreshChallenge">换一组</button>
-        </footer>
+          <footer class="captcha-foot">
+            <button type="button" class="captcha-refresh" :disabled="solved" @click="refreshChallenge">换一组</button>
+          </footer>
 
-        <div v-if="dragState" class="captcha-drag-ghost" :style="dragGhostStyle" aria-hidden="true">
-          <img :src="pieceSrc(dragState.pieceId)" :alt="`拖拽图块 ${dragState.pieceId}`" draggable="false">
-        </div>
-      </section>
-    </div>
-  </Transition>
+          <div v-if="dragState" class="captcha-drag-ghost" :style="dragGhostStyle" aria-hidden="true">
+            <img :src="pieceSrc(dragState.pieceId)" :alt="`拖拽图块 ${dragState.pieceId}`" draggable="false">
+          </div>
+        </section>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
 .captcha-mask {
   position: fixed;
   inset: 0;
-  z-index: 160;
-  display: grid;
-  place-items: center;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 1rem;
-  background: rgba(2, 11, 23, 0.76);
-  backdrop-filter: blur(8px);
+  background: rgba(2, 11, 23, 0.72);
+  backdrop-filter: blur(12px) saturate(1.08);
+  -webkit-backdrop-filter: blur(12px) saturate(1.08);
 }
 
 .captcha-modal {
@@ -495,6 +527,7 @@ onBeforeUnmount(() => {
   border-radius: 0.38rem;
   object-fit: cover;
   display: block;
+  pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
 }
@@ -551,7 +584,7 @@ onBeforeUnmount(() => {
 
 .captcha-drag-ghost {
   position: fixed;
-  z-index: 6;
+  z-index: 2147483002;
   width: 3.6rem;
   height: 3.6rem;
   border-radius: 0.46rem;
@@ -596,14 +629,9 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 760px) {
-  .captcha-mask {
-    align-items: flex-end;
-    padding: 0.62rem;
-  }
-
   .captcha-modal {
     width: 100%;
-    max-height: calc(100svh - 1.24rem);
+    max-height: min(94svh, 42rem);
     overflow-y: auto;
     padding: 0.78rem;
   }
