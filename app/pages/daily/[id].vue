@@ -2,13 +2,20 @@
 const route = useRoute();
 const rawId = String(route.params.id ?? "").trim();
 const hash = rawId ? `#daily-${encodeURIComponent(rawId)}` : "";
+const targetPath = `/daily${hash}`;
 
-await navigateTo(`/daily${hash}`, {
-  redirectCode: 302,
-  replace: true,
-});
+if (import.meta.client) {
+  await navigateTo(targetPath, {
+    replace: true,
+  });
+}
 </script>
 
 <template>
-  <div />
+  <main class="daily-legacy-forward">
+    <p>正在跳转到日常页面...</p>
+    <NuxtLink :to="targetPath">
+      若未自动跳转，点此继续
+    </NuxtLink>
+  </main>
 </template>
