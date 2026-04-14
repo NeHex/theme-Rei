@@ -2,6 +2,9 @@
 const websocketFutionEnabled = String(process.env.WEBSOCKET_FUTION || "TRUE")
   .trim()
   .toLowerCase() === "true";
+const contentSyncEnabled = String(process.env.NUXT_PUBLIC_CONTENT_SYNC_ENABLED || "true")
+  .trim()
+  .toLowerCase() === "true";
 const prerenderFetchBackend = String(
   process.env.NUXT_PRERENDER_FETCH_BACKEND || process.env.PRERENDER_FETCH_BACKEND || "false",
 )
@@ -90,6 +93,11 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_ADMIN_PUBLIC_MARKER_URL ||
         process.env.ADMIN_PUBLIC_MARKER_URL ||
         "",
+      contentUpdatesWsUrl:
+        process.env.NUXT_PUBLIC_CONTENT_UPDATES_WS_URL ||
+        process.env.CONTENT_UPDATES_WS_URL ||
+        "",
+      contentSyncEnabled,
       websocketFutionEnabled,
     },
   },
