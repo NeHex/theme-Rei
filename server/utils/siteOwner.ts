@@ -43,6 +43,12 @@ const DEFAULT_SITE_OWNER: SiteOwnerProfile = {
   bio: "",
 };
 
+type SiteOwnerProfileApiResponse =
+  | SiteOwnerProfile
+  | {
+      data?: Partial<SiteOwnerProfile> | null;
+    };
+
 function asString(value: unknown, fallback = "") {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -189,7 +195,40 @@ function pickFirstNonEmpty<T>(
   return "" as T | "";
 }
 
-export async function resolveSiteOwnerProfile(): Promise<SiteOwnerProfile> {
+function normalizeSiteOwnerApiPayload(payload: SiteOwnerProfileApiResponse): SiteOwnerProfile | null {
+  const source = (payload as { data?: Partial<SiteOwnerProfile> | null })?.data
+    ?? (payload as Partial<SiteOwnerProfile> | null)
+    ?? null;
+  if (!source || typeof source !== "object") return null;
+
+  return {
+    avatar: normalizeAssetPath(source.avatar) || DEFAULT_SITE_OWNER.avatar,
+    nickname: asString(source.nickname, DEFAULT_SITE_OWNER.nickname).trim() || DEFAULT_SITE_OWNER.nickname,
+    homepage: normalizeHomepage(source.homepage),
+    email: normalizeEmail(source.email),
+    bio: asString(source.bio).replace(/\\n/g, "\n"),
+  };
+}
+
+async function fetchSiteOwnerFromBackendApi() {
+  const endpoints = ["/site-owner", "/setting/site-owner"];
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await backendFetch<SiteOwnerProfileApiResponse>(endpoint, {
+        method: "GET",
+      });
+      const normalized = normalizeSiteOwnerApiPayload(response);
+      if (normalized) return normalized;
+    } catch {
+      // Ignore and continue fallback chain.
+    }
+  }
+
+  return null;
+}
+
+async function resolveSiteOwnerProfileFromSettings(): Promise<SiteOwnerProfile> {
   const [settingResponse, themeResponse] = await Promise.all([
     backendFetch<SettingApiResponse>("/setting", { method: "GET" }).catch(() => ({ data: [] as SettingApiItem[] })),
     backendFetch<SettingThemeApiResponse>("/setting/theme", { method: "GET" }).catch(() => ({ data: null })),
@@ -241,4 +280,10 @@ export async function resolveSiteOwnerProfile(): Promise<SiteOwnerProfile> {
     email,
     bio,
   };
+}
+
+export async function resolveSiteOwnerProfile(): Promise<SiteOwnerProfile> {
+  const backendProfile = await fetchSiteOwnerFromBackendApi();
+  if (backendProfile) return backendProfile;
+  return resolveSiteOwnerProfileFromSettings();
 }
