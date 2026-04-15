@@ -2,12 +2,16 @@
 import MarkdownIt from "markdown-it";
 import { mapArticleApiItem } from "~/composables/useArticles";
 import type { ArticleApiItem } from "~/composables/useArticles";
+import { readAdminMarker, syncAdminMarker as requestAdminMarkerSync } from "~/composables/useAdminMarker";
 import { installMarkdownExternalLinkRule, resolveSiteHostname } from "~/utils/link";
 
 const route = useRoute();
+const runtimeConfig = useRuntimeConfig();
 const { settings } = useSiteSettings();
 const requestUrl = useRequestURL();
 const DISPLAY_TIME_ZONE = "Asia/Shanghai";
+const adminMarkerCookieName = String(runtimeConfig.public.adminMarkerCookieName || "nehex_admin_marker")
+  .trim() || "nehex_admin_marker";
 
 const articleId = computed(() => String(route.params.id ?? "").trim());
 const { article, pending, error } = useArticleDetail(articleId);
@@ -18,6 +22,12 @@ const isLiked = ref(false);
 const likeHint = ref("");
 const shareHint = ref("");
 const markdownBodyRef = ref<HTMLElement | null>(null);
+const adminMarkerCookie = useCookie<string>(adminMarkerCookieName, {
+  sameSite: "lax",
+  default: () => "",
+});
+const syncedAdminMarker = ref("");
+const mountedOnClient = ref(false);
 let actionHintTimer: ReturnType<typeof setTimeout> | null = null;
 
 type ArticleDetailApiResponse = {
@@ -94,6 +104,39 @@ const siteHostname = computed(() =>
 const canonicalUrl = computed(() => {
   const articlePath = articleId.value ? `/article/${encodeURIComponent(articleId.value)}` : "/article";
   return `${siteBaseUrl.value}${articlePath}`;
+});
+const editableArticleId = computed(() => {
+  const parsed = Number(article.value?.id || articleId.value || 0);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+});
+const backendOrigin = computed(() => {
+  const adminConsoleUrl = String(runtimeConfig.public.adminConsoleUrl || "").trim();
+  if (/^https?:\/\//i.test(adminConsoleUrl)) {
+    try {
+      return new URL(adminConsoleUrl).origin;
+    } catch {
+      // Ignore invalid URL and fallback below.
+    }
+  }
+
+  const backendBaseUrl = String(
+    runtimeConfig.public.settingsApiBase || runtimeConfig.settingsApiBase || "",
+  ).trim();
+  if (!/^https?:\/\//i.test(backendBaseUrl)) return "";
+  try {
+    return new URL(backendBaseUrl).origin;
+  } catch {
+    return "";
+  }
+});
+const articleEditHref = computed(() => {
+  if (!editableArticleId.value) return "";
+  const editPath = `/articles/edit/${editableArticleId.value}`;
+  return backendOrigin.value ? `${backendOrigin.value}${editPath}` : editPath;
+});
+const isAdminViewer = computed(() => {
+  if (!mountedOnClient.value) return false;
+  return Boolean(String(syncedAdminMarker.value || adminMarkerCookie.value || "").trim());
 });
 
 const seoDescription = computed(() => {
@@ -382,6 +425,11 @@ if (import.meta.client) {
   );
 
   onMounted(() => {
+    mountedOnClient.value = true;
+    syncedAdminMarker.value = String(readAdminMarker() || adminMarkerCookie.value || "").trim();
+    void requestAdminMarkerSync().then((marker) => {
+      syncedAdminMarker.value = String(marker || readAdminMarker() || adminMarkerCookie.value || "").trim();
+    });
     void nextTick(() => {
       updateMarkdownImageShape();
     });
@@ -404,6 +452,14 @@ onBeforeUnmount(() => {
             <path d="M14.5 5.5L8 12l6.5 6.5" />
           </svg>
         </NuxtLink>
+        <a
+          v-if="isAdminViewer && articleEditHref"
+          class="article-edit"
+          :href="articleEditHref"
+          :aria-label="`编辑文章 ${editableArticleId}`"
+        >
+          编辑
+        </a>
       </div>
 
       <template v-if="article">
@@ -519,6 +575,9 @@ onBeforeUnmount(() => {
 
 .article-nav {
   margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
 }
 
 .article-back {
@@ -553,6 +612,30 @@ onBeforeUnmount(() => {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.article-edit {
+  height: 2.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 0.82rem;
+  color: rgba(231, 243, 255, 0.94);
+  border: 1px solid rgba(151, 201, 231, 0.26);
+  background: rgba(8, 18, 32, 0.62);
+  backdrop-filter: blur(10px);
+  text-decoration: none;
+  font-size: 0.86rem;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.article-edit:hover {
+  color: #ffffff;
+  border-color: rgba(182, 226, 251, 0.5);
+  background: rgba(10, 24, 42, 0.84);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
 }
 
 .article-info {
