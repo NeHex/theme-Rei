@@ -109,30 +109,32 @@ const editableArticleId = computed(() => {
   const parsed = Number(article.value?.id || articleId.value || 0);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 });
-const backendOrigin = computed(() => {
+const adminConsoleBase = computed(() => {
   const adminConsoleUrl = String(runtimeConfig.public.adminConsoleUrl || "").trim();
   if (/^https?:\/\//i.test(adminConsoleUrl)) {
     try {
-      return new URL(adminConsoleUrl).origin;
+      const parsed = new URL(adminConsoleUrl);
+      const pathname = parsed.pathname.replace(/\/+$/, "");
+      return `${parsed.origin}${pathname}`;
     } catch {
       // Ignore invalid URL and fallback below.
     }
   }
 
-  const backendBaseUrl = String(
-    runtimeConfig.public.settingsApiBase || runtimeConfig.settingsApiBase || "",
-  ).trim();
-  if (!/^https?:\/\//i.test(backendBaseUrl)) return "";
-  try {
-    return new URL(backendBaseUrl).origin;
-  } catch {
-    return "";
+  if (adminConsoleUrl.startsWith("/")) {
+    return adminConsoleUrl.replace(/\/+$/, "") || "/";
   }
+  if (adminConsoleUrl) {
+    return `/${adminConsoleUrl.replace(/^\/+/, "").replace(/\/+$/, "")}`;
+  }
+  return "/admin";
 });
 const articleEditHref = computed(() => {
   if (!editableArticleId.value) return "";
-  const editPath = `/articles/edit/${editableArticleId.value}`;
-  return backendOrigin.value ? `${backendOrigin.value}${editPath}` : editPath;
+  const editPath = `articles/edit/${editableArticleId.value}`;
+  const base = adminConsoleBase.value.replace(/\/+$/, "");
+  if (!base) return `/${editPath}`;
+  return `${base}/${editPath}`;
 });
 const isAdminViewer = computed(() => {
   if (!mountedOnClient.value) return false;

@@ -102,6 +102,7 @@ const commentCaptchaVisible = ref(false);
 const gravatarCache = new Map<string, string>();
 const { settings } = useSiteSettings();
 const { owner: siteOwner } = useSiteOwner();
+const route = useRoute();
 const runtimeConfig = useRuntimeConfig();
 const adminMarkerCookieName = String(runtimeConfig.public.adminMarkerCookieName || "nehex_admin_marker")
   .trim() || "nehex_admin_marker";
@@ -117,8 +118,10 @@ const likedCommentCookie = useCookie<string>("comment_liked_ids", {
 const likedCommentIds = ref<Set<number>>(new Set());
 const mountedOnClient = ref(false);
 const syncedAdminMarker = ref("");
+const pendingAnchorCommentId = ref(0);
 let syncAdminMarkerTask: Promise<string> | null = null;
 let delayedRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let anchorHighlightTimer: ReturnType<typeof setTimeout> | null = null;
 const isAdminCommenter = computed(() => {
   if (!mountedOnClient.value) return false;
   return Boolean(getResolvedAdminMarker());
@@ -455,6 +458,64 @@ function findCommentById(items: CommentViewItem[], commentId: number): CommentVi
   return null;
 }
 
+function getCommentAnchorId(commentId: number) {
+  return `comment-${commentId}`;
+}
+
+function parseCommentIdFromHash(hashValue: string) {
+  const rawHash = String(hashValue || "").trim();
+  if (!rawHash) return 0;
+
+  let decodedHash = rawHash;
+  try {
+    decodedHash = decodeURIComponent(rawHash);
+  } catch {
+    decodedHash = rawHash;
+  }
+
+  const matched = decodedHash.match(/^#comment-(\d+)$/i);
+  if (!matched?.[1]) return 0;
+
+  const parsed = Number(matched[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function highlightAnchorComment(target: HTMLElement) {
+  target.classList.add("is-anchor-target");
+  if (!import.meta.client) return;
+  if (anchorHighlightTimer !== null) {
+    window.clearTimeout(anchorHighlightTimer);
+  }
+  anchorHighlightTimer = window.setTimeout(() => {
+    target.classList.remove("is-anchor-target");
+    anchorHighlightTimer = null;
+  }, 1800);
+}
+
+async function scrollToCommentByAnchorId(commentId: number) {
+  if (!import.meta.client) return false;
+  await nextTick();
+  const target = document.getElementById(getCommentAnchorId(commentId));
+  if (!(target instanceof HTMLElement)) return false;
+  target.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+  highlightAnchorComment(target);
+  return true;
+}
+
+async function tryScrollToHashComment() {
+  if (!import.meta.client) return;
+  const commentId = pendingAnchorCommentId.value;
+  if (!commentId || loading.value) return;
+  if (!hasCommentById(comments.value, commentId)) return;
+  const scrolled = await scrollToCommentByAnchorId(commentId);
+  if (scrolled) {
+    pendingAnchorCommentId.value = 0;
+  }
+}
+
 function insertCreatedComment(createdComment: CommentItem, parentId: number) {
   const mapped = mapCommentView(createdComment);
   if (hasCommentById(comments.value, mapped.id)) return;
@@ -658,6 +719,25 @@ watch([() => props.targetType, resolvedTargetId], () => {
   loadComments();
 }, { immediate: true });
 
+watch(
+  () => route.hash,
+  (nextHash) => {
+    pendingAnchorCommentId.value = parseCommentIdFromHash(nextHash);
+    if (!pendingAnchorCommentId.value || loading.value) return;
+    void tryScrollToHashComment();
+  },
+  { immediate: true },
+);
+
+watch(
+  [loading, totalCount],
+  () => {
+    if (!pendingAnchorCommentId.value || loading.value) return;
+    void tryScrollToHashComment();
+  },
+  { flush: "post" },
+);
+
 onMounted(() => {
   mountedOnClient.value = true;
   syncLikedCommentsFromCookie();
@@ -672,6 +752,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (delayedRefreshTimer !== null && import.meta.client) {
     window.clearTimeout(delayedRefreshTimer);
+  }
+  if (anchorHighlightTimer !== null && import.meta.client) {
+    window.clearTimeout(anchorHighlightTimer);
   }
   if (import.meta.client) {
     window.removeEventListener("pointerdown", handleGlobalPointerDown);
@@ -801,7 +884,7 @@ onBeforeUnmount(() => {
       </li>
 
       <li v-for="comment in sortedComments" :key="comment.id" class="comment-item">
-        <article class="comment-card">
+        <article :id="getCommentAnchorId(comment.id)" class="comment-card">
           <header class="comment-meta">
             <img
               class="comment-avatar"
@@ -855,7 +938,7 @@ onBeforeUnmount(() => {
 
           <ul v-if="comment.replies?.length" class="reply-list">
             <li v-for="reply in comment.replies" :key="reply.id" class="reply-item">
-              <article class="reply-card">
+              <article :id="getCommentAnchorId(reply.id)" class="reply-card">
                 <header class="reply-meta">
                   <img
                     class="comment-avatar is-reply"
@@ -1309,6 +1392,15 @@ onBeforeUnmount(() => {
   border-radius: 0.72rem;
   border: 1px solid rgba(118, 170, 194, 0.2);
   background: rgba(8, 17, 30, 0.65);
+  scroll-margin-top: 6.8rem;
+  transition: border-color 0.24s ease, box-shadow 0.24s ease, background-color 0.24s ease;
+}
+
+.comment-card.is-anchor-target,
+.reply-card.is-anchor-target {
+  border-color: rgba(122, 224, 247, 0.68);
+  box-shadow: 0 0 0 2px rgba(69, 183, 214, 0.26);
+  background: rgba(13, 34, 52, 0.82);
 }
 
 .comment-meta,
