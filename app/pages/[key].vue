@@ -10,6 +10,7 @@ const RESERVED_STATIC_KEYS = new Set([
   "daily",
   "friends",
   "games",
+  "movie",
   "feed",
   "robots.txt",
   "favicon.ico",
