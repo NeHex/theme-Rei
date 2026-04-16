@@ -53,6 +53,7 @@ export default defineNuxtConfig({
     "/article": { swr: 300 },
     "/article/**": { swr: 300 },
     "/album": { swr: 300 },
+    "/movie": { swr: 300 },
     "/daily": { swr: 300 },
     "/feed": { swr: 600 },
     "/robots.txt": { swr: 600 },
