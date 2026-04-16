@@ -87,6 +87,17 @@ function getDailyAnchorId(id: string) {
   return `daily-${encodeURIComponent(String(id).trim())}`;
 }
 
+function isReviewDaily(item: DailyViewItem) {
+  return item.dailyType === "review" && Boolean(item.movie);
+}
+
+function getReviewMovieHeading(item: DailyViewItem) {
+  const movie = item.movie;
+  if (!movie) return "未命名电影";
+  const year = movie.years.trim();
+  return year ? `${movie.title} (${year})` : movie.title;
+}
+
 function mapDailyWeatherKey(rawWeather: string): DailyWeatherKey {
   const value = rawWeather.trim().toLowerCase();
   if (!value) return "cloud";
@@ -297,8 +308,37 @@ onMounted(() => {
                 </div>
               </header>
 
-              <h2 class="daily-title">{{ daily.title }}</h2>
-              <div class="daily-content" v-html="renderDailyMarkdown(daily.content)" />
+              <div class="daily-card-main" :class="{ 'is-review': isReviewDaily(daily) }">
+                <a
+                  v-if="isReviewDaily(daily) && daily.movie?.url"
+                  class="daily-movie-poster-link"
+                  :href="daily.movie.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  :aria-label="`查看电影：${getReviewMovieHeading(daily)}`"
+                >
+                  <img
+                    class="daily-movie-poster"
+                    :src="daily.movie?.cover || '/images/pic.jpg'"
+                    :alt="getReviewMovieHeading(daily)"
+                  >
+                </a>
+                <div v-else-if="isReviewDaily(daily)" class="daily-movie-poster-shell">
+                  <img
+                    class="daily-movie-poster"
+                    :src="daily.movie?.cover || '/images/pic.jpg'"
+                    :alt="getReviewMovieHeading(daily)"
+                  >
+                </div>
+
+                <div class="daily-card-body">
+                  <p v-if="isReviewDaily(daily)" class="daily-movie-title">
+                    {{ getReviewMovieHeading(daily) }}
+                  </p>
+                  <h2 class="daily-title">{{ daily.title }}</h2>
+                  <div class="daily-content" v-html="renderDailyMarkdown(daily.content)" />
+                </div>
+              </div>
             </article>
           </li>
         </ol>
@@ -458,6 +498,50 @@ onMounted(() => {
   gap: 0.62rem;
 }
 
+.daily-card-main {
+  margin-top: 0.66rem;
+}
+
+.daily-card-main.is-review {
+  display: grid;
+  grid-template-columns: 7.2rem minmax(0, 1fr);
+  gap: 0.76rem;
+  align-items: start;
+}
+
+.daily-card-body {
+  min-width: 0;
+}
+
+.daily-movie-poster-link,
+.daily-movie-poster-shell {
+  display: block;
+  width: 100%;
+  border-radius: 0.64rem;
+  overflow: hidden;
+  border: 1px solid rgba(207, 224, 244, 0.32);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+  background: rgba(13, 20, 32, 0.74);
+}
+
+.daily-movie-poster-link {
+  text-decoration: none;
+}
+
+.daily-movie-poster {
+  width: 100%;
+  display: block;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+}
+
+.daily-movie-title {
+  margin: 0;
+  color: rgba(174, 221, 255, 0.96);
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
 .daily-author-avatar {
   width: 2.45rem;
   height: 2.45rem;
@@ -486,7 +570,7 @@ onMounted(() => {
 }
 
 .daily-title {
-  margin: 0.66rem 0 0;
+  margin: 0.2rem 0 0;
   color: rgba(239, 246, 255, 0.96);
   font-size: 1.08rem;
   line-height: 1.34;
@@ -589,6 +673,11 @@ onMounted(() => {
   .daily-card {
     border-radius: 0.74rem;
     padding: 0.72rem 0.68rem 0.76rem;
+  }
+
+  .daily-card-main.is-review {
+    grid-template-columns: 5.4rem minmax(0, 1fr);
+    gap: 0.6rem;
   }
 
   .daily-card-weather-bg {
