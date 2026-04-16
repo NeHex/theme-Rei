@@ -24,6 +24,9 @@ type DailyRecord = {
   title: string;
   summary: string;
   weatherKey: DailyWeatherKey;
+  dailyType: "note" | "review" | "unknown";
+  movieTitle: string;
+  movieCover: string;
   to: string;
 };
 
@@ -185,9 +188,19 @@ const fallbackDailyRecords: readonly DailyRecord[] = [
     summary:
       "请前往后台更新你的日常",
     weatherKey: "sun",
+    dailyType: "note",
+    movieTitle: "",
+    movieCover: "",
     to: "/daily",
   }
 ];
+
+function getDailyMovieHeading(daily: (typeof fetchedDailies.value)[number]) {
+  const movie = daily.movie;
+  if (!movie) return "";
+  const year = movie.years.trim();
+  return year ? `${movie.title} (${year})` : movie.title;
+}
 
 function formatDailyYear(dateInput: string) {
   const date = new Date(dateInput);
@@ -278,12 +291,19 @@ const dailyRecords = computed<DailyRecord[]>(() => {
         title: daily.title,
         summary: daily.summary,
         weatherKey: mapDailyWeatherKey(daily.weather),
+        dailyType: daily.dailyType,
+        movieTitle: daily.dailyType === "review" ? getDailyMovieHeading(daily) : "",
+        movieCover: daily.dailyType === "review" ? (daily.movie?.cover || "") : "",
         to: `/daily#daily-${encodeURIComponent(daily.id)}`,
       };
     });
 
   return items.length ? items : [...fallbackDailyRecords];
 });
+
+function isReviewRecord(record: DailyRecord) {
+  return record.dailyType === "review" && Boolean(record.movieTitle) && Boolean(record.movieCover);
+}
 
 const fallbackPhotos: readonly PhotoItem[] = [
   {
@@ -884,12 +904,19 @@ onBeforeUnmount(() => {
             class="journal-card journal-card-reveal"
             :style="{ '--journal-order': index, '--journal-flicker-ms': `${580 + index * 110}ms` }"
           >
-            <div class="journal-date">
-              <div class="journal-year">{{ record.year }}</div>
-              <div class="journal-day">{{ record.date }}</div>
-              <span class="journal-weather-bg" :data-weather="record.weatherKey" aria-hidden="true" />
+            <div class="journal-date" :class="{ 'is-review': isReviewRecord(record) }">
+              <template v-if="isReviewRecord(record)">
+                <img class="journal-movie-cover" :src="record.movieCover" :alt="record.movieTitle">
+                <p class="journal-review-date">{{ record.year }} · {{ record.date }}</p>
+              </template>
+              <template v-else>
+                <div class="journal-year">{{ record.year }}</div>
+                <div class="journal-day">{{ record.date }}</div>
+                <span class="journal-weather-bg" :data-weather="record.weatherKey" aria-hidden="true" />
+              </template>
             </div>
             <div class="journal-body">
+              <p v-if="isReviewRecord(record)" class="journal-movie-title">{{ record.movieTitle }}</p>
               <h3 class="journal-card-title">{{ record.title }}</h3>
               <p class="journal-card-summary">{{ record.summary }}</p>
             </div>
@@ -1848,6 +1875,28 @@ onBeforeUnmount(() => {
   color: #0f9cb8;
 }
 
+.journal-date.is-review {
+  gap: 0.52rem;
+  color: rgba(197, 216, 236, 0.84);
+}
+
+.journal-movie-cover {
+  width: 100%;
+  display: block;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 0.56rem;
+  border: 1px solid rgba(189, 214, 239, 0.32);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.journal-review-date {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(175, 197, 219, 0.84);
+}
+
 .journal-year {
   position: relative;
   z-index: 1;
@@ -1942,6 +1991,13 @@ onBeforeUnmount(() => {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
   overflow: hidden;
+}
+
+.journal-movie-title {
+  margin: 0;
+  color: rgba(168, 216, 255, 0.92);
+  font-size: 0.84rem;
+  line-height: 1.35;
 }
 
 .photo-shell {
@@ -2520,6 +2576,10 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
     gap: 0.75rem;
     padding: 1.1rem;
+  }
+
+  .journal-date.is-review {
+    max-width: 6.2rem;
   }
 
   .journal-year {
