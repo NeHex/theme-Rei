@@ -286,6 +286,7 @@ if (import.meta.client) {
           <NuxtLink prefetch="false" to="/">首页</NuxtLink>
           <NuxtLink prefetch="false" to="/article">文章</NuxtLink>
           <NuxtLink prefetch="false" to="/album">相册</NuxtLink>
+          <NuxtLink prefetch="false" to="/movie">电影墙</NuxtLink>
           <NuxtLink prefetch="false" to="/archive">归档</NuxtLink>
         </nav>
 
