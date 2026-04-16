@@ -142,7 +142,7 @@ export default defineEventHandler(async (event) => {
   const siteUrl = configuredSiteUrl || fallbackSiteUrl;
 
   const entries = new Map<string, SitemapEntry>();
-  const staticRoutes = ["/", "/about", "/article", "/archive", "/album", "/daily", "/friends", "/games", "/feed"];
+  const staticRoutes = ["/", "/about", "/article", "/archive", "/album", "/movie", "/daily", "/friends", "/games", "/feed"];
 
   for (const path of staticRoutes) {
     mergeEntry(entries, path);
