@@ -88,6 +88,17 @@ const adminConsoleUrl = computed(() => {
 const hasAdminMarker = computed(() => Boolean(String(adminMarkerCookie.value || "").trim()));
 const moreDropdownLinks = computed<MenuLink[]>(() => {
   const baseLinks = [...dropdownLinks.value];
+  const movieTo = "/movie";
+  const movieIdentity = normalizeLinkIdentity("电影墙", movieTo);
+  if (!baseLinks.some((item) => normalizeLinkIdentity(item.label, item.to) === movieIdentity)) {
+    baseLinks.unshift({
+      id: "built-in-movie-link",
+      label: "电影墙",
+      to: movieTo,
+      external: false,
+    });
+  }
+
   if (!hasAdminMarker.value) return baseLinks;
 
   const consoleTo = normalizeMenuTo(adminConsoleUrl.value);
