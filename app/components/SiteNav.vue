@@ -304,7 +304,7 @@ watch(
         <a
           v-if="travellingMenuEnabled"
           :href="TRAVELLING_URL"
-          class="feed-link external-link"
+          class="feed-link"
           aria-label="开往"
           target="_blank"
           rel="noopener noreferrer"
@@ -459,7 +459,7 @@ watch(
           <a
             v-if="travellingMenuEnabled"
             :href="TRAVELLING_URL"
-            class="mobile-menu-link mobile-travelling-link external-link"
+            class="mobile-menu-link mobile-travelling-link"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="开往"
@@ -737,11 +737,12 @@ watch(
 }
 
 .feed-link-image {
-  width: 1.22rem;
-  height: 1.22rem;
+  width: 2.26rem;
+  height: 2.26rem;
   display: block;
   object-fit: contain;
   border-radius: 0.18rem;
+  filter: brightness(0) invert(1);
 }
 
 .mobile-menu-toggle {
@@ -826,11 +827,12 @@ watch(
 }
 
 .mobile-travelling-link-image {
-  width: 1.05rem;
-  height: 1.05rem;
+  width: 2rem;
+  height: 2rem;
   display: block;
   object-fit: contain;
   border-radius: 0.2rem;
+  filter: brightness(0) invert(1);
 }
 
 .mobile-menu-link.static {
