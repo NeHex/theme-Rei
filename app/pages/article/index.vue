@@ -120,6 +120,7 @@ const {
   "article-list",
   async () => {
     const response = await $fetch<ArticleListApiResponse>("/api/article", {
+      cache: "no-store",
       query: articleQuery.value,
     });
 
