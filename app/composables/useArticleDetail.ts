@@ -15,7 +15,7 @@ export function useArticleDetail(articleId: MaybeRefOrGetter<string | number>) {
     () => `article-detail-${id.value}`,
     async () => {
       if (!id.value) return null;
-      const response = await $fetch<ArticleDetailApiResponse>(`/api/article/${id.value}`);
+      const response = await $fetch<ArticleDetailApiResponse>(`/api/article/${id.value}`, { cache: "no-store" });
       return mapArticleApiItem(response.data);
     },
     {
