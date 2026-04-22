@@ -51,6 +51,7 @@ export type SiteSettings = {
   themeBackground: string;
   themeHeadmsg: string;
   themeNav: NavItem[];
+  themeNavTravelling: boolean;
   themeAboutPages: Record<string, unknown>;
   themeAboutMapPoints: AboutMapPoint[];
   themeWifes: WifeProfile[];
@@ -74,6 +75,7 @@ const DEFAULT_SITE_SETTINGS: SiteSettings = {
     { label: "关于本站", to: "/about" },
     { label: "友链", to: "/friends" },
   ],
+  themeNavTravelling: true,
   themeAboutPages: {},
   themeAboutMapPoints: [
     { label: "天津", coords: [117.200983, 39.084158] },
@@ -93,6 +95,16 @@ const DEFAULT_SITE_SETTINGS: SiteSettings = {
 function asString(value: unknown, fallback = "") {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return fallback;
+}
+
+function asBoolean(value: unknown, fallback = false) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  const normalized = asString(value).trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
   return fallback;
 }
 
@@ -439,8 +451,16 @@ function resolveSiteSettings(items: SettingApiItem[], themeData: SettingThemeApi
       currentThemeProfile.nav,
   );
   const settingNavRecord = parseJsonObject(map.theme_nav);
+  const hasProfileTravelling = Object.prototype.hasOwnProperty.call(profileNavRecord, "travelling");
+  const hasSettingTravelling = Object.prototype.hasOwnProperty.call(settingNavRecord, "travelling");
+  const themeNavTravelling = hasProfileTravelling
+    ? asBoolean(profileNavRecord.travelling, DEFAULT_SITE_SETTINGS.themeNavTravelling)
+    : hasSettingTravelling
+      ? asBoolean(settingNavRecord.travelling, DEFAULT_SITE_SETTINGS.themeNavTravelling)
+      : DEFAULT_SITE_SETTINGS.themeNavTravelling;
   const themeNavRecord = Object.keys(profileNavRecord).length ? profileNavRecord : settingNavRecord;
   const themeNav = Object.entries(themeNavRecord)
+    .filter(([label, to]) => label.trim().toLowerCase() !== "travelling" && typeof to !== "boolean")
     .map(([label, to]) => ({
       label: asString(label).trim(),
       to: normalizeLink(asString(to).trim()),
@@ -510,6 +530,7 @@ function resolveSiteSettings(items: SettingApiItem[], themeData: SettingThemeApi
     themeBackground: profileBackground || DEFAULT_SITE_SETTINGS.themeBackground,
     themeHeadmsg: profileHeadmsg || DEFAULT_SITE_SETTINGS.themeHeadmsg,
     themeNav: themeNav.length ? themeNav : DEFAULT_SITE_SETTINGS.themeNav,
+    themeNavTravelling,
     themeAboutPages,
     themeAboutMapPoints: themeAboutMapPoints.length
       ? themeAboutMapPoints
@@ -532,8 +553,8 @@ export function useSiteSettings() {
     "site-settings",
     async () => {
       const [settingResponse, themeResponse] = await Promise.all([
-        $fetch<SettingApiResponse>("/api/setting"),
-        $fetch<SettingThemeApiResponse>("/api/setting/theme").catch(() => ({ data: null })),
+        $fetch<SettingApiResponse>("/api/setting", { cache: "no-store" }),
+        $fetch<SettingThemeApiResponse>("/api/setting/theme", { cache: "no-store" }).catch(() => ({ data: null })),
       ]);
 
       return resolveSiteSettings(settingResponse.data ?? [], themeResponse.data);
