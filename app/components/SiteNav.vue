@@ -15,11 +15,6 @@ const isArchive = computed(() => route.path.startsWith("/archive"));
 
 const avatarSrc = computed(() => settings.value.userHeadpic || "/images/head.jpg");
 const avatarAlt = computed(() => `${settings.value.userName || "站长"}头像`);
-const feedHref = computed(() => {
-  const candidate = settings.value.userSocialLink.feed || settings.value.userSocialLink.rss || "/feed";
-  if (candidate.trim().replace(/\/+$/, "") === "/feed.xml") return "/feed";
-  return candidate;
-});
 const siteHostname = computed(() =>
   resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
 );
@@ -103,19 +98,6 @@ const moreDropdownLinks = computed<MenuLink[]>(() => {
     });
   }
 
-  if (travellingMenuEnabled.value) {
-    const travellingIdentity = normalizeLinkIdentity("开往->", TRAVELLING_URL);
-    if (!baseLinks.some((item) => normalizeLinkIdentity(item.label, item.to) === travellingIdentity)) {
-      baseLinks.unshift({
-        id: "built-in-travelling-link",
-        label: "开往->",
-        to: TRAVELLING_URL,
-        external: true,
-        iconSrc: TRAVELLING_ICON,
-      });
-    }
-  }
-
   if (!hasAdminMarker.value) return baseLinks;
 
   const consoleTo = normalizeMenuTo(adminConsoleUrl.value);
@@ -140,10 +122,6 @@ const hoveredMoreIndex = ref<number | null>(null);
 const isDesktopMoreOpen = ref(false);
 const isMobileMenuOpen = ref(false);
 const isMobileMoreSubmenuOpen = ref(false);
-
-function isExternalLink(url: string) {
-  return isExternalSiteLink(url, siteHostname.value);
-}
 
 const activeMoreLinkIndex = computed(() =>
   moreDropdownLinks.value.findIndex((item) => isMobileLinkActive(item.to, item.external)),
@@ -324,17 +302,19 @@ watch(
         </div>
 
         <a
-          :href="feedHref"
-          class="feed-link"
-          aria-label="Feed RSS"
-          :target="isExternalLink(feedHref) ? '_blank' : undefined"
-          :rel="isExternalLink(feedHref) ? 'noopener noreferrer' : undefined"
+          v-if="travellingMenuEnabled"
+          :href="TRAVELLING_URL"
+          class="feed-link external-link"
+          aria-label="开往"
+          target="_blank"
+          rel="noopener noreferrer"
         >
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 18a2 2 0 1 0 0 4a2 2 0 0 0 0-4Z" />
-            <path d="M4 10a10 10 0 0 1 10 10" />
-            <path d="M4 4a16 16 0 0 1 16 16" />
-          </svg>
+          <img
+            :src="TRAVELLING_ICON"
+            class="feed-link-image"
+            alt=""
+            aria-hidden="true"
+          />
         </a>
 
         <button
@@ -477,18 +457,20 @@ watch(
           </div>
 
           <a
-            :href="feedHref"
-            :class="['mobile-menu-link', { 'external-link': isExternalLink(feedHref) }]"
-            :target="isExternalLink(feedHref) ? '_blank' : undefined"
-            :rel="isExternalLink(feedHref) ? 'noopener noreferrer' : undefined"
+            v-if="travellingMenuEnabled"
+            :href="TRAVELLING_URL"
+            class="mobile-menu-link mobile-travelling-link external-link"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="开往"
             @click="closeMobileMenu"
           >
-            <svg class="mobile-menu-link-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M4 18a2 2 0 1 0 0 4a2 2 0 0 0 0-4Z" />
-              <path d="M4 10a10 10 0 0 1 10 10" />
-              <path d="M4 4a16 16 0 0 1 16 16" />
-            </svg>
-            RSS
+            <img
+              :src="TRAVELLING_ICON"
+              class="mobile-travelling-link-image"
+              alt=""
+              aria-hidden="true"
+            />
           </a>
         </div>
       </Transition>
@@ -754,16 +736,12 @@ watch(
   background-size: 0 0;
 }
 
-.feed-link svg {
+.feed-link-image {
   width: 1.22rem;
   height: 1.22rem;
-}
-
-.feed-link path {
-  stroke: currentColor;
-  stroke-width: 1.85;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  display: block;
+  object-fit: contain;
+  border-radius: 0.18rem;
 }
 
 .mobile-menu-toggle {
@@ -841,6 +819,18 @@ watch(
 .mobile-menu-link.active {
   background: rgba(255, 255, 255, 0.16);
   color: #ffffff;
+}
+
+.mobile-travelling-link {
+  justify-content: center;
+}
+
+.mobile-travelling-link-image {
+  width: 1.05rem;
+  height: 1.05rem;
+  display: block;
+  object-fit: contain;
+  border-radius: 0.2rem;
 }
 
 .mobile-menu-link.static {
