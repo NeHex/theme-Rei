@@ -29,6 +29,7 @@ type MenuLink = {
   label: string;
   to: string;
   external: boolean;
+  iconSrc?: string;
 };
 
 function normalizeRouteKey(url: string) {
@@ -86,6 +87,9 @@ const adminConsoleUrl = computed(() => {
   return `/${configuredUrl.replace(/^\/+/, "")}`;
 });
 const hasAdminMarker = computed(() => Boolean(String(adminMarkerCookie.value || "").trim()));
+const travellingMenuEnabled = computed(() => settings.value.themeNavTravelling);
+const TRAVELLING_URL = "https://www.travellings.cn/go.html";
+const TRAVELLING_ICON = "https://www.travellings.cn/assets/travelling.png";
 const moreDropdownLinks = computed<MenuLink[]>(() => {
   const baseLinks = [...dropdownLinks.value];
   const movieTo = "/movie";
@@ -97,6 +101,19 @@ const moreDropdownLinks = computed<MenuLink[]>(() => {
       to: movieTo,
       external: false,
     });
+  }
+
+  if (travellingMenuEnabled.value) {
+    const travellingIdentity = normalizeLinkIdentity("开往->", TRAVELLING_URL);
+    if (!baseLinks.some((item) => normalizeLinkIdentity(item.label, item.to) === travellingIdentity)) {
+      baseLinks.unshift({
+        id: "built-in-travelling-link",
+        label: "开往->",
+        to: TRAVELLING_URL,
+        external: true,
+        iconSrc: TRAVELLING_ICON,
+      });
+    }
   }
 
   if (!hasAdminMarker.value) return baseLinks;
@@ -274,6 +291,13 @@ watch(
                   @focus="focusMoreItem(index)"
                   @click="handleDesktopMoreLinkClick"
                 >
+                  <img
+                    v-if="item.iconSrc"
+                    :src="item.iconSrc"
+                    class="submenu-link-icon-image"
+                    alt=""
+                    aria-hidden="true"
+                  />
                   {{ item.label }}
                 </a>
                 <NuxtLink prefetch="false"
@@ -285,6 +309,13 @@ watch(
                   @focus="focusMoreItem(index)"
                   @click="handleDesktopMoreLinkClick"
                 >
+                  <img
+                    v-if="item.iconSrc"
+                    :src="item.iconSrc"
+                    class="submenu-link-icon-image"
+                    alt=""
+                    aria-hidden="true"
+                  />
                   {{ item.label }}
                 </NuxtLink>
               </template>
@@ -415,6 +446,13 @@ watch(
                     rel="noopener noreferrer"
                     @click="closeMobileMenu"
                   >
+                    <img
+                      v-if="item.iconSrc"
+                      :src="item.iconSrc"
+                      class="submenu-link-icon-image"
+                      alt=""
+                      aria-hidden="true"
+                    />
                     {{ item.label }}
                   </a>
                   <NuxtLink prefetch="false"
@@ -424,6 +462,13 @@ watch(
                     :class="{ active: isMobileLinkActive(item.to, false) }"
                     @click="closeMobileMenu"
                   >
+                    <img
+                      v-if="item.iconSrc"
+                      :src="item.iconSrc"
+                      class="submenu-link-icon-image"
+                      alt=""
+                      aria-hidden="true"
+                    />
                     {{ item.label }}
                   </NuxtLink>
                 </template>
@@ -652,6 +697,7 @@ watch(
 .dropdown-link {
   display: flex;
   align-items: center;
+  gap: 0.38rem;
   position: relative;
   z-index: 2;
   height: var(--dropdown-item-height);
@@ -856,6 +902,7 @@ watch(
 .mobile-submenu-link {
   display: flex;
   align-items: center;
+  gap: 0.34rem;
   min-height: 2.24rem;
   border-radius: 0.5rem;
   padding: 0 0.62rem;
@@ -866,6 +913,14 @@ watch(
   color: rgba(222, 236, 250, 0.9);
   background-image: none;
   background-size: 0 0;
+}
+
+.submenu-link-icon-image {
+  width: 0.98rem;
+  height: 0.98rem;
+  flex: 0 0 auto;
+  object-fit: contain;
+  border-radius: 0.2rem;
 }
 
 .mobile-submenu-link.active {
