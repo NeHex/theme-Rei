@@ -94,7 +94,7 @@ export function useMovies() {
   const { data, pending, error, refresh } = useAsyncData<MovieViewItem[]>(
     "site-movies",
     async () => {
-      const response = await $fetch<MovieApiResponse>("/api/movie");
+      const response = await $fetch<MovieApiResponse>("/api/movie", { cache: "no-store" });
       return (response.data ?? []).map(mapMovieApiItem);
     },
     {
