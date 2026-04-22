@@ -74,7 +74,7 @@ export function useAlbums() {
   const { data, pending, error, refresh } = useAsyncData<AlbumViewItem[]>(
     "site-albums",
     async () => {
-      const response = await $fetch<AlbumApiResponse>("/api/album");
+      const response = await $fetch<AlbumApiResponse>("/api/album", { cache: "no-store" });
       return (response.data ?? []).map(mapAlbumApiItem);
     },
     {
