@@ -84,7 +84,7 @@ const adminConsoleUrl = computed(() => {
 const hasAdminMarker = computed(() => Boolean(String(adminMarkerCookie.value || "").trim()));
 const travellingMenuEnabled = computed(() => settings.value.themeNavTravelling);
 const TRAVELLING_URL = "https://www.travellings.cn/go.html";
-const TRAVELLING_ICON = "https://www.travellings.cn/assets/travelling.png";
+const TRAVELLING_ICON = "/train.svg";
 const moreDropdownLinks = computed<MenuLink[]>(() => {
   const baseLinks = [...dropdownLinks.value];
   const movieTo = "/movie";
