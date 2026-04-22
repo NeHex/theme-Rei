@@ -103,7 +103,7 @@ export function useArticles() {
   const { data, pending, error, refresh } = useAsyncData<ArticleViewItem[]>(
     "site-articles",
     async () => {
-      const response = await $fetch<ArticleApiResponse>("/api/article");
+      const response = await $fetch<ArticleApiResponse>("/api/article", { cache: "no-store" });
       return (response.data ?? []).map(mapArticleApiItem);
     },
     {
