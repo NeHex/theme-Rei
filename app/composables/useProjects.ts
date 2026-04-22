@@ -88,7 +88,7 @@ export function useProjects() {
   const { data, pending, error, refresh } = useAsyncData<ProjectViewItem[]>(
     "site-projects",
     async () => {
-      const response = await $fetch<ProjectApiResponse>("/api/project");
+      const response = await $fetch<ProjectApiResponse>("/api/project", { cache: "no-store" });
       return (response.data ?? []).map(mapProjectApiItem);
     },
     {
