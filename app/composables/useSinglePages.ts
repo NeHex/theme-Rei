@@ -70,7 +70,7 @@ export function useSinglePages() {
   const { data, pending, error, refresh } = useAsyncData<SinglePageViewItem[]>(
     "site-single-pages",
     async () => {
-      const response = await $fetch<SinglePageApiResponse>("/api/page");
+      const response = await $fetch<SinglePageApiResponse>("/api/page", { cache: "no-store" });
       return (response.data ?? []).map(mapSinglePageApiItem);
     },
     {
@@ -95,6 +95,7 @@ export function useSinglePages() {
 
     const response = await $fetch<SinglePageDetailApiResponse>(
       `/api/page/${encodeURIComponent(normalized)}`,
+      { cache: "no-store" },
     );
     return mapSinglePageApiItem(response.data);
   }
