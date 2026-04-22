@@ -41,6 +41,7 @@ function normalizeSiteOwnerPayload(payload: SiteOwnerApiResponse): SiteOwnerProf
 async function requestSiteOwner(endpoint: string) {
   const response = await $fetch<SiteOwnerApiResponse>(endpoint, {
     method: "GET",
+    cache: "no-store",
   });
   return normalizeSiteOwnerPayload(response);
 }
