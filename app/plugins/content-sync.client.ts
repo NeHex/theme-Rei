@@ -3,6 +3,20 @@ const CONTENT_SYNC_LAST_SEQ_STORAGE_KEY = "nehex_content_sync_last_seq";
 const WS_RECONNECT_DELAY_MS = 5000;
 const CHANGE_FETCH_LIMIT = 200;
 const MAX_CHANGE_FETCH_ROUNDS = 8;
+const SYNC_POLL_INTERVAL_MS = 15000;
+const INITIAL_REFRESH_DELAY_MS = 360;
+const INITIAL_REFRESH_KEYS = [
+  "site-settings",
+  "site-owner",
+  "site-articles",
+  "site-dailies",
+  "site-albums",
+  "site-movies",
+  "site-projects",
+  "site-friends",
+  "site-single-pages",
+  "article-list",
+];
 
 const RESERVED_STATIC_KEYS = new Set([
   "about",
@@ -232,6 +246,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   let socket: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
+  let initialRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  let syncPollTimer: ReturnType<typeof setInterval> | null = null;
   let isSyncingChanges = false;
   let isActive = true;
   let lastSeq = readStoredSeq();
@@ -239,6 +255,33 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   function getCurrentPath() {
     return asString(nuxtApp.$router?.currentRoute.value.fullPath || "/");
+  }
+
+  function getCurrentRouteRefreshKeys() {
+    const keys = new Set<string>();
+    const fullPath = getCurrentPath();
+    const path = fullPath.split("?")[0]?.split("#")[0] || "/";
+
+    const articleMatch = path.match(/^\/article\/([^/]+)$/i);
+    if (articleMatch?.[1]) {
+      keys.add(`article-detail-${articleMatch[1]}`);
+    }
+
+    const dailyMatch = path.match(/^\/daily\/([^/]+)$/i);
+    if (dailyMatch?.[1]) {
+      keys.add(`daily-detail-${dailyMatch[1]}`);
+    }
+
+    if (/^\/article(?:\/|$)/i.test(path)) {
+      keys.add("article-list");
+    }
+
+    const pageKey = resolveCurrentSinglePageKey(path);
+    if (pageKey) {
+      keys.add(`single-page-${pageKey}`);
+    }
+
+    return [...keys];
   }
 
   function queueRefresh(keys: string[]) {
@@ -258,6 +301,20 @@ export default defineNuxtPlugin((nuxtApp) => {
     }, 120);
   }
 
+  function queueInitialRefresh() {
+    if (initialRefreshTimer) {
+      clearTimeout(initialRefreshTimer);
+      initialRefreshTimer = null;
+    }
+    initialRefreshTimer = setTimeout(() => {
+      initialRefreshTimer = null;
+      if (!isActive) return;
+      const mergedKeys = [...new Set([...INITIAL_REFRESH_KEYS, ...getCurrentRouteRefreshKeys()])];
+      if (!mergedKeys.length) return;
+      void refreshNuxtData(mergedKeys);
+    }, INITIAL_REFRESH_DELAY_MS);
+  }
+
   function applyEvent(event: ContentUpdateEvent) {
     if (event.seq !== null) {
       if (event.seq <= lastSeq) return;
@@ -275,6 +332,20 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (!reconnectTimer) return;
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
+  }
+
+  function clearSyncPollTimer() {
+    if (!syncPollTimer) return;
+    clearInterval(syncPollTimer);
+    syncPollTimer = null;
+  }
+
+  function startSyncPolling() {
+    if (syncPollTimer) return;
+    syncPollTimer = setInterval(() => {
+      if (!isActive) return;
+      void syncMissedChanges();
+    }, SYNC_POLL_INTERVAL_MS);
   }
 
   function closeSocket(manual = false) {
@@ -500,6 +571,8 @@ export default defineNuxtPlugin((nuxtApp) => {
     }
   });
   connectSocket();
+  startSyncPolling();
+  queueInitialRefresh();
 
   window.addEventListener("online", () => {
     void syncMissedChanges();
@@ -514,6 +587,11 @@ export default defineNuxtPlugin((nuxtApp) => {
   window.addEventListener("beforeunload", () => {
     isActive = false;
     clearReconnectTimer();
+    clearSyncPollTimer();
+    if (initialRefreshTimer) {
+      clearTimeout(initialRefreshTimer);
+      initialRefreshTimer = null;
+    }
     closeSocket(true);
   });
 });
