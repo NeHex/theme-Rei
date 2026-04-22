@@ -70,7 +70,7 @@ export function useFriends() {
   const { data, pending, error, refresh } = useAsyncData<FriendViewItem[]>(
     "site-friends",
     async () => {
-      const response = await $fetch<FriendApiResponse>("/api/friend");
+      const response = await $fetch<FriendApiResponse>("/api/friend", { cache: "no-store" });
       return (response.data ?? []).map(mapFriendApiItem);
     },
     {
