@@ -17,6 +17,7 @@ export function useDailyDetail(dailyId: MaybeRefOrGetter<string | number>) {
       if (!id.value) return null;
       const response = await $fetch<DailyDetailApiResponse>(
         `/api/daily/${encodeURIComponent(id.value)}`,
+        { cache: "no-store" },
       );
       return mapDailyApiItem(response.data);
     },
