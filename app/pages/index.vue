@@ -121,9 +121,8 @@ const homePosts = computed<BlogPost[]>(() =>
 
 const canonicalUrl = computed(() => siteBaseUrl.value);
 const seoDescription = computed(() => {
-  const featuredPost = homePosts.value[0];
-  if (featuredPost?.summary) return featuredPost.summary.slice(0, 160);
-  return settings.value.siteDesc;
+  const value = String(settings.value.siteDesc || "").trim();
+  return value || "NeHex";
 });
 const ogImage = computed(() => {
   const fallback = String(settings.value.userHeadpic || "/images/head.jpg").trim();
