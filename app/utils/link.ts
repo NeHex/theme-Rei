@@ -27,8 +27,12 @@ function removeTokenAttr(token: any, name: string) {
   if (index >= 0 && Array.isArray(token.attrs)) token.attrs.splice(index, 1);
 }
 
-export function resolveSiteHostname(siteUrl: string | null | undefined, fallbackUrl = "") {
-  return toHostname(String(siteUrl || "")) || toHostname(fallbackUrl);
+export function resolveSiteHostname(siteUrl: string | null | undefined, _fallbackUrl = "") {
+  const primary = toHostname(String(siteUrl || ""));
+  if (primary) return primary;
+  // Keep SSR/CSR deterministic: avoid request-host fallback that can differ behind proxy,
+  // which may cause hydration mismatches when external-link rendering depends on hostname.
+  return "";
 }
 
 export function isExternalSiteLink(href: string | null | undefined, siteHostname: string) {
