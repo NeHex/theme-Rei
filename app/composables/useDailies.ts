@@ -156,7 +156,7 @@ export function useDailies() {
   const { data, pending, error, refresh } = useAsyncData<DailyViewItem[]>(
     "site-dailies",
     async () => {
-      const response = await $fetch<DailyApiResponse>("/api/daily");
+      const response = await $fetch<DailyApiResponse>("/api/daily", { cache: "no-store" });
       return (response.data ?? []).map(mapDailyApiItem);
     },
     {
