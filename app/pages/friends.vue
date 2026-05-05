@@ -192,10 +192,10 @@ const applyForm = reactive({
 });
 
 const localSiteInfo = computed(() => ({
-  title: settings.value.siteTitle,
-  url: settings.value.siteUrl,
-  description: settings.value.siteDesc,
-  icon: settings.value.siteFavicon || "/favicon.ico",
+  title: settings.value.friendExchangeSiteTitle || settings.value.siteTitle,
+  url: settings.value.friendExchangeSiteUrl || settings.value.siteUrl,
+  description: settings.value.friendExchangeSiteDescription || settings.value.siteDesc,
+  icon: settings.value.friendExchangeSiteIcon || settings.value.siteFavicon || "/favicon.ico",
 }));
 
 function isValidHttpUrl(value: string) {
