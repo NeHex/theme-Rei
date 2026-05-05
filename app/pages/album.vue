@@ -119,6 +119,16 @@ const viewerAlbum = ref<(typeof albums.value)[number] | null>(null);
 const viewerImages = ref<string[]>([]);
 const viewerStartIndex = ref(0);
 const autoOpenedAlbumId = ref<string | null>(null);
+const likeError = ref("");
+const likedAlbumCookie = useCookie<string>("album_liked_ids", {
+  sameSite: "lax",
+  maxAge: 60 * 60 * 24 * 365,
+  default: () => "",
+});
+const likedAlbumMap = reactive<Record<string, true>>({});
+const likingAlbumMap = reactive<Record<string, true>>({});
+const albumLikeCountOverride = reactive<Record<string, number>>({});
+const likesHydratedOnClient = ref(false);
 
 async function openAlbumViewer(item: (typeof albums.value)[number], startIndex = 0) {
   let albumData = item;
@@ -139,6 +149,101 @@ async function openAlbumViewer(item: (typeof albums.value)[number], startIndex =
   viewerVisible.value = true;
 }
 
+function parseLikedAlbumIds(rawValue: string | null | undefined) {
+  const result = new Set<string>();
+  const chunks = String(rawValue || "").split(",");
+  for (const chunk of chunks) {
+    const value = chunk.trim();
+    if (!value || !/^\d+$/.test(value)) continue;
+    result.add(value);
+  }
+  return result;
+}
+
+function syncLikedAlbumsFromCookie() {
+  const parsed = parseLikedAlbumIds(likedAlbumCookie.value);
+  for (const key of Object.keys(likedAlbumMap)) {
+    delete likedAlbumMap[key];
+  }
+  for (const id of parsed) {
+    likedAlbumMap[id] = true;
+  }
+}
+
+function persistLikedAlbumsToCookie() {
+  likedAlbumCookie.value = Object.keys(likedAlbumMap).slice(-400).join(",");
+}
+
+function hasLikedAlbum(albumId: string) {
+  if (!likesHydratedOnClient.value) return false;
+  return Boolean(likedAlbumMap[albumId]);
+}
+
+function isLikingAlbum(albumId: string) {
+  return Boolean(likingAlbumMap[albumId]);
+}
+
+function markAlbumLiked(albumId: string) {
+  if (likedAlbumMap[albumId]) return;
+  likedAlbumMap[albumId] = true;
+  persistLikedAlbumsToCookie();
+}
+
+function getAlbumLikeCount(item: (typeof albums.value)[number]) {
+  if (Number.isFinite(albumLikeCountOverride[item.id])) {
+    return albumLikeCountOverride[item.id]!;
+  }
+  return Number(item.likes || 0);
+}
+
+function applyAlbumLikeCount(albumId: string, likeCount: number) {
+  const nextCount = Math.max(0, Number(likeCount || 0));
+  albumLikeCountOverride[albumId] = nextCount;
+
+  const target = albums.value.find((item) => item.id === albumId);
+  if (target) {
+    target.likes = nextCount;
+  }
+
+  if (viewerAlbum.value?.id === albumId) {
+    viewerAlbum.value = {
+      ...viewerAlbum.value,
+      likes: nextCount,
+    };
+  }
+}
+
+async function likeAlbum(item: (typeof albums.value)[number]) {
+  const albumId = item.id;
+  if (!albumId || hasLikedAlbum(albumId) || isLikingAlbum(albumId)) return;
+
+  likeError.value = "";
+  likingAlbumMap[albumId] = true;
+  const previousLikeCount = getAlbumLikeCount(item);
+  applyAlbumLikeCount(albumId, previousLikeCount + 1);
+
+  try {
+    const response = await $fetch<AlbumDetailApiResponse>(`/api/album/${albumId}/like`, {
+      method: "POST",
+    });
+    const mapped = mapAlbumApiItem(response.data);
+    applyAlbumLikeCount(albumId, mapped.likes);
+    markAlbumLiked(albumId);
+  } catch (error: any) {
+    applyAlbumLikeCount(albumId, previousLikeCount);
+    const statusCode = Number(error?.statusCode || error?.response?.status || 500);
+
+    if (statusCode === 409) {
+      markAlbumLiked(albumId);
+      return;
+    }
+
+    likeError.value = String(error?.statusMessage || "点赞失败，请稍后重试");
+  } finally {
+    delete likingAlbumMap[albumId];
+  }
+}
+
 watch(
   [() => route.query.album, albums],
   async ([albumQuery]) => {
@@ -155,6 +260,19 @@ watch(
   },
   { immediate: true },
 );
+
+watch(
+  () => likedAlbumCookie.value,
+  () => {
+    if (!likesHydratedOnClient.value) return;
+    syncLikedAlbumsFromCookie();
+  },
+);
+
+onMounted(() => {
+  syncLikedAlbumsFromCookie();
+  likesHydratedOnClient.value = true;
+});
 
 function formatDate(dateInput: string) {
   const date = new Date(dateInput);
@@ -203,13 +321,22 @@ function formatDate(dateInput: string) {
             <h3>{{ item.title }}</h3>
             <div class="album-meta">
               <time :datetime="item.createdAt">{{ formatDate(item.createdAt) }}</time>
-              <p class="album-like">
+              <button
+                type="button"
+                class="album-like"
+                :class="{ 'is-liked': hasLikedAlbum(item.id) }"
+                :disabled="hasLikedAlbum(item.id) || isLikingAlbum(item.id)"
+                :title="hasLikedAlbum(item.id) ? '你已点赞过' : isLikingAlbum(item.id) ? '点赞中...' : '点赞相册'"
+                @click.stop="likeAlbum(item)"
+                @keydown.enter.stop.prevent
+                @keydown.space.stop.prevent
+              >
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M8.4 10.3V19H5.5a1.5 1.5 0 0 1-1.5-1.5v-5.7a1.5 1.5 0 0 1 1.5-1.5h2.9Z" />
                   <path d="M8.4 19h7.1a2 2 0 0 0 2-1.6l1-5.2A1.9 1.9 0 0 0 16.7 10h-4.1l.5-2.8a2 2 0 0 0-3.9-.8L8.4 10.3Z" />
                 </svg>
-                {{ item.likes }}
-              </p>
+                {{ getAlbumLikeCount(item) }}
+              </button>
             </div>
           </div>
         </article>
@@ -219,6 +346,8 @@ function formatDate(dateInput: string) {
         </article>
       </section>
     </main>
+
+    <p v-if="likeError" class="album-error">{{ likeError }}</p>
 
     <AlbumViewer
       v-model="viewerVisible"
@@ -356,6 +485,18 @@ function formatDate(dateInput: string) {
   display: inline-flex;
   align-items: center;
   gap: 0.26rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(118, 170, 194, 0.28);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.album-like:hover:not(:disabled) {
+  border-color: rgba(146, 202, 225, 0.48);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .album-like svg {
@@ -368,6 +509,25 @@ function formatDate(dateInput: string) {
   stroke-width: 1.65;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.album-like.is-liked {
+  color: #b4ecff;
+  border-color: rgba(108, 198, 227, 0.55);
+  background: rgba(27, 86, 98, 0.4);
+}
+
+.album-like:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.album-error {
+  width: var(--site-max-width);
+  margin: 0.65rem auto 0;
+  color: #ffd0d0;
+  font-size: 0.9rem;
+  text-align: right;
 }
 
 .album-empty {
@@ -465,6 +625,11 @@ function formatDate(dateInput: string) {
 
   .album-grid {
     grid-template-columns: 1fr;
+  }
+
+  .album-error {
+    width: min(98%, 1760px);
+    text-align: left;
   }
 }
 

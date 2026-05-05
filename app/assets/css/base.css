@@ -1,8 +1,6 @@
 @font-face {
   font-family: "ChillRoundM";
-  src:
-    url("https://s3.hi168.com/hi168-31358-3621l8yj/ChillRoundM.woff2") format("woff2"),
-    url("/ChillRoundM.woff2") format("woff2");
+  src: url("/ChillRoundM.woff2") format("woff2");
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;

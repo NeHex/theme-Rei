@@ -7,6 +7,7 @@ type ArticleApiItem = {
   class: string;
   read: number;
   like_count: number;
+  create_time?: string | null;
   lastEditTime: string;
   tag: string | null;
   top: number;

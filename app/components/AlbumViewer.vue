@@ -40,6 +40,7 @@ const imageNaturalWidth = ref(0);
 const imageNaturalHeight = ref(0);
 const MIN_ZOOM_FACTOR = 1;
 const MAX_ZOOM_FACTOR = 4;
+const ZOOM_STEP_RATIO = 1.2;
 const SCALE_EPSILON = 0.0001;
 const DISPLAY_TIME_ZONE = "Asia/Shanghai";
 const { lockScroll, unlockScroll } = useScrollLock();
@@ -49,6 +50,9 @@ let stageResizeObserver: ResizeObserver | null = null;
 const currentImage = computed(() => props.images[currentIndex.value] || "");
 const currentScale = computed(() => fitScale.value * zoomFactor.value);
 const canPan = computed(() => currentScale.value - fitScale.value > SCALE_EPSILON);
+const canZoomIn = computed(() => zoomFactor.value < MAX_ZOOM_FACTOR - SCALE_EPSILON);
+const canZoomOut = computed(() => zoomFactor.value > MIN_ZOOM_FACTOR + SCALE_EPSILON);
+const zoomPercent = computed(() => `${Math.round(zoomFactor.value * 100)}%`);
 const readableUpdatedTime = computed(() => formatDateTime(props.album?.updatedAt || ""));
 const readableCreatedTime = computed(() => formatDateTime(props.album?.createdAt || ""));
 const imageFileName = computed(() => {
@@ -219,6 +223,24 @@ function handleKeyDown(event: KeyboardEvent) {
   if (event.key === "ArrowLeft") {
     event.preventDefault();
     prevImage();
+    return;
+  }
+
+  if (event.key === "+" || event.key === "=") {
+    event.preventDefault();
+    zoomIn();
+    return;
+  }
+
+  if (event.key === "-" || event.key === "_") {
+    event.preventDefault();
+    zoomOut();
+    return;
+  }
+
+  if (event.key === "0") {
+    event.preventDefault();
+    resetTransform();
   }
 }
 
@@ -245,6 +267,28 @@ function onWheel(event: WheelEvent) {
   translateY.value = cursorY - ratio * (cursorY - translateY.value);
   zoomFactor.value = nextZoom;
   clampTranslate();
+}
+
+function setZoomFactor(nextZoom: number) {
+  if (!imageNaturalWidth.value || !imageNaturalHeight.value) return;
+  const clampedZoom = clamp(nextZoom, MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
+  if (Math.abs(clampedZoom - zoomFactor.value) <= SCALE_EPSILON) return;
+
+  zoomFactor.value = clampedZoom;
+  if (clampedZoom <= MIN_ZOOM_FACTOR + SCALE_EPSILON) {
+    translateX.value = 0;
+    translateY.value = 0;
+    return;
+  }
+  clampTranslate();
+}
+
+function zoomIn() {
+  setZoomFactor(zoomFactor.value * ZOOM_STEP_RATIO);
+}
+
+function zoomOut() {
+  setZoomFactor(zoomFactor.value / ZOOM_STEP_RATIO);
 }
 
 function onPointerDown(event: PointerEvent) {
@@ -402,11 +446,42 @@ function unlockBodyScroll() {
               <p>文件：{{ imageFileName }}</p>
             </div>
 
+            <div class="viewer-zoom-controls">
+              <button
+                type="button"
+                class="panel-chip panel-chip-btn"
+                :disabled="!canZoomOut"
+                aria-label="缩小图片"
+                @click="zoomOut"
+              >
+                缩小
+              </button>
+              <span class="panel-chip panel-chip-value">{{ zoomPercent }}</span>
+              <button
+                type="button"
+                class="panel-chip panel-chip-btn"
+                :disabled="!canZoomIn"
+                aria-label="放大图片"
+                @click="zoomIn"
+              >
+                放大
+              </button>
+              <button
+                type="button"
+                class="panel-chip panel-chip-btn"
+                :disabled="!canZoomIn && !canZoomOut"
+                aria-label="重置缩放与位置"
+                @click="resetTransform"
+              >
+                复位
+              </button>
+            </div>
+
             <div class="panel-cards">
               <div class="panel-chip">滚轮缩放</div>
               <div class="panel-chip">拖拽平移</div>
               <div class="panel-chip">双击复位</div>
-              <div class="panel-chip">← / → 切图</div>
+              <div class="panel-chip">+ / - 缩放</div>
             </div>
 
             <p class="panel-note">转载请注释出处</p>
@@ -553,6 +628,13 @@ function unlockBodyScroll() {
   margin: 0;
 }
 
+.viewer-zoom-controls {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.38rem;
+}
+
 .panel-cards {
   margin-top: 1rem;
   display: grid;
@@ -567,6 +649,28 @@ function unlockBodyScroll() {
   padding: 0.34rem 0.42rem;
   font-size: 0.78rem;
   color: rgba(214, 232, 244, 0.86);
+}
+
+.panel-chip-btn {
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.panel-chip-btn:hover:not(:disabled) {
+  border-color: rgba(167, 218, 242, 0.45);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.panel-chip-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.panel-chip-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
 }
 
 .panel-note {

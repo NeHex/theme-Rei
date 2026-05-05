@@ -7,6 +7,7 @@ type ArticleApiItem = {
   class: string;
   read: number;
   like_count: number;
+  create_time?: string | null;
   lastEditTime: string;
   tag: string | null;
   top: number;
@@ -72,6 +73,14 @@ function parseTags(raw: string | null | undefined) {
 function toDateMs(value: string) {
   const parsed = new Date(value).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getPublishDateMs(item: ArticleApiItem) {
+  return toDateMs(String(item.create_time || item.lastEditTime || ""));
+}
+
+function getUpdatedDateMs(item: ArticleApiItem) {
+  return toDateMs(String(item.lastEditTime || item.create_time || ""));
 }
 
 function resolveTotalPages(response: ArticleApiResponse) {
@@ -149,8 +158,8 @@ function filterArticles(items: ArticleApiItem[], keyword: string, tag: string) {
 
 function sortArticles(items: ArticleApiItem[], sortBy: ArticleSort) {
   return [...items].sort((a, b) => {
-    const aMs = toDateMs(a.lastEditTime);
-    const bMs = toDateMs(b.lastEditTime);
+    const aMs = sortBy === "updated" ? getUpdatedDateMs(a) : getPublishDateMs(a);
+    const bMs = sortBy === "updated" ? getUpdatedDateMs(b) : getPublishDateMs(b);
     if (sortBy === "oldest") return aMs - bMs;
     return bMs - aMs;
   });

@@ -156,7 +156,7 @@ function getEntryMeta(article: ReturnType<typeof mappedArticles>[number]) {
 const mappedArticles = computed(() => {
   return articles.value
     .map((article) => {
-      const date = parseDate(article.updatedAt || article.publishedAt);
+      const date = parseDate(article.publishedAt || article.updatedAt);
       return {
         ...article,
         date,
@@ -440,7 +440,7 @@ onBeforeUnmount(() => {
               class="timeline-item timeline-item-reveal"
               :style="{ '--entry-order': groupIndex * 14 + entryIndex }"
             >
-              <time class="timeline-date" :datetime="item.updatedAt">{{ item.monthDay }}</time>
+              <time class="timeline-date" :datetime="item.publishedAt">{{ item.monthDay }}</time>
               <span class="timeline-title">
                 {{ item.title }}
                 <i v-if="item.top > 0" aria-hidden="true">🔖</i>

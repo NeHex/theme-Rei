@@ -1,21 +1,18 @@
 import { backendFetch } from "../../../utils/backendFetch";
 
-type ArticleApiItem = {
+type AlbumApiItem = {
   id: number;
   title: string;
-  articleTopImage: string | null;
+  cover: string | null;
   class: string;
-  read: number;
   like_count: number;
-  create_time?: string | null;
-  lastEditTime: string;
-  tag: string | null;
-  top: number;
-  content: string | null;
+  img_urls: string | null;
+  create_time: string;
+  update_time: string;
 };
 
-type ArticleDetailApiResponse = {
-  data: ArticleApiItem;
+type AlbumDetailApiResponse = {
+  data: AlbumApiItem;
 };
 
 function parseLikedIds(rawCookie: string | undefined) {
@@ -33,7 +30,7 @@ function parseLikedIds(rawCookie: string | undefined) {
 
 function persistLikedIds(event: any, likedIds: Set<number>) {
   const nextCookie = Array.from(likedIds).slice(-400).join(",");
-  setCookie(event, "article_liked_ids", nextCookie, {
+  setCookie(event, "album_liked_ids", nextCookie, {
     maxAge: 60 * 60 * 24 * 365,
     sameSite: "lax",
     path: "/",
@@ -42,16 +39,16 @@ function persistLikedIds(event: any, likedIds: Set<number>) {
 }
 
 export default defineEventHandler(async (event) => {
-  const articleId = Number(getRouterParam(event, "id") || 0);
-  if (!Number.isFinite(articleId) || articleId <= 0) {
+  const albumId = Number(getRouterParam(event, "id") || 0);
+  if (!Number.isFinite(albumId) || albumId <= 0) {
     throw createError({
       statusCode: 422,
-      statusMessage: "Invalid article id",
+      statusMessage: "Invalid album id",
     });
   }
 
-  const likedIds = parseLikedIds(getCookie(event, "article_liked_ids"));
-  if (likedIds.has(articleId)) {
+  const likedIds = parseLikedIds(getCookie(event, "album_liked_ids"));
+  if (likedIds.has(albumId)) {
     throw createError({
       statusCode: 409,
       statusMessage: "Already liked",
@@ -59,21 +56,21 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const response = await backendFetch<ArticleDetailApiResponse>(`/article/${articleId}/like`, {
+    const response = await backendFetch<AlbumDetailApiResponse>(`/album/${albumId}/like`, {
       method: "POST",
       retry: 0,
     });
 
-    likedIds.add(articleId);
+    likedIds.add(albumId);
     persistLikedIds(event, likedIds);
     return response;
   } catch (error: any) {
     const statusCode = Number(error?.response?.status || error?.statusCode || 502);
     const statusMessage =
-      String(error?.response?._data?.detail || error?.statusMessage || "Failed to like article");
+      String(error?.response?._data?.detail || error?.statusMessage || "Failed to like album");
 
     if (statusCode === 409) {
-      likedIds.add(articleId);
+      likedIds.add(albumId);
       persistLikedIds(event, likedIds);
     }
 

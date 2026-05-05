@@ -5,6 +5,7 @@ export type ArticleApiItem = {
   class: string;
   read: number;
   like_count: number;
+  create_time?: string | null;
   lastEditTime: string;
   tag: string | null;
   top: number;
@@ -78,7 +79,8 @@ export function mapArticleApiItem(item: ArticleApiItem): ArticleViewItem {
   const plainContent = compactText(rawContent) || "暂无正文内容。";
   const summary = truncate(plainContent, 56);
   const excerpt = truncate(plainContent, 90);
-  const date = normalizeDate(item.lastEditTime);
+  const publishedAt = normalizeDate(item.create_time || item.lastEditTime);
+  const updatedAt = normalizeDate(item.lastEditTime || item.create_time);
 
   return {
     id: String(item.id),
@@ -93,9 +95,9 @@ export function mapArticleApiItem(item: ArticleApiItem): ArticleViewItem {
     top: item.top || 0,
     featured: (item.top || 0) > 0,
     content: rawContent || "暂无正文内容。",
-    publishedAt: date,
-    updatedAt: date,
-    edited: false,
+    publishedAt,
+    updatedAt,
+    edited: publishedAt !== updatedAt,
   };
 }
 

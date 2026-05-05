@@ -22,6 +22,10 @@ const isLiked = ref(false);
 const likeHint = ref("");
 const shareHint = ref("");
 const markdownBodyRef = ref<HTMLElement | null>(null);
+const viewerVisible = ref(false);
+const viewerImages = ref<string[]>([]);
+const viewerStartIndex = ref(0);
+const markdownImageSources = ref<string[]>([]);
 const adminMarkerCookie = useCookie<string>(adminMarkerCookieName, {
   sameSite: "lax",
   default: () => "",
@@ -32,6 +36,15 @@ let actionHintTimer: ReturnType<typeof setTimeout> | null = null;
 
 type ArticleDetailApiResponse = {
   data: ArticleApiItem;
+};
+
+type ViewerAlbum = {
+  id: string;
+  title: string;
+  category: string;
+  likes: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 watch(
@@ -261,6 +274,17 @@ const articleInfoStyle = computed<Record<string, string>>(() => {
     "--article-cover-url": `url("${coverUrl}")`,
   };
 });
+const viewerAlbum = computed<ViewerAlbum | null>(() => {
+  if (!article.value) return null;
+  return {
+    id: String(article.value.id || articleId.value || ""),
+    title: article.value.title || "文章配图",
+    category: article.value.category || "文章",
+    likes: displayLikes.value,
+    createdAt: article.value.publishedAt,
+    updatedAt: article.value.updatedAt,
+  };
+});
 
 function formatDate(dateInput: string) {
   const date = new Date(dateInput);
@@ -399,13 +423,29 @@ function applyMarkdownImageShapeClass(image: HTMLImageElement) {
   image.classList.toggle("markdown-image-landscape", !isPortrait);
 }
 
+function getMarkdownImageSource(image: HTMLImageElement) {
+  return String(image.getAttribute("src") || image.currentSrc || "").trim();
+}
+
 function updateMarkdownImageShape() {
   if (!import.meta.client) return;
   const root = markdownBodyRef.value;
   if (!root) return;
 
   const images = Array.from(root.querySelectorAll("img"));
+  const sources: string[] = [];
+
   for (const image of images) {
+    const source = getMarkdownImageSource(image);
+    if (source) {
+      image.classList.add("markdown-image-clickable");
+      image.dataset.viewerIndex = String(sources.length);
+      sources.push(source);
+    } else {
+      image.classList.remove("markdown-image-clickable");
+      delete image.dataset.viewerIndex;
+    }
+
     if (image.complete) {
       applyMarkdownImageShapeClass(image);
       continue;
@@ -415,6 +455,40 @@ function updateMarkdownImageShape() {
       applyMarkdownImageShapeClass(image);
     }, { once: true });
   }
+
+  markdownImageSources.value = sources;
+}
+
+function openMarkdownImageViewer(image: HTMLImageElement) {
+  const source = getMarkdownImageSource(image);
+  if (!source) return;
+
+  const images = markdownImageSources.value.length
+    ? [...markdownImageSources.value]
+    : [source];
+  const indexFromDataset = Number(image.dataset.viewerIndex || -1);
+  const startIndex = indexFromDataset >= 0 && indexFromDataset < images.length
+    ? indexFromDataset
+    : Math.max(0, images.findIndex((item) => item === source));
+
+  viewerImages.value = images;
+  viewerStartIndex.value = startIndex;
+  viewerVisible.value = true;
+}
+
+function handleMarkdownBodyClick(event: MouseEvent) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+
+  const image = target.closest("img");
+  if (!(image instanceof HTMLImageElement)) return;
+
+  const root = markdownBodyRef.value;
+  if (!root || !root.contains(image)) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  openMarkdownImageViewer(image);
 }
 
 if (import.meta.client) {
@@ -439,9 +513,11 @@ if (import.meta.client) {
 }
 
 onBeforeUnmount(() => {
-  if (!import.meta.client || actionHintTimer === null) return;
-  window.clearTimeout(actionHintTimer);
-  actionHintTimer = null;
+  if (!import.meta.client) return;
+  if (actionHintTimer !== null) {
+    window.clearTimeout(actionHintTimer);
+    actionHintTimer = null;
+  }
 });
 </script>
 
@@ -495,7 +571,12 @@ onBeforeUnmount(() => {
 
         <div class="article-card-wrap">
           <article class="article-card">
-            <div ref="markdownBodyRef" class="markdown-body" v-html="renderedMarkdown" />
+            <div
+              ref="markdownBodyRef"
+              class="markdown-body"
+              v-html="renderedMarkdown"
+              @click="handleMarkdownBodyClick"
+            />
           </article>
           <div class="article-float-actions" role="group" aria-label="文章操作">
             <button
@@ -538,6 +619,13 @@ onBeforeUnmount(() => {
         <p>{{ pending ? "文章加载中..." : "文章不存在或已被删除。" }}</p>
       </section>
     </main>
+
+    <AlbumViewer
+      v-model="viewerVisible"
+      :album="viewerAlbum"
+      :images="viewerImages"
+      :start-index="viewerStartIndex"
+    />
   </div>
 </template>
 
@@ -930,6 +1018,10 @@ address {
   max-height: min(76vh, 54rem);
   height: auto;
   border-radius: 0.68rem;
+}
+
+.markdown-body :deep(img.markdown-image-clickable) {
+  cursor: zoom-in;
 }
 
 .markdown-body :deep(img.markdown-image-portrait) {

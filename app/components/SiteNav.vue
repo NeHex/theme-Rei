@@ -70,6 +70,7 @@ function buildThemeNavLinks(source: unknown[]): MenuLink[] {
 const dropdownLinks = computed<MenuLink[]>(() =>
   buildThemeNavLinks(Array.isArray(settings.value.themeNav) ? settings.value.themeNav : []),
 );
+const mountedOnClient = ref(false);
 const adminMarkerCookie = useCookie<string>(adminMarkerCookieName, {
   sameSite: "lax",
   default: () => "",
@@ -81,7 +82,10 @@ const adminConsoleUrl = computed(() => {
   if (configuredUrl.startsWith("http://") || configuredUrl.startsWith("https://")) return configuredUrl;
   return `/${configuredUrl.replace(/^\/+/, "")}`;
 });
-const hasAdminMarker = computed(() => Boolean(String(adminMarkerCookie.value || "").trim()));
+const hasAdminMarker = computed(() => {
+  if (!mountedOnClient.value) return false;
+  return Boolean(String(adminMarkerCookie.value || "").trim());
+});
 const travellingMenuEnabled = computed(() => settings.value.themeNavTravelling);
 const TRAVELLING_URL = "https://www.travellings.cn/go.html";
 const TRAVELLING_ICON = "/train.svg?v=2";
@@ -188,6 +192,10 @@ watch(
     clearFocusedNavElement();
   },
 );
+
+onMounted(() => {
+  mountedOnClient.value = true;
+});
 </script>
 
 <template>

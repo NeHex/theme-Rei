@@ -77,7 +77,7 @@ const emit = defineEmits<{
   submit: [payload: { content: string; targetType: string; targetId: number; parentId: number }];
 }>();
 
-const DEFAULT_AVATAR = "/images/head.jpg";
+const DEFAULT_AVATAR = "/user.svg";
 const GRAVATAR_SIZE = 96;
 const DISPLAY_TIME_ZONE = "Asia/Shanghai";
 
@@ -412,9 +412,16 @@ function getGravatarUrl(email: string | null) {
   const hash = md5Hex(normalized);
   if (!hash) return DEFAULT_AVATAR;
 
-  const url = `https://cn.gravatar.com/avatar/${hash}?s=${GRAVATAR_SIZE}&d=mp`;
+  const url = `https://cn.gravatar.com/avatar/${hash}?s=${GRAVATAR_SIZE}&d=404`;
   gravatarCache.set(normalized, url);
   return url;
+}
+
+function handleAvatarLoadError(event: Event) {
+  const target = event.target;
+  if (!(target instanceof HTMLImageElement)) return;
+  target.onerror = null;
+  target.src = DEFAULT_AVATAR;
 }
 
 function resolveAvatarUrl(item: CommentItem) {
@@ -890,6 +897,7 @@ onBeforeUnmount(() => {
               class="comment-avatar"
               :src="comment.avatar_url"
               :alt="`${comment.nickname} 的头像`"
+              @error="handleAvatarLoadError"
             />
 
             <div class="comment-author-wrap">
@@ -944,6 +952,7 @@ onBeforeUnmount(() => {
                     class="comment-avatar is-reply"
                     :src="reply.avatar_url"
                     :alt="`${reply.nickname} 的头像`"
+                    @error="handleAvatarLoadError"
                   />
 
                   <div class="comment-author-wrap">
