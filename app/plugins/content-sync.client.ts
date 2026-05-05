@@ -1,5 +1,6 @@
 const CONTENT_SYNC_INIT_FLAG = "__nehex_content_sync_initialized__";
 const CONTENT_SYNC_LAST_SEQ_STORAGE_KEY = "nehex_content_sync_last_seq";
+const COMMENT_SYNC_EVENT_NAME = "nehex:comment-sync";
 const WS_RECONNECT_DELAY_MS = 5000;
 const CHANGE_FETCH_LIMIT = 200;
 const MAX_CHANGE_FETCH_ROUNDS = 8;
@@ -8,6 +9,7 @@ const INITIAL_REFRESH_DELAY_MS = 360;
 const INITIAL_REFRESH_KEYS = [
   "site-settings",
   "site-owner",
+  "friend-exchange-info",
   "site-articles",
   "site-dailies",
   "site-albums",
@@ -27,6 +29,7 @@ const RESERVED_STATIC_KEYS = new Set([
   "friends",
   "games",
   "movie",
+  "project",
   "feed",
   "robots.txt",
   "favicon.ico",
@@ -38,10 +41,10 @@ const RESOURCE_REFRESH_KEYS: Record<string, string[]> = {
   article: ["site-articles", "article-list"],
   daily: ["site-dailies"],
   album: ["site-albums"],
-  movie: ["site-movies"],
+  movie: ["site-movies", "site-dailies"],
   project: ["site-projects"],
   friend: ["site-friends"],
-  setting: ["site-settings", "site-owner"],
+  setting: ["site-settings", "site-owner", "friend-exchange-info"],
   page: ["site-single-pages"],
   site_owner: ["site-owner"],
   siteowner: ["site-owner"],
@@ -53,6 +56,13 @@ type ContentUpdateEvent = {
   resource: string;
   action: string;
   ids: string[];
+};
+
+type CommentSyncDetail = {
+  action: string;
+  targetType: string;
+  targetId: number;
+  tokens: string[];
 };
 
 function asString(value: unknown) {
@@ -213,6 +223,18 @@ function getEventRefreshKeys(event: ContentUpdateEvent, currentPath: string) {
     }
   }
 
+  if (event.resource === "album") {
+    for (const id of event.ids) {
+      keys.add(`album-detail-${id}`);
+    }
+  }
+
+  if (event.resource === "project") {
+    for (const id of event.ids) {
+      keys.add(`project-detail-${id}`);
+    }
+  }
+
   if (event.resource === "page") {
     const currentPageKey = resolveCurrentSinglePageKey(currentPath);
     if (currentPageKey) {
@@ -225,6 +247,44 @@ function getEventRefreshKeys(event: ContentUpdateEvent, currentPath: string) {
   }
 
   return [...keys];
+}
+
+function parseCommentTargetToken(token: string) {
+  const normalized = asString(token).toLowerCase();
+  if (!normalized) return null;
+  const matched = normalized.match(/^([a-z_]+):(\d+)$/i);
+  if (!matched?.[1] || !matched[2]) return null;
+
+  const targetId = Number.parseInt(matched[2], 10);
+  if (!Number.isFinite(targetId) || targetId <= 0) return null;
+
+  return {
+    targetType: matched[1],
+    targetId,
+  };
+}
+
+function dispatchCommentSyncEvents(event: ContentUpdateEvent) {
+  if (event.resource !== "comment" || !import.meta.client) return;
+
+  const emittedTokens = new Set<string>();
+  for (const token of event.ids) {
+    const parsed = parseCommentTargetToken(token);
+    if (!parsed) continue;
+
+    const identity = `${parsed.targetType}:${parsed.targetId}`;
+    if (emittedTokens.has(identity)) continue;
+    emittedTokens.add(identity);
+
+    window.dispatchEvent(new CustomEvent<CommentSyncDetail>(COMMENT_SYNC_EVENT_NAME, {
+      detail: {
+        action: event.action,
+        targetType: parsed.targetType,
+        targetId: parsed.targetId,
+        tokens: [...event.ids],
+      },
+    }));
+  }
 }
 
 export default defineNuxtPlugin((nuxtApp) => {
@@ -270,6 +330,16 @@ export default defineNuxtPlugin((nuxtApp) => {
     const dailyMatch = path.match(/^\/daily\/([^/]+)$/i);
     if (dailyMatch?.[1]) {
       keys.add(`daily-detail-${dailyMatch[1]}`);
+    }
+
+    const albumMatch = path.match(/^\/album\/([^/]+)$/i);
+    if (albumMatch?.[1]) {
+      keys.add(`album-detail-${albumMatch[1]}`);
+    }
+
+    const projectMatch = path.match(/^\/project\/([^/]+)$/i);
+    if (projectMatch?.[1]) {
+      keys.add(`project-detail-${projectMatch[1]}`);
     }
 
     if (/^\/article(?:\/|$)/i.test(path)) {
@@ -326,6 +396,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (keys.length > 0) {
       queueRefresh(keys);
     }
+    dispatchCommentSyncEvents(event);
   }
 
   function clearReconnectTimer() {

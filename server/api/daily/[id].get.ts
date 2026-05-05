@@ -1,4 +1,5 @@
 import { backendFetch, logBackendFallback } from "../../utils/backendFetch";
+import { assertDailyDetailApiResponse } from "../../utils/detailApiContracts";
 
 type DailyMovieApiItem = {
   id: number;
@@ -23,13 +24,9 @@ type DailyApiItem = {
   movie: DailyMovieApiItem | null;
 };
 
-type DailyListApiResponse = {
-  data: DailyApiItem[];
+type DailyDetailApiResponse = {
+  data: DailyApiItem;
 };
-
-function findDailyById(items: DailyApiItem[], targetId: string) {
-  return items.find((item) => String(item.id) === targetId) || null;
-}
 
 export default defineEventHandler(async (event) => {
   const dailyId = getRouterParam(event, "id");
@@ -41,24 +38,10 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const response = await backendFetch<DailyListApiResponse>("/daily", {
+    return assertDailyDetailApiResponse(await backendFetch<DailyDetailApiResponse>(`/daily/${encodeURIComponent(dailyId)}`, {
       method: "GET",
-    });
-
-    const target = findDailyById(response.data ?? [], dailyId);
-    if (!target) {
-      throw createError({
-        statusCode: 404,
-        statusMessage: "Daily not found",
-      });
-    }
-
-    return {
-      data: target,
-    };
+    }));
   } catch (error: any) {
-    if (error?.statusCode === 404) throw error;
-
     const statusCode = Number(error?.response?.status || error?.statusCode || 500);
     if (statusCode === 404) {
       throw createError({

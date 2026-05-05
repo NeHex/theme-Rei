@@ -319,6 +319,17 @@ function formatDate(dateInput: string) {
           <img :src="item.cover" :alt="item.title" class="album-image" />
           <div class="album-card-body">
             <h3>{{ item.title }}</h3>
+            <div class="album-card-actions">
+              <NuxtLink
+                :to="`/album/${encodeURIComponent(item.id)}`"
+                class="album-detail-link"
+                @click.stop
+                @keydown.enter.stop
+                @keydown.space.stop
+              >
+                详情页
+              </NuxtLink>
+            </div>
             <div class="album-meta">
               <time :datetime="item.createdAt">{{ formatDate(item.createdAt) }}</time>
               <button
@@ -465,6 +476,32 @@ function formatDate(dateInput: string) {
   margin: 0;
   font-size: var(--fs-title);
   line-height: 1.35;
+}
+
+.album-card-actions {
+  margin-top: 0.66rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.album-detail-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(118, 170, 194, 0.28);
+  color: rgba(212, 233, 245, 0.9);
+  background: rgba(255, 255, 255, 0.03);
+  text-decoration: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.album-detail-link:hover {
+  color: #ffffff;
+  border-color: rgba(146, 202, 225, 0.48);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .album-meta {

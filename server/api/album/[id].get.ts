@@ -14,6 +14,7 @@ type AlbumDetailApiResponse = {
 };
 
 import { backendFetch, logBackendFallback } from "../../utils/backendFetch";
+import { assertAlbumDetailApiResponse } from "../../utils/detailApiContracts";
 
 export default defineEventHandler(async (event) => {
   const albumId = getRouterParam(event, "id");
@@ -25,9 +26,9 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    return await backendFetch<AlbumDetailApiResponse>(`/album/${albumId}`, {
+    return assertAlbumDetailApiResponse(await backendFetch<AlbumDetailApiResponse>(`/album/${albumId}`, {
       method: "GET",
-    });
+    }));
   } catch (error: any) {
     const statusCode = Number(error?.response?.status || error?.statusCode || 500);
     if (statusCode === 404) {

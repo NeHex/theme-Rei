@@ -11,6 +11,7 @@ const RESERVED_STATIC_KEYS = new Set([
   "friends",
   "games",
   "movie",
+  "project",
   "feed",
   "robots.txt",
   "favicon.ico",
@@ -212,6 +213,18 @@ function formatUpdatedAt(value: string) {
         />
 
         <div class="single-content" v-html="renderedContent" />
+
+        <section class="single-comment-shell">
+          <header class="single-comment-head">
+            <h2>页面评论</h2>
+            <p>可以在这里留下补充、建议或勘误。</p>
+          </header>
+
+          <CommentSection
+            target-type="singlepage"
+            :target-id="Number(pageData.id)"
+          />
+        </section>
       </section>
 
       <section v-else class="single-card">
@@ -304,5 +317,23 @@ function formatUpdatedAt(value: string) {
 .single-content :deep(pre code) {
   background: transparent;
   padding: 0;
+}
+
+.single-comment-shell {
+  margin-top: 1.5rem;
+}
+
+.single-comment-head {
+  margin-bottom: 0.8rem;
+}
+
+.single-comment-head h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+}
+
+.single-comment-head p {
+  margin: 0;
+  color: rgba(195, 214, 228, 0.76);
 }
 </style>

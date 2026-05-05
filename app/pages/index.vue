@@ -102,7 +102,7 @@ const ownerSpotlights = computed<OwnerSpotlightItem[]>(() => {
       src: cover,
       alt: `${album.title || "相册"}封面`,
       likesText: String(album.likes ?? 0),
-      to: `/album?album=${encodeURIComponent(album.id)}`,
+      to: `/album/${encodeURIComponent(album.id)}`,
     };
   });
 
@@ -293,7 +293,7 @@ const dailyRecords = computed<DailyRecord[]>(() => {
         dailyType: daily.dailyType,
         movieTitle: daily.dailyType === "review" ? getDailyMovieHeading(daily) : "",
         movieCover: daily.dailyType === "review" ? (daily.movie?.cover || "") : "",
-        to: `/daily#daily-${encodeURIComponent(daily.id)}`,
+        to: `/daily/${encodeURIComponent(daily.id)}`,
       };
     });
 
@@ -320,7 +320,7 @@ const photos = computed<PhotoItem[]>(() => {
     date: album.createdAt.slice(0, 10),
     image: album.cover,
     alt: `${album.title}-${index + 1}`,
-    to: `/album?album=${encodeURIComponent(album.id)}`,
+    to: `/album/${encodeURIComponent(album.id)}`,
   }));
 
   return items.length ? items : [...fallbackPhotos];
@@ -1038,6 +1038,12 @@ onBeforeUnmount(() => {
             </time>
 
             <div class="project-modal-actions">
+              <a
+                :href="`/project/${encodeURIComponent(activeProject.id)}`"
+                class="project-modal-link"
+              >
+                详情页
+              </a>
               <a
                 v-if="activeProject.projectUrl"
                 :href="activeProject.projectUrl"

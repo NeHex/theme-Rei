@@ -9,6 +9,34 @@ type ArticleApiResponse = {
   data: ArticleApiItem[];
 };
 
+type DailyApiItem = {
+  id: number;
+  create_time: string;
+};
+
+type DailyApiResponse = {
+  data: DailyApiItem[];
+};
+
+type AlbumApiItem = {
+  id: number;
+  update_time: string;
+};
+
+type AlbumApiResponse = {
+  data: AlbumApiItem[];
+};
+
+type ProjectApiItem = {
+  id: number;
+  update_time: string;
+  create_time: string;
+};
+
+type ProjectApiResponse = {
+  data: ProjectApiItem[];
+};
+
 type PageApiItem = {
   page_key: string;
   status: number | null;
@@ -124,12 +152,18 @@ export default defineEventHandler(async (event) => {
   const requestUrl = getRequestURL(event);
   let settingResponse: SettingApiResponse = { data: [] };
   let articleResponse: ArticleApiResponse = { data: [] };
+  let dailyResponse: DailyApiResponse = { data: [] };
+  let albumResponse: AlbumApiResponse = { data: [] };
+  let projectResponse: ProjectApiResponse = { data: [] };
   let pageResponse: PageApiResponse = { data: [] };
 
   try {
-    [settingResponse, articleResponse, pageResponse] = await Promise.all([
+    [settingResponse, articleResponse, dailyResponse, albumResponse, projectResponse, pageResponse] = await Promise.all([
       $fetch<SettingApiResponse>("/api/setting"),
       $fetch<ArticleApiResponse>("/api/article"),
+      $fetch<DailyApiResponse>("/api/daily"),
+      $fetch<AlbumApiResponse>("/api/album"),
+      $fetch<ProjectApiResponse>("/api/project"),
       $fetch<PageApiResponse>("/api/page"),
     ]);
   } catch (error) {
@@ -142,7 +176,7 @@ export default defineEventHandler(async (event) => {
   const siteUrl = configuredSiteUrl || fallbackSiteUrl;
 
   const entries = new Map<string, SitemapEntry>();
-  const staticRoutes = ["/", "/about", "/article", "/archive", "/album", "/movie", "/daily", "/friends", "/games", "/feed"];
+  const staticRoutes = ["/", "/about", "/article", "/archive", "/album", "/movie", "/daily", "/project", "/friends", "/games", "/feed"];
 
   for (const path of staticRoutes) {
     mergeEntry(entries, path);
@@ -152,6 +186,28 @@ export default defineEventHandler(async (event) => {
     const articleId = String(article.id ?? "").trim();
     if (!articleId) continue;
     mergeEntry(entries, `/article/${encodeURIComponent(articleId)}`, article.lastEditTime);
+  }
+
+  for (const daily of dailyResponse.data ?? []) {
+    const dailyId = String(daily.id ?? "").trim();
+    if (!dailyId) continue;
+    mergeEntry(entries, `/daily/${encodeURIComponent(dailyId)}`, daily.create_time);
+  }
+
+  for (const album of albumResponse.data ?? []) {
+    const albumId = String(album.id ?? "").trim();
+    if (!albumId) continue;
+    mergeEntry(entries, `/album/${encodeURIComponent(albumId)}`, album.update_time);
+  }
+
+  for (const project of projectResponse.data ?? []) {
+    const projectId = String(project.id ?? "").trim();
+    if (!projectId) continue;
+    mergeEntry(
+      entries,
+      `/project/${encodeURIComponent(projectId)}`,
+      project.update_time || project.create_time,
+    );
   }
 
   for (const page of pageResponse.data ?? []) {

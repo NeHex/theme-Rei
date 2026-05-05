@@ -536,10 +536,10 @@ function resolveSiteSettings(items: SettingApiItem[], themeData: SettingThemeApi
   const friendExchangeSiteTitle = pickFirstText(
     map,
     [
-      "friend_site_title",
-      "friends_site_title",
       "friend_exchange_site_title",
       "friends_exchange_site_title",
+      "friend_site_title",
+      "friends_site_title",
       "friend_link_site_title",
     ],
     siteTitle || DEFAULT_SITE_SETTINGS.friendExchangeSiteTitle,
@@ -547,10 +547,10 @@ function resolveSiteSettings(items: SettingApiItem[], themeData: SettingThemeApi
   const friendExchangeSiteUrl = pickFirstText(
     map,
     [
-      "friend_site_url",
-      "friends_site_url",
       "friend_exchange_site_url",
       "friends_exchange_site_url",
+      "friend_site_url",
+      "friends_site_url",
       "friend_link_site_url",
     ],
     asString(map.site_url, DEFAULT_SITE_SETTINGS.friendExchangeSiteUrl),
@@ -559,10 +559,10 @@ function resolveSiteSettings(items: SettingApiItem[], themeData: SettingThemeApi
     pickFirstText(
       map,
       [
-        "friend_site_icon",
-        "friends_site_icon",
         "friend_exchange_site_icon",
         "friends_exchange_site_icon",
+        "friend_site_icon",
+        "friends_site_icon",
         "friend_link_site_icon",
       ],
       asString(map.site_favicon, DEFAULT_SITE_SETTINGS.friendExchangeSiteIcon),
@@ -571,10 +571,10 @@ function resolveSiteSettings(items: SettingApiItem[], themeData: SettingThemeApi
   const friendExchangeSiteDescription = pickFirstText(
     map,
     [
-      "friend_site_description",
-      "friends_site_description",
       "friend_exchange_site_description",
       "friends_exchange_site_description",
+      "friend_site_description",
+      "friends_site_description",
       "friend_link_site_description",
       "friend_site_desc",
       "friends_site_desc",

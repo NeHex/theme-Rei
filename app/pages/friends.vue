@@ -4,6 +4,32 @@ import { isExternalSiteLink, resolveSiteHostname } from "~/utils/link";
 
 const requestUrl = useRequestURL();
 const { settings } = useSiteSettings();
+
+type FriendExchangeInfoApiResponse = {
+  data?: {
+    site_title?: string;
+    site_url?: string;
+    site_icon?: string;
+    site_description?: string;
+  };
+};
+
+const { data: friendExchangeInfoData } = useAsyncData<FriendExchangeInfoApiResponse>(
+  "friend-exchange-info",
+  () => $fetch<FriendExchangeInfoApiResponse>("/api/friend-exchange-info", { cache: "no-store" }),
+  {
+    default: () => ({
+      data: {
+        site_title: "",
+        site_url: "",
+        site_icon: "",
+        site_description: "",
+      },
+    }),
+    server: true,
+    lazy: true,
+  },
+);
 const siteHostname = computed(() =>
   resolveSiteHostname(settings.value.siteUrl, `${requestUrl.protocol}//${requestUrl.host}`),
 );
@@ -191,12 +217,21 @@ const applyForm = reactive({
   siteIcon: "",
 });
 
-const localSiteInfo = computed(() => ({
-  title: settings.value.friendExchangeSiteTitle || settings.value.siteTitle,
-  url: settings.value.friendExchangeSiteUrl || settings.value.siteUrl,
-  description: settings.value.friendExchangeSiteDescription || settings.value.siteDesc,
-  icon: settings.value.friendExchangeSiteIcon || settings.value.siteFavicon || "/favicon.ico",
-}));
+const localSiteInfo = computed(() => {
+  const fromApi = friendExchangeInfoData.value?.data;
+  const apiTitle = String(fromApi?.site_title || "").trim();
+  const apiUrl = String(fromApi?.site_url || "").trim();
+  const apiDescription = String(fromApi?.site_description || "").trim();
+  const apiIcon = String(fromApi?.site_icon || "").trim();
+
+  return {
+    title: apiTitle || settings.value.friendExchangeSiteTitle || settings.value.siteTitle,
+    url: apiUrl || settings.value.friendExchangeSiteUrl || settings.value.siteUrl,
+    description:
+      apiDescription || settings.value.friendExchangeSiteDescription || settings.value.siteDesc,
+    icon: apiIcon || settings.value.friendExchangeSiteIcon || settings.value.siteFavicon || "/favicon.ico",
+  };
+});
 
 function isValidHttpUrl(value: string) {
   const input = value.trim();
@@ -419,12 +454,15 @@ onBeforeUnmount(() => {
             >
             <div class="local-site-meta">
               <h3>站点标题: {{ localSiteInfo.title }}</h3>
-              <a
-                :href="localSiteInfo.url"
-                :class="{ 'external-link': isExternalLink(localSiteInfo.url) }"
-                :target="isExternalLink(localSiteInfo.url) ? '_blank' : undefined"
-                :rel="isExternalLink(localSiteInfo.url) ? 'noopener noreferrer' : undefined"
-              >站点链接: {{ localSiteInfo.url }}</a>
+              <p class="local-site-link-row">
+                <span>站点链接: </span>
+                <a
+                  :href="localSiteInfo.url"
+                  :class="{ 'external-link': isExternalLink(localSiteInfo.url) }"
+                  :target="isExternalLink(localSiteInfo.url) ? '_blank' : undefined"
+                  :rel="isExternalLink(localSiteInfo.url) ? 'noopener noreferrer' : undefined"
+                >{{ localSiteInfo.url }}</a>
+              </p>
               <p>站点描述: {{ localSiteInfo.description }}</p>
             </div>
           </div>
@@ -645,16 +683,15 @@ onBeforeUnmount(() => {
 .local-site-main {
   margin-top: 0.72rem;
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  align-items: stretch;
+  grid-template-columns: 4.8rem minmax(0, 1fr);
+  align-items: center;
   gap: 0.88rem;
 }
 
 .local-site-icon {
-  height: 100%;
-  width: auto;
+  width: 4.8rem;
+  height: 4.8rem;
   aspect-ratio: 1 / 1;
-  align-self: stretch;
   border-radius: 0.72rem;
   object-fit: cover;
   border: 1px solid rgba(153, 206, 236, 0.3);
@@ -672,11 +709,14 @@ onBeforeUnmount(() => {
 }
 
 .local-site-meta a {
-  margin-top: 0.22rem;
   display: inline-block;
   max-width: 100%;
   color: #77ccf7;
   overflow-wrap: anywhere;
+}
+
+.local-site-link-row {
+  margin: 0.22rem 0 0;
 }
 
 .local-site-meta p {

@@ -2,6 +2,8 @@
 import { md5Hex } from "~/utils/md5";
 import { readAdminMarker, syncAdminMarker as requestAdminMarkerSync } from "~/composables/useAdminMarker";
 
+const COMMENT_SYNC_EVENT_NAME = "nehex:comment-sync";
+
 type CommentItem = {
   id: number;
   parent_id: number;
@@ -32,6 +34,13 @@ type CommentListResponse = {
 
 type CommentCreateResponse = {
   data: CommentItem;
+};
+
+type CommentSyncDetail = {
+  action?: string;
+  targetType?: string;
+  targetId?: number;
+  tokens?: string[];
 };
 
 type MemeItem = {
@@ -126,6 +135,8 @@ const isAdminCommenter = computed(() => {
   if (!mountedOnClient.value) return false;
   return Boolean(getResolvedAdminMarker());
 });
+
+const resolvedTargetType = computed(() => String(props.targetType || "article").trim().toLowerCase());
 
 const resolvedTargetId = computed(() => {
   const value = props.targetId || props.articleId;
@@ -705,6 +716,22 @@ function handleGlobalKeydown(event: KeyboardEvent) {
   closeMemePanel();
 }
 
+function handleCommentSyncEvent(event: Event) {
+  if (!import.meta.client) return;
+  const detail = (event as CustomEvent<CommentSyncDetail>)?.detail;
+  if (!detail) return;
+
+  const targetType = String(detail.targetType || "").trim().toLowerCase();
+  const targetId = Number(detail.targetId || 0);
+  if (!targetType || targetId <= 0) return;
+
+  if (targetType !== resolvedTargetType.value || targetId !== resolvedTargetId.value) {
+    return;
+  }
+
+  void loadComments();
+}
+
 watch(
   memeGroups,
   (groups) => {
@@ -753,6 +780,7 @@ onMounted(() => {
   if (import.meta.client) {
     window.addEventListener("pointerdown", handleGlobalPointerDown);
     window.addEventListener("keydown", handleGlobalKeydown);
+    window.addEventListener(COMMENT_SYNC_EVENT_NAME, handleCommentSyncEvent);
   }
 });
 
@@ -766,6 +794,7 @@ onBeforeUnmount(() => {
   if (import.meta.client) {
     window.removeEventListener("pointerdown", handleGlobalPointerDown);
     window.removeEventListener("keydown", handleGlobalKeydown);
+    window.removeEventListener(COMMENT_SYNC_EVENT_NAME, handleCommentSyncEvent);
   }
 });
 </script>
