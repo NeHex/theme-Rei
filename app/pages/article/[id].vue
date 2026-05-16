@@ -265,6 +265,7 @@ const markdown = new MarkdownIt({
 installMarkdownExternalLinkRule(markdown, () => siteHostname.value);
 
 const renderedMarkdown = computed(() => markdown.render(article.value?.content || ""));
+const aiSummaryText = computed(() => String(article.value?.aiSummary || "").trim());
 const articleInfoStyle = computed<Record<string, string>>(() => {
   const cover = String(article.value?.cover || "").trim();
   if (!cover) return {};
@@ -569,6 +570,11 @@ onBeforeUnmount(() => {
 
         </header>
 
+        <section v-if="aiSummaryText" class="article-card article-ai-summary" aria-label="AI 总结">
+          <p class="ai-summary-kicker">AI SUMMARY</p>
+          <p class="ai-summary-content">{{ aiSummaryText }}</p>
+        </section>
+
         <div class="article-card-wrap">
           <article class="article-card">
             <div
@@ -827,6 +833,30 @@ address {
   border: 1px solid var(--theme-border);
   background: var(--theme-surface);
   backdrop-filter: blur(8px);
+}
+
+.article-ai-summary {
+  margin-bottom: 1rem;
+  padding: 1rem 1.1rem;
+  border-color: rgba(118, 190, 219, 0.42);
+  background:
+    linear-gradient(140deg, rgba(42, 212, 225, 0.12), rgba(42, 212, 225, 0) 52%),
+    var(--theme-surface);
+}
+
+.ai-summary-kicker {
+  margin: 0;
+  color: rgba(134, 224, 255, 0.92);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+}
+
+.ai-summary-content {
+  margin: 0.55rem 0 0;
+  color: rgba(219, 236, 248, 0.94);
+  line-height: 1.75;
+  white-space: pre-line;
 }
 
 .article-card-wrap {

@@ -2,6 +2,7 @@ export type ArticleApiItem = {
   id: number;
   title: string;
   articleTopImage: string | null;
+  aiSummary?: string | null;
   class: string;
   read: number;
   like_count: number;
@@ -22,6 +23,7 @@ export type ArticleViewItem = {
   id: string;
   title: string;
   summary: string;
+  aiSummary: string;
   excerpt: string;
   cover: string;
   category: string;
@@ -77,6 +79,7 @@ function normalizeDate(raw: string | null | undefined) {
 export function mapArticleApiItem(item: ArticleApiItem): ArticleViewItem {
   const rawContent = (item.content || "").replace(/\r\n/g, "\n").trim();
   const plainContent = compactText(rawContent) || "暂无正文内容。";
+  const aiSummary = String(item.aiSummary || "").trim();
   const summary = truncate(plainContent, 56);
   const excerpt = truncate(plainContent, 90);
   const publishedAt = normalizeDate(item.create_time || item.lastEditTime);
@@ -86,6 +89,7 @@ export function mapArticleApiItem(item: ArticleApiItem): ArticleViewItem {
     id: String(item.id),
     title: item.title || "未命名文章",
     summary,
+    aiSummary,
     excerpt,
     cover: normalizeImagePath(item.articleTopImage),
     category: item.class || "default",
