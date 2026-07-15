@@ -1,4 +1,5 @@
 import type { FetchOptions } from "ofetch";
+import { withRequestIdHeader } from "./requestContext.js";
 
 const DEFAULT_BACKEND_BASE_URL = "http://127.0.0.1:7878";
 const DEFAULT_TIMEOUT = 12000;
@@ -105,10 +106,13 @@ export function backendFetch<T>(endpoint: string, options: BackendFetchOptions =
     ...rest
   } = options;
 
+  const requestId = useRequestEvent()?.context.requestId;
+
   return $fetch<T>(buildBackendUrl(endpoint), {
     timeout,
     retry,
     retryDelay,
     ...rest,
+    headers: withRequestIdHeader(rest.headers, requestId),
   });
 }

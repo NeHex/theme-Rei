@@ -10,6 +10,11 @@ const prerenderFetchBackend = String(
 )
   .trim()
   .toLowerCase() === "true";
+const readinessCheckBackend = String(
+  process.env.NUXT_READINESS_CHECK_BACKEND || process.env.READINESS_CHECK_BACKEND || "true",
+)
+  .trim()
+  .toLowerCase() !== "false";
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -56,6 +61,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     prerenderFetchBackend,
+    readinessCheckBackend,
     adminMarkerCookieName:
       process.env.NUXT_ADMIN_MARKER_COOKIE_NAME ||
       process.env.ADMIN_MARKER_COOKIE_NAME ||
