@@ -19,9 +19,8 @@ type CommentDetailApiResponse = {
   data: CommentApiItem;
 };
 
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/, "");
-}
+import { backendFetch } from "../../../utils/backendFetch";
+import { requirePositiveIntegerParam } from "../../../utils/routeParams";
 
 function parseLikedIds(rawCookie: string | undefined) {
   const result = new Set<number>();
@@ -37,13 +36,7 @@ function parseLikedIds(rawCookie: string | undefined) {
 }
 
 export default defineEventHandler(async (event) => {
-  const commentId = Number(getRouterParam(event, "id") || 0);
-  if (!Number.isFinite(commentId) || commentId <= 0) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Invalid comment id",
-    });
-  }
+  const commentId = requirePositiveIntegerParam(getRouterParam(event, "id"), "comment");
 
   const likedIds = parseLikedIds(getCookie(event, "comment_liked_ids"));
   if (likedIds.has(commentId)) {
@@ -53,20 +46,11 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase =
-    runtimeConfig.settingsApiBase ||
-    runtimeConfig.public.settingsApiBase ||
-    "http://127.0.0.1:7878";
-
   try {
-    const response = await $fetch<CommentDetailApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/comment/${commentId}/like`,
-      {
-        method: "POST",
-        timeout: 12000,
-      },
-    );
+    const response = await backendFetch<CommentDetailApiResponse>(`/comment/${commentId}/like`, {
+      method: "POST",
+      retry: 0,
+    });
 
     likedIds.add(commentId);
     const nextCookie = Array.from(likedIds).slice(-400).join(",");
@@ -89,4 +73,3 @@ export default defineEventHandler(async (event) => {
     });
   }
 });
-

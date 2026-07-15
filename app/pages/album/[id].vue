@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AlbumApiItem } from "~/composables/useAlbums";
 import { mapAlbumApiItem } from "~/composables/useAlbums";
+import { resolveContentErrorMessage, resolveContentErrorStatus } from "~/utils/contentError.js";
 
 type AlbumDetailApiResponse = {
   data: AlbumApiItem;
@@ -17,8 +18,8 @@ const { album, albumData, pending, error } = useAlbumDetail(albumId);
 watchEffect(() => {
   if (!error.value) return;
   throw createError({
-    statusCode: Number((error.value as any).statusCode || 404),
-    statusMessage: (error.value as any).statusMessage || "相册不存在",
+    statusCode: resolveContentErrorStatus(error.value),
+    statusMessage: resolveContentErrorMessage(error.value, "相册不存在"),
   });
 });
 

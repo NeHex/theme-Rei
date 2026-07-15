@@ -20,15 +20,10 @@ type ProjectDetailApiResponse = {
 
 import { backendFetch, logBackendFallback } from "../../utils/backendFetch";
 import { assertProjectDetailApiResponse } from "../../utils/detailApiContracts";
+import { requirePositiveIntegerParam } from "../../utils/routeParams";
 
 export default defineEventHandler(async (event) => {
-  const projectId = getRouterParam(event, "id");
-  if (!projectId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing project id",
-    });
-  }
+  const projectId = requirePositiveIntegerParam(getRouterParam(event, "id"), "project");
 
   try {
     return assertProjectDetailApiResponse(await backendFetch<ProjectDetailApiResponse>(`/project/${projectId}`, {

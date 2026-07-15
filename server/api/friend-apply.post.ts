@@ -6,31 +6,19 @@ type FriendApplyPayload = {
   contact?: string | null;
 };
 
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/, "");
-}
+import { backendFetch } from "../utils/backendFetch";
+import { validateFriendApplyPayload } from "../utils/inputContracts.js";
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<FriendApplyPayload>(event);
-
-  if (
-    !body ||
-    !String(body.site_title || "").trim() ||
-    !String(body.site_url || "").trim() ||
-    !String(body.site_description || "").trim()
-  ) {
+  let requestBody: ReturnType<typeof validateFriendApplyPayload>;
+  try {
+    requestBody = validateFriendApplyPayload(await readBody<FriendApplyPayload>(event));
+  } catch (error) {
     throw createError({
-      statusCode: 400,
-      statusMessage: "Missing required friend apply payload",
+      statusCode: 422,
+      statusMessage: error instanceof Error ? error.message : "Invalid friend apply payload",
     });
   }
-
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase =
-    runtimeConfig.settingsApiBase ||
-    runtimeConfig.public.settingsApiBase ||
-    "http://127.0.0.1:7878";
-  const base = normalizeBaseUrl(String(apiBase));
 
   const forwardedFor =
     getRequestHeader(event, "x-forwarded-for") ||
@@ -39,25 +27,17 @@ export default defineEventHandler(async (event) => {
     "";
   const userAgent = getRequestHeader(event, "user-agent") || "";
 
-  const requestBody: FriendApplyPayload = {
-    site_title: String(body.site_title).trim(),
-    site_url: String(body.site_url).trim(),
-    site_description: String(body.site_description).trim(),
-    site_icon: String(body.site_icon || "").trim() || null,
-    contact: String(body.contact || "").trim() || null,
-  };
-
   const headers = {
     "x-forwarded-for": forwardedFor,
     "user-agent": userAgent,
   };
 
   try {
-    return await $fetch(`${base}/friend/apply`, {
+    return await backendFetch("/friend/apply", {
       method: "POST",
       body: requestBody,
       headers,
-      timeout: 12000,
+      retry: 0,
     });
   } catch (error: any) {
     const statusCode = Number(error?.response?.status || error?.statusCode || 500);
@@ -69,11 +49,11 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-      return await $fetch(`${base}/friend-apply`, {
+      return await backendFetch("/friend-apply", {
         method: "POST",
         body: requestBody,
         headers,
-        timeout: 12000,
+        retry: 0,
       });
     } catch (fallbackError: any) {
       const fallbackStatusCode = Number(

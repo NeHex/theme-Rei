@@ -3,7 +3,11 @@ const ADMIN_CLIENT_HEADER_VALUE = "nehex-vuetify-admin";
 const DEFAULT_ADMIN_MARKER_COOKIE_NAME = "nehex_admin_marker";
 
 function sanitizeText(value: unknown) {
-  return String(value || "").trim();
+  if (typeof value !== "string") return "";
+  const normalized = value.trim();
+  if (!normalized || normalized.length > 512) return "";
+  if (/[\u0000-\u001f\u007f]/.test(normalized)) return "";
+  return normalized;
 }
 
 function isAbsoluteHttpUrl(value: string) {

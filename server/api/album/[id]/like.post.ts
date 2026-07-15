@@ -1,4 +1,5 @@
 import { backendFetch } from "../../../utils/backendFetch";
+import { requirePositiveIntegerParam } from "../../../utils/routeParams";
 
 type AlbumApiItem = {
   id: number;
@@ -39,13 +40,7 @@ function persistLikedIds(event: any, likedIds: Set<number>) {
 }
 
 export default defineEventHandler(async (event) => {
-  const albumId = Number(getRouterParam(event, "id") || 0);
-  if (!Number.isFinite(albumId) || albumId <= 0) {
-    throw createError({
-      statusCode: 422,
-      statusMessage: "Invalid album id",
-    });
-  }
+  const albumId = requirePositiveIntegerParam(getRouterParam(event, "id"), "album");
 
   const likedIds = parseLikedIds(getCookie(event, "album_liked_ids"));
   if (likedIds.has(albumId)) {

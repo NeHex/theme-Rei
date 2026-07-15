@@ -9,7 +9,7 @@
     "start": "node .output/server/index.mjs",
     "start:pm2": "npm run build && npm run start",
     "preview": "nuxt preview",
-    "test:contracts": "node --test tests/detail-api-contracts.test.mjs",
+    "test:contracts": "node --test tests/*.test.mjs",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {

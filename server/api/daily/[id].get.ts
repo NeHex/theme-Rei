@@ -1,5 +1,6 @@
 import { backendFetch, logBackendFallback } from "../../utils/backendFetch";
 import { assertDailyDetailApiResponse } from "../../utils/detailApiContracts";
+import { requirePositiveIntegerParam } from "../../utils/routeParams";
 
 type DailyMovieApiItem = {
   id: number;
@@ -29,16 +30,10 @@ type DailyDetailApiResponse = {
 };
 
 export default defineEventHandler(async (event) => {
-  const dailyId = getRouterParam(event, "id");
-  if (!dailyId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing daily id",
-    });
-  }
+  const dailyId = requirePositiveIntegerParam(getRouterParam(event, "id"), "daily");
 
   try {
-    return assertDailyDetailApiResponse(await backendFetch<DailyDetailApiResponse>(`/daily/${encodeURIComponent(dailyId)}`, {
+    return assertDailyDetailApiResponse(await backendFetch<DailyDetailApiResponse>(`/daily/${dailyId}`, {
       method: "GET",
     }));
   } catch (error: any) {

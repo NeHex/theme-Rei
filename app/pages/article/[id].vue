@@ -3,6 +3,7 @@ import MarkdownIt from "markdown-it";
 import { mapArticleApiItem } from "~/composables/useArticles";
 import type { ArticleApiItem } from "~/composables/useArticles";
 import { readAdminMarker, syncAdminMarker as requestAdminMarkerSync } from "~/composables/useAdminMarker";
+import { resolveContentErrorMessage, resolveContentErrorStatus } from "~/utils/contentError.js";
 import { installMarkdownExternalLinkRule, resolveSiteHostname } from "~/utils/link";
 
 const route = useRoute();
@@ -85,8 +86,8 @@ watch(
 watchEffect(() => {
   if (!error.value) return;
   throw createError({
-    statusCode: Number((error.value as any).statusCode || 500),
-    statusMessage: (error.value as any).statusMessage || "Article Not Found",
+    statusCode: resolveContentErrorStatus(error.value),
+    statusMessage: resolveContentErrorMessage(error.value, "文章不存在"),
   });
 });
 

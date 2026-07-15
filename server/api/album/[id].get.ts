@@ -15,15 +15,10 @@ type AlbumDetailApiResponse = {
 
 import { backendFetch, logBackendFallback } from "../../utils/backendFetch";
 import { assertAlbumDetailApiResponse } from "../../utils/detailApiContracts";
+import { requirePositiveIntegerParam } from "../../utils/routeParams";
 
 export default defineEventHandler(async (event) => {
-  const albumId = getRouterParam(event, "id");
-  if (!albumId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing album id",
-    });
-  }
+  const albumId = requirePositiveIntegerParam(getRouterParam(event, "id"), "album");
 
   try {
     return assertAlbumDetailApiResponse(await backendFetch<AlbumDetailApiResponse>(`/album/${albumId}`, {

@@ -1,4 +1,6 @@
 import { resolveAdminIdentity } from "../utils/adminIdentity";
+import { backendFetch } from "../utils/backendFetch";
+import { validateCommentPayload } from "../utils/inputContracts.js";
 
 type CommentApiItem = {
   id: number;
@@ -32,25 +34,17 @@ type CommentDetailApiResponse = {
   data: CommentApiItem;
 };
 
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/, "");
-}
-
 export default defineEventHandler(async (event) => {
-  const body = await readBody<CommentCreateApiPayload>(event);
-
-  if (!body || !body.target_type || !body.target_id) {
+  let body: ReturnType<typeof validateCommentPayload>;
+  try {
+    body = validateCommentPayload(await readBody<CommentCreateApiPayload>(event));
+  } catch (error) {
     throw createError({
-      statusCode: 400,
-      statusMessage: "Missing required comment payload",
+      statusCode: 422,
+      statusMessage: error instanceof Error ? error.message : "Invalid comment payload",
     });
   }
 
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase =
-    runtimeConfig.settingsApiBase ||
-    runtimeConfig.public.settingsApiBase ||
-    "http://127.0.0.1:7878";
   const forwardedFor =
     getRequestHeader(event, "x-forwarded-for") ||
     getRequestHeader(event, "x-real-ip") ||
@@ -61,27 +55,22 @@ export default defineEventHandler(async (event) => {
   const adminIdentity = resolveAdminIdentity(event);
 
   try {
-    const response = await $fetch<CommentDetailApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/comment`,
-      {
-        method: "POST",
-        body,
-        headers: {
-          "x-forwarded-for": forwardedFor,
-          "user-agent": userAgent,
-          ...(requestCookie ? { cookie: requestCookie } : {}),
-          ...(adminIdentity
-            ? {
-                "x-nehex-admin-marker": adminIdentity.marker,
-                "x-nehex-admin-source": adminIdentity.source,
-              }
-            : {}),
-        },
-        timeout: 12000,
+    return await backendFetch<CommentDetailApiResponse>("/comment", {
+      method: "POST",
+      body,
+      retry: 0,
+      headers: {
+        "x-forwarded-for": forwardedFor,
+        "user-agent": userAgent,
+        ...(requestCookie ? { cookie: requestCookie } : {}),
+        ...(adminIdentity
+          ? {
+              "x-nehex-admin-marker": adminIdentity.marker,
+              "x-nehex-admin-source": adminIdentity.source,
+            }
+          : {}),
       },
-    );
-
-    return response;
+    });
   } catch (error: any) {
     const statusCode = Number(error?.response?.status || error?.statusCode || 502);
     const statusMessage =

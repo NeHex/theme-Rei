@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import MarkdownIt from "markdown-it";
 import { installMarkdownExternalLinkRule, resolveSiteHostname } from "~/utils/link";
+import { resolveContentErrorMessage, resolveContentErrorStatus } from "~/utils/contentError.js";
 
 const RESERVED_STATIC_KEYS = new Set([
   "about",
@@ -57,8 +58,8 @@ const {
 watchEffect(() => {
   if (!error.value) return;
   throw createError({
-    statusCode: Number((error.value as any).statusCode || 404),
-    statusMessage: (error.value as any).statusMessage || "页面不存在",
+    statusCode: resolveContentErrorStatus(error.value),
+    statusMessage: resolveContentErrorMessage(error.value, "页面不存在"),
   });
 });
 

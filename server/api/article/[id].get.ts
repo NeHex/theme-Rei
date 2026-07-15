@@ -17,15 +17,10 @@ type ArticleDetailApiResponse = {
 };
 
 import { backendFetch, logBackendFallback } from "../../utils/backendFetch";
+import { requirePositiveIntegerParam } from "../../utils/routeParams";
 
 export default defineEventHandler(async (event) => {
-  const articleId = getRouterParam(event, "id");
-  if (!articleId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing article id",
-    });
-  }
+  const articleId = requirePositiveIntegerParam(getRouterParam(event, "id"), "article");
 
   try {
     return await backendFetch<ArticleDetailApiResponse>(`/article/${articleId}`, {

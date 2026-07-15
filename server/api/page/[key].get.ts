@@ -14,9 +14,7 @@ type PageDetailApiResponse = {
   data: PageApiItem;
 };
 
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/, "");
-}
+import { backendFetch } from "../../utils/backendFetch";
 
 export default defineEventHandler(async (event) => {
   const routeKey = String(getRouterParam(event, "key") ?? "").trim();
@@ -24,27 +22,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Missing page key" });
   }
 
-  const runtimeConfig = useRuntimeConfig();
-  const apiBase =
-    runtimeConfig.settingsApiBase ||
-    runtimeConfig.public.settingsApiBase ||
-    "http://127.0.0.1:7878";
-
   try {
-    const response = await $fetch<PageDetailApiResponse>(
-      `${normalizeBaseUrl(String(apiBase))}/page/${encodeURIComponent(routeKey)}`,
-      {
-        method: "GET",
-        timeout: 12000,
-        retry: 1,
-        retryDelay: 250,
-      },
-    );
-
-    return response;
+    return await backendFetch<PageDetailApiResponse>(`/page/${encodeURIComponent(routeKey)}`, {
+      method: "GET",
+    });
   } catch (error: any) {
-    const statusCode = Number(error?.statusCode || error?.response?.status || 500);
-    const statusMessage = error?.statusMessage || error?.data?.detail || "Page fetch failed";
-    throw createError({ statusCode, statusMessage });
+    const statusCode = Number(error?.response?.status || error?.statusCode || 502);
+    if (statusCode === 404) {
+      throw createError({ statusCode: 404, statusMessage: "Page not found" });
+    }
+    throw createError({ statusCode: 502, statusMessage: "Failed to load page" });
   }
 });

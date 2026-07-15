@@ -1,4 +1,5 @@
 import { backendFetch } from "../../../utils/backendFetch";
+import { requirePositiveIntegerParam } from "../../../utils/routeParams";
 
 type ArticleApiItem = {
   id: number;
@@ -19,13 +20,7 @@ type ArticleDetailApiResponse = {
 };
 
 export default defineEventHandler(async (event) => {
-  const articleId = Number(getRouterParam(event, "id") || 0);
-  if (!Number.isFinite(articleId) || articleId <= 0) {
-    throw createError({
-      statusCode: 422,
-      statusMessage: "Invalid article id",
-    });
-  }
+  const articleId = requirePositiveIntegerParam(getRouterParam(event, "id"), "article");
 
   try {
     return await backendFetch<ArticleDetailApiResponse>(`/article/${articleId}/read`, {
